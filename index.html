@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prising & Totalmargin — KonseptSuite</title>
+<style>
+:root{
+  --bg:#f4f6fb; --panel:#ffffff; --ink:#1e2433; --muted:#7a8499; --line:#e7ebf3;
+  --brand:#3b4cca; --brand2:#5b6ef5; --sidebar:#1c2333; --sidebar-ink:#aeb6c9;
+  --green:#16a34a; --green-bg:#e7f6ed; --orange:#ea8a1e; --orange-bg:#fdf1e1;
+  --red:#dc2626; --red-bg:#fbe9e9; --pos:#16a34a; --neg:#dc2626;
+  --radius:14px; --shadow:0 1px 3px rgba(20,30,60,.06),0 6px 24px rgba(20,30,60,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);font-size:13px;line-height:1.4;-webkit-font-smoothing:antialiased}
+.app{display:flex;min-height:100vh}
+.sidebar{width:218px;background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;
+  display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:4px 8px 18px}
+.logo .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--brand2),#8b5cf6);display:grid;place-items:center;font-size:14px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:11px;color:var(--sidebar-ink);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;font-weight:500;transition:.15s;cursor:pointer}
+.nav a:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav a.active{background:var(--brand);color:#fff}
+.nav a .ic{width:17px;text-align:center;opacity:.9;font-size:14px}
+.side-sec{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+.side-sec .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#6b7488;padding:0 8px 8px;font-weight:600}
+.cust-list{display:flex;flex-direction:column;gap:1px;max-height:230px;overflow-y:auto}
+.cust-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--sidebar-ink)}
+.cust-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.cust-item.active{background:rgba(91,110,245,.22);color:#fff}
+.cust-item .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cust-item .cnt{font-size:10.5px;color:#7a8499;background:rgba(255,255,255,.06);border-radius:10px;padding:1px 7px;flex-shrink:0;margin-left:6px}
+.side-btn{margin-top:8px;width:100%;background:rgba(255,255,255,.06);color:#fff;border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit}
+.side-btn:hover{background:rgba(255,255,255,.1)}
+.sidebar .user{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 2px;border-top:1px solid rgba(255,255,255,.07)}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#5b6ef5,#a855f7);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.user .meta{font-size:12px;color:#fff;font-weight:600;line-height:1.2}
+.user .meta span{display:block;color:var(--muted);font-weight:400;font-size:11px}
+
+.main{flex:1;min-width:0;padding:22px 26px 80px}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+.topbar h1{font-size:21px;font-weight:700;margin:0;letter-spacing:-.01em}
+.crumb{color:var(--muted);font-size:12.5px;margin-bottom:16px}
+.crumb b{color:var(--ink)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+.tabs button{background:none;border:none;padding:9px 12px;font-size:13px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;font-weight:500;font-family:inherit}
+.tabs button.active{color:var(--brand);border-bottom-color:var(--brand)}
+
+.grid4{display:grid;grid-template-columns:1.1fr 1.2fr 1fr .9fr;gap:16px;margin-bottom:16px}
+.panel{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.panel h3{margin:0 0 14px;font-size:14px;font-weight:700;letter-spacing:-.01em;display:flex;justify-content:space-between;align-items:center}
+.panel h3 a{font-size:12px;color:var(--brand);text-decoration:none;font-weight:600;cursor:pointer}
+
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
+.field label{color:var(--muted);font-size:12.5px;white-space:nowrap}
+.field input,.field textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;color:var(--ink);width:150px;text-align:right;background:#fcfdff}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(91,110,245,.12)}
+.field textarea{resize:vertical;min-height:34px;text-align:left}
+
+.kpi-row{display:flex;align-items:flex-start;gap:18px}
+.kpi-list{flex:1}
+.kpi-line{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line)}
+.kpi-line:last-child{border-bottom:none}
+.kpi-line .lbl{color:var(--muted);font-size:12.5px}
+.kpi-line .val{font-size:16px;font-weight:700}
+.kpi-line .val.big{font-size:18px}
+.status-wrap{text-align:center;width:104px;flex-shrink:0}
+.donut{width:84px;height:84px;margin:0 auto 6px;position:relative}
+.donut svg{transform:rotate(-90deg)}
+.donut .ctr{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;font-weight:800;letter-spacing:.02em}
+.status-note{font-size:11px;color:var(--muted);line-height:1.3}
+.kpi-foot{font-size:11px;color:var(--muted);font-style:italic;margin-top:12px}
+
+.scen-field{margin-bottom:12px}
+.scen-field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
+.scen-field input,.scen-field textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;background:#fcfdff}
+.scen-field textarea{resize:vertical;min-height:48px}
+.toollist{display:flex;flex-direction:column;gap:2px}
+.toollist button{display:flex;align-items:center;justify-content:space-between;background:none;border:none;padding:10px 4px;font-size:12.5px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);font-family:inherit;text-align:left;width:100%}
+.toollist button:last-child{border-bottom:none}
+.toollist button:hover{color:var(--brand)}
+.toollist .ic{color:var(--muted)}
+
+.cart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.cart-head h3{margin:0}
+.cart-actions{display:flex;gap:8px}
+.btn{border:none;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-primary:hover{background:#3140b5}
+.btn-ghost{background:#eef1fb;color:var(--brand)}
+.btn-ghost:hover{background:#e2e7fa}
+.btn-danger{background:#fbe9e9;color:var(--red)}
+.btn-danger:hover{background:#f7d7d7}
+.btn-lg{padding:11px 20px;font-size:13.5px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1080px}
+thead th{background:#fafbfe;color:var(--muted);font-weight:600;text-align:right;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--line);font-size:11.5px}
+thead th:nth-child(1),thead th:nth-child(2){text-align:left}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
+tbody td:nth-child(1),tbody td:nth-child(2){text-align:left}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafbff}
+.pname{font-weight:600;color:var(--ink);max-width:230px;white-space:normal;line-height:1.25;font-size:11.5px}
+.art{color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+.final{font-weight:700}
+.pos{color:var(--pos);font-weight:600}
+.neg{color:var(--neg);font-weight:600}
+.cell-input{width:62px;border:1px solid transparent;border-radius:6px;padding:5px 7px;font-size:12px;text-align:right;font-family:inherit;background:transparent;color:var(--ink)}
+.cell-input:hover{border-color:var(--line);background:#fff}
+.cell-input:focus{outline:none;border-color:var(--brand2);background:#fff;box-shadow:0 0 0 2px rgba(91,110,245,.12)}
+.row-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:3px}
+.row-del:hover{color:var(--red)}
+.flag-warn{color:var(--orange);font-weight:700}
+
+.addrow{display:flex;gap:10px;padding:12px;background:#fafbfe;border-top:1px solid var(--line);align-items:center;position:relative;flex-wrap:wrap}
+.search-box{position:relative;flex:1;min-width:240px;max-width:380px}
+.search-box input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit}
+.search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(91,110,245,.12)}
+.suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 12px 32px rgba(20,30,60,.14);max-height:300px;overflow-y:auto;z-index:40;display:none}
+.suggest.open{display:block}
+.suggest .opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px}
+.suggest .opt:last-child{border-bottom:none}
+.suggest .opt:hover,.suggest .opt.hl{background:#eef1fb}
+.suggest .opt .nm{font-weight:600;color:var(--ink)}
+.suggest .opt .meta{color:var(--muted);font-size:11px;margin-top:2px;display:flex;gap:10px}
+.suggest .empty{padding:14px;color:var(--muted);text-align:center}
+.addrow .qty{width:80px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;text-align:right;font-family:inherit}
+
+.grid-bottom{display:grid;grid-template-columns:1fr 1.1fr 1.3fr 1fr;gap:16px;margin-top:16px}
+.sum-line{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.sum-line:last-child{border-bottom:none}
+.sum-line .lbl{color:var(--muted)}
+.sum-line.total{border-top:2px solid var(--line);margin-top:4px;padding-top:11px;font-weight:700;font-size:13.5px;border-bottom:none}
+.sum-line.total .val{font-size:15px}
+.sum-line .val{font-weight:600;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-direction:column;gap:7px;font-size:12px;margin-top:6px}
+.legend .li{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.legend .li .name{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.legend .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.legend .pct{font-weight:600}
+.vk-wrap{display:flex;gap:16px;align-items:center}
+.spark{width:100%;height:120px}
+.kpi2 .kpi-line .val{font-size:14px}
+
+.recalc-bar{position:fixed;right:26px;bottom:20px;z-index:30;display:flex;gap:10px}
+.saved-pill{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px 16px;font-size:12px;color:var(--muted);box-shadow:var(--shadow);display:flex;align-items:center;gap:7px}
+.saved-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(20,28,48,.5);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25);width:100%;max-width:440px;padding:24px}
+.modal h2{margin:0 0 4px;font-size:17px}
+.modal p.sub{margin:0 0 18px;color:var(--muted);font-size:12.5px}
+.modal .scen-field{margin-bottom:14px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}
+
+/* Calc list (kalkyler for kunde) */
+.calc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.calc-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:.15s;position:relative}
+.calc-card:hover{border-color:var(--brand2);box-shadow:var(--shadow);transform:translateY(-1px)}
+.calc-card h4{margin:0 0 6px;font-size:14px}
+.calc-card .meta{font-size:11.5px;color:var(--muted);margin-bottom:10px}
+.calc-card .figs{display:flex;gap:14px;font-size:12px}
+.calc-card .figs b{display:block;font-size:14px;margin-top:2px}
+.calc-card .statusdot{position:absolute;top:14px;right:14px;width:10px;height:10px;border-radius:50%}
+.calc-card .del{position:absolute;bottom:12px;right:12px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px}
+.calc-card .del:hover{color:var(--red)}
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty-state .big{font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:.25s;pointer-events:none}
+.toast.show{opacity:1}
+
+@media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
+/* ===== Dashboard ===== */
+.dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
+.dash-card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.dash-card.total{background:linear-gradient(135deg,#2b3566,#3b4cca);color:#fff}
+.dash-card .dc-name{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px}
+.dash-card.total .dc-name{color:#c9d0ff}
+.dash-card .dc-val{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.dash-card .dc-val small{font-size:12px;font-weight:600;margin-left:4px;opacity:.7}
+.dash-card .dc-growth{margin-top:8px;font-size:11.5px}
+.dash-card .dc-prev{color:var(--muted)}
+.dash-card.total .dc-prev{color:#aeb6e8}
+.dash-row2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
+.dash-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+.legend-row,.lg-item{font-size:11.5px}
+.legend-row{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;justify-content:center}
+.lg-item{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.lg-item .dot{width:9px;height:9px;border-radius:2px}
+.growth-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:12px}
+.gr-name{width:90px;color:var(--muted);flex-shrink:0}
+.gr-track{flex:1;height:18px;position:relative;background:#fafbfe;border-radius:5px}
+.gr-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#cbd2df}
+.gr-bar{position:absolute;top:3px;bottom:3px;border-radius:3px}
+.gr-val{width:70px;text-align:right;flex-shrink:0}
+.estimat-box{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.est-line{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0}
+.est-line b{color:var(--brand);font-size:15px}
+.bl-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:12px}
+.bl-name{width:90px;color:var(--ink);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bl-track{flex:1;height:14px;background:#fafbfe;border-radius:4px;overflow:hidden}
+.bl-bar{height:100%;border-radius:4px}
+.bl-val{width:78px;text-align:right;flex-shrink:0;font-weight:600;font-variant-numeric:tabular-nums}
+.dash-source{font-size:11px;color:var(--muted);font-style:italic;text-align:right;margin-top:4px}
+@media(max-width:1300px){.dash-kpis{grid-template-columns:repeat(3,1fr)}.dash-row2,.dash-row3{grid-template-columns:1fr}}
+@media(max-width:900px){.dash-kpis{grid-template-columns:1fr 1fr}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="logo"><span class="mark">◆</span> KonseptSuite</div>
+    <nav class="nav">
+      <a class="active" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
+      <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Prising &amp; Totalmargin</a>
+      <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; kalkyler</a>
+    </nav>
+    <div class="side-sec">
+      <div class="lbl">Kunder</div>
+      <div class="cust-list" id="custList"></div>
+      <button class="side-btn" onclick="openCustModal()">+ Ny kunde</button>
+    </div>
+    <div class="user">
+      <div class="avatar">MF</div>
+      <div class="meta">Manuele Fusto<span>Admin</span></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <div id="view-dashboard" style="display:none">
+      <div class="topbar"><h1>Dashboard — Konseptoversikt</h1></div>
+      <div class="crumb" id="dashCrumb">YTD uke 1–25 · 2026 vs 2025</div>
+
+      <!-- KPI-kort -->
+      <div class="dash-kpis" id="dashKpis"></div>
+
+      <div class="dash-row2">
+        <section class="panel">
+          <h3>Månedlig omsetning per konsept <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK, stablet)</small></h3>
+          <svg id="dashStacked" viewBox="0 0 720 300" style="width:100%;height:300px"></svg>
+          <div class="legend-row" id="dashStackedLegend"></div>
+        </section>
+        <section class="panel">
+          <h3>Vekst per konsept</h3>
+          <div id="dashGrowth"></div>
+          <div class="estimat-box" id="dashEstimat"></div>
+        </section>
+      </div>
+
+      <div class="dash-row3">
+        <section class="panel">
+          <h3>Omsetning per region <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
+          <div id="dashRegioner"></div>
+        </section>
+        <section class="panel">
+          <h3>La Salumeria — topp grossister <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
+          <div id="dashGrossister"></div>
+        </section>
+        <section class="panel">
+          <h3>Toppkunder <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
+          <div id="dashToppkunder"></div>
+        </section>
+      </div>
+
+      <div class="dash-row2">
+        <section class="panel">
+          <h3>Toppvinnere <small style="font-weight:400;color:var(--muted);font-size:11px">(vekst %)</small></h3>
+          <div id="dashVinnere"></div>
+        </section>
+        <section class="panel">
+          <h3>Konseptfordeling 2026</h3>
+          <div class="vk-wrap">
+            <div class="donut" style="width:140px;height:140px">
+              <svg width="140" height="140" viewBox="0 0 140 140" id="dashDonut"></svg>
+              <div class="ctr" id="dashDonutCtr" style="font-size:13px"></div>
+            </div>
+            <div class="legend" id="dashDonutLegend" style="flex:1"></div>
+          </div>
+        </section>
+      </div>
+      <div class="dash-source" id="dashSource"></div>
+    </div>
+
+    <!-- ===== KALKULATOR VIEW ===== -->
+    <div id="view-kalkulator">
+      <div class="topbar"><h1>Prising &amp; Totalmargin</h1></div>
+      <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
+
+      <div class="grid4">
+        <section class="panel">
+          <h3>Kundeinformasjon</h3>
+          <div class="field"><label>Kundenavn</label><input id="kundenavn" oninput="markDirty()"></div>
+          <div class="field"><label>Kunde-ID</label><input id="kundeid" oninput="markDirty()"></div>
+          <div class="field"><label>Kalkylenavn</label><input id="kalkylenavn" oninput="markDirty()"></div>
+          <div class="field"><label>Generell rabatt %</label><input id="genrabatt" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
+          <div class="field"><label>Kjedebonus / kickback %</label><input id="kjedebonus" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
+          <div class="field"><label>Kommentar</label><textarea id="kommentar" oninput="markDirty()"></textarea></div>
+        </section>
+
+        <section class="panel">
+          <h3>Nøkkeltall (KPI)</h3>
+          <div class="kpi-row">
+            <div class="kpi-list">
+              <div class="kpi-line"><span class="lbl">Total omsetning</span><span class="val" id="kpiOms">0 kr</span></div>
+              <div class="kpi-line"><span class="lbl">Total margin (NOK)</span><span class="val" id="kpiMargNok">0 kr</span></div>
+              <div class="kpi-line"><span class="lbl">Total margin (%)</span><span class="val big" id="kpiMargPct">0,0 %</span></div>
+            </div>
+            <div class="status-wrap">
+              <div class="donut">
+                <svg width="84" height="84" viewBox="0 0 84 84">
+                  <circle cx="42" cy="42" r="34" fill="none" stroke="#eef1f6" stroke-width="9"/>
+                  <circle id="donutArc" cx="42" cy="42" r="34" fill="none" stroke="var(--green)" stroke-width="9" stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6"/>
+                </svg>
+                <div class="ctr" id="donutLbl">—</div>
+              </div>
+              <div class="status-note" id="statusNote">Legg til produkter</div>
+            </div>
+          </div>
+          <div class="kpi-foot">Total margin er netto etter kjedebonus/kickback (trekkes per linje).</div>
+        </section>
+
+        <section class="panel">
+          <h3>Scenario</h3>
+          <div class="scen-field"><label>Scenarionavn</label><input id="scenNavn" value="Standard scenario" oninput="markDirty()"></div>
+          <div class="scen-field"><label>Beskrivelse</label><textarea id="scenBesk" oninput="markDirty()">Hovedscenario for standard pris og rabattstruktur</textarea></div>
+          <div style="text-align:right"><a onclick="saveCalc()" style="color:var(--brand);font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer">Lagre kalkyle →</a></div>
+        </section>
+
+        <section class="panel">
+          <h3>Verktøy</h3>
+          <div class="toollist">
+            <button onclick="document.getElementById('csvFile').click()">Importer produkter (CSV) <span class="ic">⤓</span></button>
+            <button onclick="exportCSV()">Eksporter til CSV <span class="ic">⤒</span></button>
+            <button onclick="copyLines()">Kopier linjer <span class="ic">⧉</span></button>
+            <button onclick="duplicateCalc()">Dupliser kalkyle <span class="ic">⎘</span></button>
+          </div>
+          <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(event)">
+        </section>
+      </div>
+
+      <section class="panel" style="padding:18px 18px 0">
+        <div class="cart-head">
+          <h3>Handlekurv / linjer</h3>
+          <div class="cart-actions">
+            <button class="btn btn-primary" onclick="document.getElementById('searchInput').focus()">+ Legg til produkt</button>
+            <button class="btn btn-ghost" onclick="saveCalc()">💾 Lagre</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Art.nr</th><th>Produkt</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
+              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Linjeomsetning</th>
+              <th>Grossist-margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
+            </tr></thead>
+            <tbody id="cartBody"></tbody>
+          </table>
+        </div>
+        <div class="addrow">
+          <div class="search-box">
+            <input id="searchInput" placeholder="Søk i 24 490 produkter (navn eller art.nr)…" autocomplete="off" oninput="onSearch(this.value)" onkeydown="searchKey(event)" onfocus="onSearch(this.value)">
+            <div class="suggest" id="suggest"></div>
+          </div>
+          <input class="qty" id="searchQty" type="number" placeholder="Antall" value="1" min="1">
+          <button class="btn btn-ghost" onclick="addFromSearch()">Legg til</button>
+        </div>
+      </section>
+
+      <div class="grid-bottom">
+        <section class="panel">
+          <h3>Sammendrag</h3>
+          <div class="sum-line"><span class="lbl">Sum listepris</span><span class="val" id="sumListe">0 kr</span></div>
+          <div class="sum-line"><span class="lbl">Sum rabatter</span><span class="val neg" id="sumRabatt">0 kr</span></div>
+          <div class="sum-line"><span class="lbl">Sum omsetning før kjedebonus</span><span class="val" id="sumOms">0 kr</span></div>
+          <div class="sum-line"><span class="lbl">Kjedebonus / kickback</span><span class="val neg" id="sumBonus">0 kr</span></div>
+          <div class="sum-line total"><span class="lbl">Total omsetning</span><span class="val" style="color:var(--brand)" id="sumTotal">0 kr</span></div>
+          <div class="sum-line total"><span class="lbl">Total margin (NOK)</span><span class="val pos" id="sumMargNok">0 kr</span></div>
+          <div class="sum-line total"><span class="lbl">Total margin (%)</span><span class="val" id="sumMargPct">0,0 %</span></div>
+        </section>
+        <section class="panel">
+          <h3>Margin per verdikjede</h3>
+          <div class="vk-wrap">
+            <div class="donut" style="width:120px;height:120px">
+              <svg width="120" height="120" viewBox="0 0 120 120" id="vkDonut"></svg>
+              <div class="ctr" id="vkCtr" style="font-size:15px"></div>
+            </div>
+            <div class="legend" id="vkLegend" style="flex:1"></div>
+          </div>
+        </section>
+        <section class="panel">
+          <h3>Marginutvikling <small style="font-weight:400;color:var(--muted);font-size:11px">(simulert trend)</small></h3>
+          <svg class="spark" id="spark" viewBox="0 0 360 120" preserveAspectRatio="none"></svg>
+        </section>
+        <section class="panel kpi2">
+          <h3>Nøkkeltall</h3>
+          <div class="kpi-line"><span class="lbl">Bidragsgrad</span><span class="val" id="nkBidrag">0,0 %</span></div>
+          <div class="kpi-line"><span class="lbl">Dekningsgrad</span><span class="val" id="nkDekning">0,0 %</span></div>
+          <div class="kpi-line"><span class="lbl">Kostnad per enhet</span><span class="val" id="nkKostEnhet">0 kr</span></div>
+          <div class="kpi-line"><span class="lbl">Salgspris per enhet</span><span class="val" id="nkSalgEnhet">0 kr</span></div>
+          <div class="kpi-line"><span class="lbl">Break-even (enheter)</span><span class="val" id="nkBreakeven">0</span></div>
+          <div class="kpi-line"><span class="lbl">Sum antall enheter</span><span class="val" id="nkEnheter">0</span></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ===== KUNDER VIEW ===== -->
+    <div id="view-kunder" style="display:none">
+      <div class="topbar"><h1 id="kunderTitle">Kunder &amp; kalkyler</h1></div>
+      <div class="crumb" id="kunderCrumb">Velg en kunde for å se kalkyler</div>
+      <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openCustModal()">+ Ny kunde</button>
+        <button class="btn btn-ghost" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
+        <button class="btn btn-danger" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+      </div>
+      <div id="calcArea"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal: ny kunde -->
+<div class="modal-bg" id="custModal">
+  <div class="modal">
+    <h2>Ny kunde</h2>
+    <p class="sub">Opprett en kunde for å samle kalkyler.</p>
+    <div class="scen-field"><label>Kundenavn *</label><input id="mCustNavn" placeholder="f.eks. GRAFEN Trondheim"></div>
+    <div class="scen-field"><label>Kunde-ID</label><input id="mCustId" placeholder="f.eks. 100245"></div>
+    <div class="scen-field"><label>Notat</label><textarea id="mCustNote" placeholder="valgfritt"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('custModal')">Avbryt</button>
+      <button class="btn btn-primary" onclick="createCust()">Opprett kunde</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ny kalkyle -->
+<div class="modal-bg" id="calcModal">
+  <div class="modal">
+    <h2>Ny kalkyle</h2>
+    <p class="sub" id="calcModalSub"></p>
+    <div class="scen-field"><label>Kalkylenavn *</label><input id="mCalcNavn" placeholder="f.eks. Tilbud uke 25"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('calcModal')">Avbryt</button>
+      <button class="btn btn-primary" onclick="createCalc()">Opprett kalkyle</button>
+    </div>
+  </div>
+</div>
+
+<div class="recalc-bar">
+  <div class="saved-pill" id="savedPill"><span class="dot"></span><span id="savedTxt">Lagret</span></div>
+  <button class="btn btn-primary btn-lg" onclick="saveCalc()">💾 Lagre kalkyle</button>
+</div>
+<div class="toast" id="toast"></div>
+<div id="loadOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:14px">
+  <div style="font-size:16px;font-weight:600;color:var(--brand)">Laster produktdatabase…</div>
+  <div style="font-size:12.5px;color:var(--muted)" id="loadMsg">24 490 produkter</div>
+</div>
+<script>
+// ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
+// Erstattes automatisk hvis data.json finnes i samme mappe (samme kontrakt som Vei A).
+const DASH_FALLBACK={
+  meta:{periode:'YTD uke 1–25, 2026 vs 2025 (pære-mot-pære)', oppdatert:'2026 uke 25', kilde:'fallback (vault) – last opp data.json for full detalj'},
+  total:{navn:'Total ekstern', y2026:309.4, y2025:397.7, vekst:-0.222},
+  konsepter:[
+    {navn:'La Salumeria', y2026:51.3, y2025:52.0, vekst:-0.014, farge:'#16a34a'},
+    {navn:'East Essence', y2026:6.4, y2025:5.4, vekst:0.178, farge:'#5b6ef5'},
+    {navn:'Godt Lokalt', y2026:104.1, y2025:120.1, vekst:-0.133, farge:'#f59e0b'},
+    {navn:'Wulff & Co', y2026:147.6, y2025:220.3, vekst:-0.330, farge:'#22b8cf'}
+  ],
+  estimat:[{navn:'Sesongvektet årsestimat 2026', verdi:677}],
+  // illustrativ månedsfordeling (jan–jun, MNOK) – erstattes av data.json.monthly
+  monthly:{months:['Jan','Feb','Mar','Apr','Mai','Jun'],
+    data:[
+      {navn:'La Salumeria',farge:'#16a34a',vals:[8.1,8.4,9.0,8.6,8.7,8.5]},
+      {navn:'East Essence',farge:'#5b6ef5',vals:[1.0,1.0,1.1,1.1,1.1,1.1]},
+      {navn:'Godt Lokalt',farge:'#f59e0b',vals:[17.0,16.8,17.9,17.3,17.6,17.5]},
+      {navn:'Wulff & Co',farge:'#22b8cf',vals:[24.2,24.0,25.6,24.6,24.7,24.5]}
+    ]},
+  regioner:[
+    {navn:'Region Øst', verdi:148.5},
+    {navn:'Region Vest', verdi:96.2},
+    {navn:'Region Midt', verdi:42.1},
+    {navn:'Region Nord', verdi:22.6}
+  ],
+  ls_grossister:[
+    {navn:'Grossist A', verdi:14.2},{navn:'Grossist B', verdi:11.8},
+    {navn:'Grossist C', verdi:9.1},{navn:'Grossist D', verdi:7.3},{navn:'Grossist E', verdi:5.0}
+  ],
+  toppkunder:[
+    {navn:'Kunde 1', verdi:6.8},{navn:'Kunde 2', verdi:5.4},{navn:'Kunde 3', verdi:4.9},
+    {navn:'Kunde 4', verdi:4.1},{navn:'Kunde 5', verdi:3.6}
+  ],
+  toppvinnere:[
+    {navn:'Kunde X', vekst:0.42},{navn:'Kunde Y', vekst:0.31},{navn:'Kunde Z', vekst:0.27},
+    {navn:'Kunde Æ', vekst:0.22},{navn:'Kunde Ø', vekst:0.19}
+  ]
+};
+
+// ============ Dashboard ============
+let DASH=null;
+async function loadDash(){
+  try{const r=await fetch('data.json');if(r.ok){const d=await r.json();DASH=normalizeDash(d);return;}}catch(e){}
+  DASH=DASH_FALLBACK;
+}
+function normalizeDash(d){
+  // Aksepter Vei A-kontrakten; fyll manglende felt fra fallback
+  const f=DASH_FALLBACK;
+  return {
+    meta:d.meta||f.meta,
+    total:d.total||f.total,
+    konsepter:(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%4].farge,...k})):f.konsepter,
+    estimat:d.estimat||f.estimat,
+    monthly:d.monthly||f.monthly,
+    regioner:d.regioner||f.regioner,
+    ls_grossister:d.ls_grossister||f.ls_grossister,
+    toppkunder:d.toppkunder||f.toppkunder,
+    toppvinnere:d.toppvinnere||f.toppvinnere
+  };
+}
+const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
+const growthTag=v=>{const up=v>=0;return `<span style="color:${up?'var(--green)':'var(--red)'};font-weight:700">${up?'▲':'▼'} ${(Math.abs(v)*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %</span>`;};
+
+function renderDash(){
+  if(!DASH)return;const D=DASH;
+  // KPI-kort
+  const kpis=document.getElementById('dashKpis');
+  const cards=[{navn:D.total.navn,...D.total,total:true},...D.konsepter];
+  kpis.innerHTML=cards.map(k=>`
+    <div class="dash-card ${k.total?'total':''}">
+      <div class="dc-name">${k.navn}</div>
+      <div class="dc-val">${k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}<small>MNOK</small></div>
+      <div class="dc-growth">${growthTag(k.vekst)} <span class="dc-prev">fra ${k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}</span></div>
+    </div>`).join('');
+
+  // Stablet søylediagram
+  drawStacked(D.monthly);
+
+  // Vekst per konsept (horisontale barer rundt 0)
+  const g=document.getElementById('dashGrowth');
+  const maxg=Math.max(...D.konsepter.map(k=>Math.abs(k.vekst)),0.05);
+  g.innerHTML=D.konsepter.map(k=>{
+    const w=Math.abs(k.vekst)/maxg*50;const up=k.vekst>=0;
+    return `<div class="growth-row">
+      <span class="gr-name">${k.navn}</span>
+      <div class="gr-track"><div class="gr-zero"></div>
+        <div class="gr-bar" style="${up?'left:50%':'right:50%'};width:${w}%;background:${up?'var(--green)':'var(--red)'}"></div></div>
+      <span class="gr-val">${growthTag(k.vekst)}</span>
+    </div>`;}).join('');
+  document.getElementById('dashEstimat').innerHTML=D.estimat.map(e=>`<div class="est-line"><span>${e.navn}</span><b>${e.verdi.toLocaleString('nb-NO')} MNOK</b></div>`).join('');
+
+  // Regioner / grossister / kunder / vinnere — barlister
+  barList('dashRegioner',D.regioner,'verdi',mnok,'#5b6ef5');
+  barList('dashGrossister',D.ls_grossister,'verdi',mnok,'#16a34a');
+  barList('dashToppkunder',D.toppkunder,'verdi',mnok,'#22b8cf');
+  barList('dashVinnere',D.toppvinnere,'vekst',v=>'+'+(v*100).toFixed(0)+' %','#f59e0b',true);
+
+  // Konsept-donut
+  drawDashDonut(D.konsepter);
+
+  document.getElementById('dashCrumb').textContent=D.meta.periode||'';
+  document.getElementById('dashSource').textContent='Kilde: '+(D.meta.kilde||'')+(D.meta.oppdatert?' · oppdatert '+D.meta.oppdatert:'');
+}
+
+function barList(id,arr,key,fmt,col,pct){
+  const el=document.getElementById(id);if(!el)return;
+  const max=Math.max(...arr.map(a=>a[key]),0.0001);
+  el.innerHTML=arr.map(a=>`<div class="bl-row">
+    <span class="bl-name">${a.navn}</span>
+    <div class="bl-track"><div class="bl-bar" style="width:${a[key]/max*100}%;background:${col}"></div></div>
+    <span class="bl-val">${fmt(a[key])}</span></div>`).join('');
+}
+
+function drawStacked(m){
+  const svg=document.getElementById('dashStacked');svg.innerHTML='';
+  const W=720,H=300,padL=40,padB=30,padT=10,padR=10;
+  const months=m.months,series=m.data;
+  const totals=months.map((_,i)=>series.reduce((s,d)=>s+d.vals[i],0));
+  const maxY=Math.ceil(Math.max(...totals)/10)*10||10;
+  const plotH=H-padB-padT,plotW=W-padL-padR;
+  const bw=plotW/months.length*0.6,gap=plotW/months.length;
+  // y-akse
+  for(let t=0;t<=4;t++){const yv=maxY*t/4,y=H-padB-(yv/maxY)*plotH;
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',padL);ln.setAttribute('x2',W-padR);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);
+    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',padL-6);tx.setAttribute('y',y+3);tx.setAttribute('text-anchor','end');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=yv.toFixed(0);svg.appendChild(tx);}
+  months.forEach((mo,i)=>{
+    const x=padL+gap*i+(gap-bw)/2;let yAcc=H-padB;
+    series.forEach(d=>{const h=(d.vals[i]/maxY)*plotH;yAcc-=h;
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      rect.setAttribute('x',x);rect.setAttribute('y',yAcc);rect.setAttribute('width',bw);rect.setAttribute('height',Math.max(0,h));
+      rect.setAttribute('fill',d.farge);rect.setAttribute('rx',i===0?0:0);svg.appendChild(rect);});
+    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
+  document.getElementById('dashStackedLegend').innerHTML=series.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
+}
+
+function drawDashDonut(kons){
+  const svg=document.getElementById('dashDonut');svg.innerHTML='';
+  const tot=kons.reduce((s,k)=>s+k.y2026,0);
+  let off=0;const R=54,cx=70,cy=70,C=2*Math.PI*R;
+  kons.forEach(k=>{const frac=k.y2026/tot;const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',R);c.setAttribute('fill','none');c.setAttribute('stroke',k.farge);c.setAttribute('stroke-width',16);
+    c.setAttribute('stroke-dasharray',`${(C*frac).toFixed(1)} ${(C*(1-frac)).toFixed(1)}`);c.setAttribute('stroke-dashoffset',(-C*off).toFixed(1));
+    c.setAttribute('transform',`rotate(-90 ${cx} ${cy})`);svg.appendChild(c);off+=frac;});
+  document.getElementById('dashDonutCtr').innerHTML=tot.toLocaleString('nb-NO',{maximumFractionDigits:0})+'<small style="display:block;font-size:9px;color:var(--muted)">MNOK total</small>';
+  document.getElementById('dashDonutLegend').innerHTML=kons.map(k=>`<div class="li"><span class="name"><span class="dot" style="background:${k.farge}"></span>${k.navn}</span><span class="pct">${(k.y2026/tot*100).toFixed(0)} %</span></div>`).join('');
+}
+
+// ============ Formatters ============
+const fmtKr=n=>(isFinite(n)?Math.round(n).toLocaleString('nb-NO'):'0')+' kr';
+const fmtKr2=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2}):'0,00');
+const fmtPct=n=>(isFinite(n)?(n*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' %';
+const fmtNum=n=>(isFinite(n)?Math.round(n).toLocaleString('nb-NO'):'0');
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const toast=m=>{const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);};
+
+// ============ Regler (fra Admin-arket) ============
+const MIN_GRONN_MARGIN=0.30, MIN_GRONN_OMS=3000, MIN_ROD_MARGIN=0.20, MAKS_LINJERABATT=0.50;
+
+// ============ IndexedDB ============
+let db=null;
+function idb(){return new Promise((res,rej)=>{
+  const r=indexedDB.open('konseptsuite',1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains('customers'))d.createObjectStore('customers',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('calcs')){const s=d.createObjectStore('calcs',{keyPath:'id'});s.createIndex('byCust','custId');}
+    if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'k'});};
+  r.onsuccess=e=>{db=e.target.result;res();};r.onerror=e=>rej(e);});}
+function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
+function dbAll(store){return new Promise((res)=>{const out=[];tx(store,'readonly').openCursor().onsuccess=e=>{const c=e.target.result;if(c){out.push(c.value);c.continue();}else res(out);};});}
+function dbGet(store,id){return new Promise(res=>{tx(store,'readonly').get(id).onsuccess=e=>res(e.target.result);});}
+function dbPut(store,v){return new Promise(res=>{tx(store,'readwrite').put(v).onsuccess=()=>res();});}
+function dbDel(store,id){return new Promise(res=>{tx(store,'readwrite').delete(id).onsuccess=()=>res();});}
+function calcsForCust(custId){return new Promise(res=>{const out=[];tx('calcs','readonly').index('byCust').openCursor(IDBKeyRange.only(custId)).onsuccess=e=>{const c=e.target.result;if(c){out.push(c.value);c.continue();}else res(out);};});}
+
+// ============ Produktbase ============
+let DB=[];               // [{art,navn,enhet,listepris,grossistkost,fbkostpris,grossistprisFB,kostbase}]
+let DBindex=null;
+async function loadProducts(){
+  const msg=document.getElementById('loadMsg');
+  try{
+    const r=await fetch('produkter.json');
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const p=await r.json();
+    const k=p.k;
+    DB=p.rows.map(row=>{const o={};k.forEach((key,i)=>o[key]=row[i]);return o;});
+  }catch(err){
+    msg.innerHTML='Fant ikke <b>produkter.json</b>. Legg den i samme mappe som appen.<br><span style="font-size:11px">'+err.message+'</span>';
+    throw err;
+  }
+}
+
+// ============ App-tilstand ============
+let state={custId:null, calcId:null, cart:[], dirty:false};
+let custCache=[];
+
+// linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
+function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null};}
+
+// ============ Motor ============
+function compute(){
+  const gen=(parseFloat(document.getElementById('genrabatt').value)||0)/100;
+  const bonusPct=(parseFloat(document.getElementById('kjedebonus').value)||0)/100;
+  let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0;
+  const lines=state.cart.map(l=>{
+    const rab=(l.linjerabatt!=null?l.linjerabatt:gen);
+    const prisEtter=l.listepris*(1-rab);
+    const endelig=(l.spesialpris!=null&&l.spesialpris!=='')?l.spesialpris:prisEtter;
+    const oms=endelig*l.antall;
+    const kost=(l.fbkostpris!=null?l.fbkostpris:l.grossistkost);
+    const bonusKr=oms*bonusPct;
+    const dlvryMargin=(endelig-kost)*l.antall;
+    const totKunderabatt=l.listepris>0?(l.listepris-endelig)/l.listepris:0;
+    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=kost*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;
+    return{l,rab,prisEtter,endelig,oms,kost,bonusKr,dlvryMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
+  });
+  const totMarginNok=sumMargin-sumBonus;
+  const totMarginPct=sumOms>0?totMarginNok/sumOms:0;
+  let status='Ingen';
+  if(sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
+  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,totMarginNok,totMarginPct,status};
+}
+const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
+
+// ============ Render ============
+function render(){
+  const r=compute();
+  const tb=document.getElementById('cartBody');tb.innerHTML='';
+  r.lines.forEach((x,i)=>{
+    const tr=document.createElement('tr');
+    const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
+    tr.innerHTML=`<td class="art">${x.l.art||''}</td>
+      <td><div class="pname">${x.l.navn}</div></td>
+      <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
+      <td>${fmtKr2(x.l.listepris)}</td>
+      <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
+      <td>${fmtKr2(x.prisEtter)}</td>
+      <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
+      <td class="final">${fmtKr2(x.endelig)}</td>
+      <td>${fmtKr(x.oms)}</td>
+      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
+      <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
+      <td>${fmtKr(x.bonusKr)}</td>
+      <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+
+  document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
+  document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
+  document.getElementById('kpiMargPct').textContent=fmtPct(r.totMarginPct);
+
+  const note={'GRØNN':'Godkjent – margin og omsetning OK','ORANSJE':'Én av grensene ikke oppfylt','RØD':'Total margin under minimum (20,0 %)','Ingen':'Legg til produkter'}[r.status];
+  const col=statusColor[r.status];
+  const arc=document.getElementById('donutArc'),C=2*Math.PI*34;
+  const frac=Math.max(0,Math.min(1,r.sumOms>0?r.totMarginPct/0.5:0));
+  arc.setAttribute('stroke-dasharray',C.toFixed(1));
+  arc.setAttribute('stroke-dashoffset',(C*(1-frac)).toFixed(1));
+  arc.setAttribute('stroke',col);
+  const dl=document.getElementById('donutLbl');dl.textContent=r.status==='Ingen'?'—':r.status;dl.style.color=col;
+  document.getElementById('statusNote').textContent=note;
+
+  document.getElementById('sumListe').textContent=fmtKr(r.sumListe);
+  document.getElementById('sumRabatt').textContent='−'+fmtKr(r.sumListe-r.sumOms);
+  document.getElementById('sumOms').textContent=fmtKr(r.sumOms);
+  document.getElementById('sumBonus').textContent='−'+fmtKr(r.sumBonus);
+  document.getElementById('sumTotal').textContent=fmtKr(r.sumOms);
+  document.getElementById('sumMargNok').textContent=fmtKr(r.totMarginNok);
+  document.getElementById('sumMargPct').textContent=fmtPct(r.totMarginPct);
+
+  const bidrag=r.sumOms>0?(r.sumOms-r.sumKost)/r.sumOms:0;
+  document.getElementById('nkBidrag').textContent=fmtPct(bidrag);
+  document.getElementById('nkDekning').textContent=fmtPct(r.totMarginPct);
+  document.getElementById('nkKostEnhet').textContent=r.sumEnh>0?fmtKr(r.sumKost/r.sumEnh):'0 kr';
+  document.getElementById('nkSalgEnhet').textContent=r.sumEnh>0?fmtKr(r.sumOms/r.sumEnh):'0 kr';
+  const enhetMargin=r.sumEnh>0?(r.sumOms-r.sumKost-r.sumBonus)/r.sumEnh:0;
+  document.getElementById('nkBreakeven').textContent=enhetMargin>0?fmtNum(r.sumKost/enhetMargin):'–';
+  document.getElementById('nkEnheter').textContent=fmtNum(r.sumEnh);
+
+  renderVerdikjede(r);renderSpark(r.totMarginPct);
+}
+function upd(i,f,v){
+  if(f==='antall')state.cart[i].antall=Math.max(0,parseFloat(v)||0);
+  else if(f==='linjerabatt')state.cart[i].linjerabatt=v===''?null:(parseFloat(v)||0)/100;
+  else if(f==='spesialpris')state.cart[i].spesialpris=v===''?null:(parseFloat(v)||0);
+  markDirty();render();
+}
+function delLine(i){state.cart.splice(i,1);markDirty();render();}
+
+function renderVerdikjede(r){
+  document.getElementById('vkCtr').innerHTML=fmtPct(r.totMarginPct)+'<small style="display:block;font-size:9px;font-weight:500;color:var(--muted)">Totalmargin</small>';
+  const parts=[['Råvarer',0.38,'#5b6ef5'],['Produksjon',0.24,'#7c8cf8'],['Logistikk',0.16,'#22b8cf'],['Distribusjon',0.12,'#4dabf7'],['Salg & Marked',0.07,'#f59e0b'],['Annet',0.03,'#94a3b8']];
+  const svg=document.getElementById('vkDonut');svg.innerHTML='';
+  let off=0;const R=46,cx=60,cy=60,C=2*Math.PI*R;
+  parts.forEach(([nm,frac,col])=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',R);c.setAttribute('fill','none');c.setAttribute('stroke',col);c.setAttribute('stroke-width',14);
+    c.setAttribute('stroke-dasharray',`${(C*frac).toFixed(1)} ${(C*(1-frac)).toFixed(1)}`);c.setAttribute('stroke-dashoffset',(-C*off).toFixed(1));
+    c.setAttribute('transform',`rotate(-90 ${cx} ${cy})`);svg.appendChild(c);off+=frac;});
+  const lg=document.getElementById('vkLegend');lg.innerHTML='';
+  parts.forEach(([nm,frac,col])=>{const d=document.createElement('div');d.className='li';
+    d.innerHTML=`<span class="name"><span class="dot" style="background:${col}"></span>${nm}</span><span class="pct">${(frac*100).toLocaleString('nb-NO',{maximumFractionDigits:0})} %</span>`;lg.appendChild(d);});
+}
+function renderSpark(margin){
+  const svg=document.getElementById('spark');svg.innerHTML='';
+  const base=margin||0.25,seed=[-0.03,-0.01,0.005,-0.015,0.01,0.02,-0.005,0,0.015,0.03,0.01,0];
+  const pts=seed.map((d,i)=>{const v=Math.max(0.02,base+d*1.2);return[i*(360/11),110-Math.min(1,v/0.5)*100,v];});
+  for(let g=0;g<=4;g++){const y=110-(g/4)*100,ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',0);ln.setAttribute('x2',360);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);}
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d','M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L '));
+  path.setAttribute('fill','none');path.setAttribute('stroke','var(--brand)');path.setAttribute('stroke-width',2.2);path.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(path);
+  pts.forEach(p=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r',2.6);c.setAttribute('fill','var(--brand)');svg.appendChild(c);});
+}
+
+// ============ Søk ============
+let hlIdx=-1,curResults=[];
+function onSearch(q){
+  q=(q||'').trim().toLowerCase();const box=document.getElementById('suggest');
+  if(q.length<2){box.classList.remove('open');return;}
+  const res=[];
+  for(let i=0;i<DB.length&&res.length<40;i++){const p=DB[i];if(p.navn.toLowerCase().includes(q)||String(p.art).includes(q))res.push(p);}
+  curResults=res;hlIdx=-1;
+  if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
+  box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
+    <div class="nm">${p.navn}</div>
+    <div class="meta"><span>Art ${p.art}</span><span>${p.enhet||''}</span><span>${fmtKr2(p.listepris)}</span>${p.fbkostpris!=null?'<span style="color:var(--brand)">FB-import</span>':''}</div></div>`).join('');
+  box.classList.add('open');
+}
+function pickResult(i){
+  const p=curResults[i];if(!p)return;
+  const q=parseFloat(document.getElementById('searchQty').value)||1;
+  state.cart.push(lineFromProd(p,q));markDirty();
+  document.getElementById('searchInput').value='';document.getElementById('suggest').classList.remove('open');
+  render();document.getElementById('searchInput').focus();
+}
+function addFromSearch(){if(curResults.length)pickResult(hlIdx>=0?hlIdx:0);}
+function searchKey(e){const box=document.getElementById('suggest');
+  if(e.key==='ArrowDown'){e.preventDefault();hlIdx=Math.min(curResults.length-1,hlIdx+1);paintHl();}
+  else if(e.key==='ArrowUp'){e.preventDefault();hlIdx=Math.max(0,hlIdx-1);paintHl();}
+  else if(e.key==='Enter'){e.preventDefault();addFromSearch();}
+  else if(e.key==='Escape')box.classList.remove('open');}
+function paintHl(){document.querySelectorAll('#suggest .opt').forEach((o,i)=>o.classList.toggle('hl',i===hlIdx));const el=document.querySelector('#suggest .opt.hl');if(el)el.scrollIntoView({block:'nearest'});}
+document.addEventListener('click',e=>{if(!e.target.closest('.search-box'))document.getElementById('suggest').classList.remove('open');});
+
+// ============ Kunder & kalkyler (CRUD) ============
+function openCustModal(){document.getElementById('mCustNavn').value='';document.getElementById('mCustId').value='';document.getElementById('mCustNote').value='';document.getElementById('custModal').classList.add('open');document.getElementById('mCustNavn').focus();}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+async function createCust(){
+  const navn=document.getElementById('mCustNavn').value.trim();
+  if(!navn){toast('Kundenavn er påkrevd');return;}
+  const c={id:uid(),navn,kundeid:document.getElementById('mCustId').value.trim(),note:document.getElementById('mCustNote').value.trim(),created:Date.now()};
+  await dbPut('customers',c);closeModal('custModal');await refreshCusts();
+  toast('Kunde opprettet');selectCust(c.id);setView('kunder');
+}
+async function refreshCusts(){
+  custCache=(await dbAll('customers')).sort((a,b)=>a.navn.localeCompare(b.navn,'nb'));
+  const list=document.getElementById('custList');
+  const counts={};for(const c of await dbAll('calcs'))counts[c.custId]=(counts[c.custId]||0)+1;
+  if(!custCache.length){list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:#6b7488">Ingen kunder ennå</div>';return;}
+  list.innerHTML=custCache.map(c=>`<div class="cust-item ${c.id===state.custId?'active':''}" onclick="selectCust('${c.id}')"><span class="nm">${c.navn}</span><span class="cnt">${counts[c.id]||0}</span></div>`).join('');
+}
+async function selectCust(id){state.custId=id;await refreshCusts();await renderCalcArea();
+  const c=custCache.find(x=>x.id===id);
+  document.getElementById('newCalcBtn').disabled=false;document.getElementById('delCustBtn').disabled=false;
+  document.getElementById('kunderTitle').textContent=c?c.navn:'Kunder & kalkyler';
+  document.getElementById('kunderCrumb').textContent=c?`Kunde-ID: ${c.kundeid||'—'}${c.note?' · '+c.note:''}`:'';
+}
+async function deleteCurrentCust(){
+  if(!state.custId)return;const c=custCache.find(x=>x.id===state.custId);
+  const cs=await calcsForCust(state.custId);
+  if(!confirm(`Slette «${c.navn}» og ${cs.length} kalkyle(r)? Dette kan ikke angres.`))return;
+  for(const k of cs)await dbDel('calcs',k.id);
+  await dbDel('customers',state.custId);
+  if(state.calcId&&cs.some(k=>k.id===state.calcId)){state.calcId=null;state.cart=[];}
+  state.custId=null;document.getElementById('newCalcBtn').disabled=true;document.getElementById('delCustBtn').disabled=true;
+  document.getElementById('kunderTitle').textContent='Kunder & kalkyler';document.getElementById('kunderCrumb').textContent='Velg en kunde for å se kalkyler';
+  await refreshCusts();await renderCalcArea();toast('Kunde slettet');
+}
+async function renderCalcArea(){
+  const area=document.getElementById('calcArea');
+  if(!state.custId){area.innerHTML='<div class="empty-state"><div class="big">Ingen kunde valgt</div>Velg en kunde i sidemenyen, eller opprett en ny.</div>';return;}
+  const cs=(await calcsForCust(state.custId)).sort((a,b)=>b.updated-a.updated);
+  if(!cs.length){area.innerHTML='<div class="empty-state"><div class="big">Ingen kalkyler ennå</div>Klikk «+ Ny kalkyle» for å lage den første.</div>';return;}
+  area.innerHTML='<div class="calc-grid">'+cs.map(k=>{
+    const col=statusColor[k.snapshot?.status||'Ingen'];
+    return `<div class="calc-card" onclick="openCalc('${k.id}')">
+      <span class="statusdot" style="background:${col}"></span>
+      <h4>${k.navn}</h4>
+      <div class="meta">${k.cart.length} linjer · endret ${new Date(k.updated).toLocaleDateString('nb-NO')}</div>
+      <div class="figs"><div>Omsetning<b>${fmtKr(k.snapshot?.oms||0)}</b></div><div>Margin<b>${fmtPct(k.snapshot?.pct||0)}</b></div></div>
+      <button class="del" onclick="event.stopPropagation();deleteCalc('${k.id}')" title="Slett">🗑</button>
+    </div>`;}).join('')+'</div>';
+}
+function newCalc(){
+  if(!state.custId){toast('Velg en kunde først');return;}
+  const c=custCache.find(x=>x.id===state.custId);
+  document.getElementById('calcModalSub').textContent='For kunde: '+(c?c.navn:'');
+  document.getElementById('mCalcNavn').value='';document.getElementById('calcModal').classList.add('open');document.getElementById('mCalcNavn').focus();
+}
+async function createCalc(){
+  const navn=document.getElementById('mCalcNavn').value.trim();
+  if(!navn){toast('Kalkylenavn er påkrevd');return;}
+  const c=custCache.find(x=>x.id===state.custId);
+  const k={id:uid(),custId:state.custId,navn,cart:[],
+    meta:{kundenavn:c?.navn||'',kundeid:c?.kundeid||'',genrabatt:0,kjedebonus:0,kommentar:'',scenNavn:'Standard scenario',scenBesk:'Hovedscenario for standard pris og rabattstruktur'},
+    snapshot:{oms:0,pct:0,status:'Ingen'},created:Date.now(),updated:Date.now()};
+  await dbPut('calcs',k);closeModal('calcModal');await refreshCusts();await renderCalcArea();openCalc(k.id);
+}
+async function openCalc(id){
+  const k=await dbGet('calcs',id);if(!k)return;
+  state.calcId=id;state.custId=k.custId;state.cart=k.cart.map(l=>({...l}));
+  document.getElementById('kundenavn').value=k.meta.kundenavn||'';
+  document.getElementById('kundeid').value=k.meta.kundeid||'';
+  document.getElementById('kalkylenavn').value=k.navn||'';
+  document.getElementById('genrabatt').value=k.meta.genrabatt??0;
+  document.getElementById('kjedebonus').value=k.meta.kjedebonus??0;
+  document.getElementById('kommentar').value=k.meta.kommentar||'';
+  document.getElementById('scenNavn').value=k.meta.scenNavn||'Standard scenario';
+  document.getElementById('scenBesk').value=k.meta.scenBesk||'';
+  const c=custCache.find(x=>x.id===k.custId);
+  document.getElementById('crumb').innerHTML=`Kunde: <b>${c?c.navn:'?'}</b> · Kalkyle: <b>${k.navn}</b>`;
+  state.dirty=false;setSaved(true);setView('kalkulator');render();await refreshCusts();
+}
+async function saveCalc(){
+  if(!state.calcId){
+    if(!state.custId){toast('Opprett/velg en kunde og kalkyle først');setView('kunder');return;}
+    newCalc();return;
+  }
+  const k=await dbGet('calcs',state.calcId);if(!k)return;
+  const r=compute();
+  k.navn=document.getElementById('kalkylenavn').value.trim()||k.navn;
+  k.cart=state.cart.map(l=>({...l}));
+  k.meta={kundenavn:document.getElementById('kundenavn').value,kundeid:document.getElementById('kundeid').value,
+    genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
+    kommentar:document.getElementById('kommentar').value,scenNavn:document.getElementById('scenNavn').value,scenBesk:document.getElementById('scenBesk').value};
+  k.snapshot={oms:r.sumOms,pct:r.totMarginPct,status:r.status};k.updated=Date.now();
+  await dbPut('calcs',k);state.dirty=false;setSaved(true);toast('Kalkyle lagret');
+  const c=custCache.find(x=>x.id===k.custId);
+  document.getElementById('crumb').innerHTML=`Kunde: <b>${c?c.navn:'?'}</b> · Kalkyle: <b>${k.navn}</b>`;
+  await refreshCusts();
+}
+async function duplicateCalc(){
+  if(!state.calcId){toast('Ingen kalkyle å duplisere');return;}
+  await saveCalc();const k=await dbGet('calcs',state.calcId);
+  const copy={...k,id:uid(),navn:k.navn+' (kopi)',created:Date.now(),updated:Date.now(),cart:k.cart.map(l=>({...l}))};
+  await dbPut('calcs',copy);await refreshCusts();openCalc(copy.id);toast('Kalkyle duplisert');
+}
+async function deleteCalc(id){
+  const k=await dbGet('calcs',id);if(!k)return;
+  if(!confirm(`Slette kalkylen «${k.navn}»?`))return;
+  await dbDel('calcs',id);
+  if(state.calcId===id){state.calcId=null;state.cart=[];document.getElementById('crumb').textContent='Ingen kalkyle valgt';}
+  await refreshCusts();await renderCalcArea();toast('Kalkyle slettet');
+}
+
+// ============ Dirty / saved indikator ============
+function markDirty(){state.dirty=true;setSaved(false);}
+function setSaved(saved){
+  const p=document.getElementById('savedPill'),t=document.getElementById('savedTxt');
+  if(!state.calcId){p.style.display='none';return;}
+  p.style.display='flex';
+  if(saved){t.textContent='Lagret';p.querySelector('.dot').style.background='var(--green)';}
+  else{t.textContent='Ulagrede endringer';p.querySelector('.dot').style.background='var(--orange)';}
+}
+window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.returnValue='';}});
+
+// ============ CSV ============
+function exportCSV(){
+  const r=compute();
+  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris','Endelig salgspris','Linjeomsetning','Grossist-margin','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.oms.toFixed(0),(x.dlvryMargin-x.bonusKr).toFixed(0),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]));
+  rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(document.getElementById('kalkylenavn').value||'kalkyle')+'.csv';a.click();
+}
+function importCSV(ev){
+  const f=ev.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=()=>{const lines=rd.result.split(/\r?\n/).filter(l=>l.trim());let added=0;
+    lines.forEach(line=>{const cols=line.split(/[;,\t]/).map(c=>c.replace(/^"|"$/g,'').trim());const key=cols[0],qty=parseFloat(cols[1])||1;
+      const p=findProd(key);if(p){state.cart.push(lineFromProd(p,qty));added++;}});
+    markDirty();render();toast(added+' produkter importert');};
+  rd.readAsText(f,'utf-8');ev.target.value='';
+}
+function copyLines(){
+  const r=compute();
+  const txt=r.lines.map(x=>`${x.l.art}\t${x.l.navn}\t${x.l.antall}\t${x.endelig.toFixed(2)}\t${x.oms.toFixed(0)}`).join('\n');
+  navigator.clipboard.writeText(txt).then(()=>toast('Linjer kopiert')).catch(()=>toast('Kunne ikke kopiere'));
+}
+
+// ============ Views ============
+function setView(v){
+  document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
+  document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
+  document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
+  document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.view===v));
+  // skjul lagre-baren utenfor kalkulator
+  document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
+  if(v==='kunder')renderCalcArea();
+  if(v==='dashboard')renderDash();
+}
+
+// ============ Init ============
+async function init(){
+  await idb();
+  try{await loadProducts();}catch(e){return;}
+  await loadDash();
+  document.getElementById('loadOverlay').style.display='none';
+  await refreshCusts();
+  // gjenopprett sist åpne kalkyle i bakgrunnen, men start på Dashboard
+  const last=await dbGet('meta','lastCalc');
+  if(last&&last.v){const k=await dbGet('calcs',last.v);if(k){await openCalc(k.id);setView('dashboard');return;}}
+  // ellers: seed en demokunde+kalkyle hvis tomt, for å vise at det funker
+  if(!custCache.length){
+    const c={id:uid(),navn:'GRAFEN Trondheim',kundeid:'100245',note:'Demokunde',created:Date.now()};
+    await dbPut('customers',c);state.custId=c.id;
+    const seed=['MOZZARELLA AGEROLA JULIENNE','MEL TIPO 0 W350','PARMASKINKE BLOKK 18','TOMATER POLPA 10 KG','MOZZARELLA CUBETTATA'];
+    const cart=[];const qs=[50,10,10,4,40];
+    seed.forEach((s,i)=>{const p=DB.find(x=>x.navn.toUpperCase().includes(s.toUpperCase()));if(p)cart.push(lineFromProd(p,qs[i]));});
+    const k={id:uid(),custId:c.id,navn:'Eksempel: månedstilbud',cart,
+      meta:{kundenavn:c.navn,kundeid:c.kundeid,genrabatt:2.5,kjedebonus:2.5,kommentar:'Månedlig forbruk',scenNavn:'Standard scenario',scenBesk:'Hovedscenario for standard pris og rabattstruktur'},
+      snapshot:{oms:0,pct:0,status:'Ingen'},created:Date.now(),updated:Date.now()};
+    await dbPut('calcs',k);await refreshCusts();await openCalc(k.id);setView('dashboard');
+  }else{setView('dashboard');}
+}
+// lagre sist åpne kalkyle ved hver lagring
+const _save=saveCalc;
+saveCalc=async function(){await _save();if(state.calcId)await dbPut('meta',{k:'lastCalc',v:state.calcId});};
+const _open=openCalc;
+openCalc=async function(id){await _open(id);await dbPut('meta',{k:'lastCalc',v:id});};
+
+init();
+
+</script>
+</body>
+</html>

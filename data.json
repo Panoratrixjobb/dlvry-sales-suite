@@ -1,0 +1,181 @@
+{
+ "meta": {
+  "periode": "YTD uke 1–25 · 2026 vs 2025 (pære-mot-pære)",
+  "oppdatert": "2026 uke 25 (cutoff 27.06)",
+  "kilde": "KONSEPT_DASHBOARD_MASTER"
+ },
+ "total": {
+  "navn": "Total ekstern",
+  "y2025": 378.6,
+  "y2026": 310.2,
+  "vekst": -0.1806
+ },
+ "konsepter": [
+  {
+   "navn": "La Salumeria",
+   "y2025": 49.0,
+   "y2026": 51.4,
+   "vekst": 0.049,
+   "farge": "#16a34a"
+  },
+  {
+   "navn": "East Essence",
+   "y2025": 5.2,
+   "y2026": 6.4,
+   "vekst": 0.2418,
+   "farge": "#5b6ef5"
+  },
+  {
+   "navn": "Godt Lokalt",
+   "y2025": 115.4,
+   "y2026": 104.3,
+   "vekst": -0.0967,
+   "farge": "#f59e0b"
+  },
+  {
+   "navn": "Wulff & Co",
+   "y2025": 208.9,
+   "y2026": 148.0,
+   "vekst": -0.2914,
+   "farge": "#22b8cf"
+  }
+ ],
+ "estimat": [
+  {
+   "navn": "Sesongvektet årsestimat 2026",
+   "verdi": 713
+  }
+ ],
+ "monthly": {
+  "months": [
+   "Jan",
+   "Feb",
+   "Mar",
+   "Apr",
+   "Mai",
+   "Jun"
+  ],
+  "data": [
+   {
+    "navn": "La Salumeria",
+    "farge": "#16a34a",
+    "vals": [
+     8.8,
+     8.6,
+     9.7,
+     9.0,
+     10.0,
+     5.3
+    ]
+   },
+   {
+    "navn": "East Essence",
+    "farge": "#5b6ef5",
+    "vals": [
+     1.1,
+     1.1,
+     1.3,
+     1.2,
+     1.3,
+     0.5
+    ]
+   },
+   {
+    "navn": "Godt Lokalt",
+    "farge": "#f59e0b",
+    "vals": [
+     16.7,
+     14.6,
+     23.6,
+     22.4,
+     18.9,
+     8.2
+    ]
+   },
+   {
+    "navn": "Wulff & Co",
+    "farge": "#22b8cf",
+    "vals": [
+     26.4,
+     26.9,
+     30.4,
+     25.2,
+     28.5,
+     10.6
+    ]
+   }
+  ]
+ },
+ "regioner": [
+  {
+   "navn": "Region Øst",
+   "verdi": 43.7
+  },
+  {
+   "navn": "Region Sør",
+   "verdi": 12.4
+  },
+  {
+   "navn": "Region Vest",
+   "verdi": 158.7
+  },
+  {
+   "navn": "Region Nord",
+   "verdi": 19.5
+  }
+ ],
+ "ls_grossister": [
+  {
+   "navn": "D22 Carl Evensen EFTF",
+   "verdi": 32.1
+  },
+  {
+   "navn": "D15 Spesialgrossisten Troye",
+   "verdi": 4.8
+  },
+  {
+   "navn": "D06 Wulff & Co",
+   "verdi": 4.1
+  },
+  {
+   "navn": "D19 ServiceNord Engros",
+   "verdi": 2.2
+  },
+  {
+   "navn": "D07 Lunde Gård Engros",
+   "verdi": 1.8
+  },
+  {
+   "navn": "D18 Arne Sjule",
+   "verdi": 1.7
+  }
+ ],
+ "toppkunder": [
+  {
+   "navn": "Mamma Pizza Dronningensgt.",
+   "verdi": 2.63
+  },
+  {
+   "navn": "Mamma Pizza Lillestrøm",
+   "verdi": 1.38
+  },
+  {
+   "navn": "Mamma Pizza Nydalen",
+   "verdi": 1.36
+  }
+ ],
+ "toppvinnere": [
+  {
+   "navn": "Mamma Pizza Nydalen",
+   "verdi_nok": 1.34
+  },
+  {
+   "navn": "La Recette AS",
+   "verdi_nok": 0.34
+  },
+  {
+   "navn": "Nordis Restaurant - ByLofoten",
+   "verdi_nok": 0.17
+  }
+ ]
+}
