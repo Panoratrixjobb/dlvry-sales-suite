@@ -218,7 +218,26 @@ tbody tr:hover{background:#fafbff}
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ============ Innloggingsskjerm ============ -->
+<div id="loginScreen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1c2333,#2a3450);z-index:600;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:34px 32px;width:340px;max-width:90vw">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:4px;color:#1e2433">
+      <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#5b6ef5,#8b5cf6);display:grid;place-items:center;color:#fff;font-size:15px">◆</span>
+      KonseptSuite
+    </div>
+    <div style="font-size:12.5px;color:#7a8499;margin-bottom:22px">Logg inn for å fortsette</div>
+    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">E-post</label>
+    <input id="loginEpost" type="email" autocomplete="username" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:14px;font-family:inherit;box-sizing:border-box">
+    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">Passord</label>
+    <input id="loginPassord" type="password" autocomplete="current-password" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
+    <div id="loginErr" style="color:#dc2626;font-size:12px;min-height:16px;margin-bottom:8px"></div>
+    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:#3b4cca;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
+    <div style="font-size:11px;color:#a0a8ba;text-align:center;margin-top:14px;line-height:1.4">Første kall kan ta ~50 sek mens serveren våkner.</div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" style="display:none">
   <aside class="sidebar">
     <div class="logo"><span class="mark">◆</span> KonseptSuite</div>
     <nav class="nav">
@@ -232,8 +251,9 @@ tbody tr:hover{background:#fafbff}
       <button class="side-btn" onclick="openCustModal()">+ Ny kunde</button>
     </div>
     <div class="user">
-      <div class="avatar">MF</div>
-      <div class="meta">Manuele Fusto<span>Admin</span></div>
+      <div class="avatar" id="userAvatar">MF</div>
+      <div class="meta" id="userNavn">Bruker<span id="userRolle"></span></div>
+      <button onclick="logout()" title="Logg ut" style="margin-left:auto;background:none;border:none;color:var(--sidebar-ink);cursor:pointer;font-size:15px;padding:4px">⎋</button>
     </div>
   </aside>
 
@@ -462,6 +482,11 @@ tbody tr:hover{background:#fafbff}
   <button class="btn btn-primary btn-lg" onclick="saveCalc()">💾 Lagre kalkyle</button>
 </div>
 <div class="toast" id="toast"></div>
+<div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#1c2333;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
+  <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#5b6ef5;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
+  Kobler til server… (kan ta ~50 sek)
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <div id="loadOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:14px">
   <div style="font-size:16px;font-weight:600;color:var(--brand)">Laster produktdatabase…</div>
   <div style="font-size:12.5px;color:var(--muted)" id="loadMsg">24 490 produkter</div>
@@ -629,21 +654,39 @@ const toast=m=>{const t=document.getElementById('toast');t.textContent=m;t.class
 // ============ Regler (fra Admin-arket) ============
 const MIN_GRONN_MARGIN=0.30, MIN_GRONN_OMS=3000, MIN_ROD_MARGIN=0.20, MAKS_LINJERABATT=0.50;
 
-// ============ IndexedDB ============
-let db=null;
-function idb(){return new Promise((res,rej)=>{
-  const r=indexedDB.open('konseptsuite',1);
-  r.onupgradeneeded=e=>{const d=e.target.result;
-    if(!d.objectStoreNames.contains('customers'))d.createObjectStore('customers',{keyPath:'id'});
-    if(!d.objectStoreNames.contains('calcs')){const s=d.createObjectStore('calcs',{keyPath:'id'});s.createIndex('byCust','custId');}
-    if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta',{keyPath:'k'});};
-  r.onsuccess=e=>{db=e.target.result;res();};r.onerror=e=>rej(e);});}
-function tx(store,mode){return db.transaction(store,mode).objectStore(store);}
-function dbAll(store){return new Promise((res)=>{const out=[];tx(store,'readonly').openCursor().onsuccess=e=>{const c=e.target.result;if(c){out.push(c.value);c.continue();}else res(out);};});}
-function dbGet(store,id){return new Promise(res=>{tx(store,'readonly').get(id).onsuccess=e=>res(e.target.result);});}
-function dbPut(store,v){return new Promise(res=>{tx(store,'readwrite').put(v).onsuccess=()=>res();});}
-function dbDel(store,id){return new Promise(res=>{tx(store,'readwrite').delete(id).onsuccess=()=>res();});}
-function calcsForCust(custId){return new Promise(res=>{const out=[];tx('calcs','readonly').index('byCust').openCursor(IDBKeyRange.only(custId)).onsuccess=e=>{const c=e.target.result;if(c){out.push(c.value);c.continue();}else res(out);};});}
+// ============ API-klient (erstatter IndexedDB) ============
+// Backend på Render. Free-plan sover etter 15 min → første kall kan ta ~50 sek.
+const API_BASE='https://konseptsuite-backend.onrender.com';
+let TOKEN=sessionStorage.getItem('ks_token')||null;
+let CURRENT_USER=null;
+
+function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token');}
+
+// Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
+async function api(path,{method='GET',body=null}={}){
+  const headers={'Content-Type':'application/json'};
+  if(TOKEN)headers['Authorization']='Bearer '+TOKEN;
+  // vis «vekker server» hvis kallet drøyer (typisk kaldstart på Render Free)
+  const wake=setTimeout(()=>showWake(true),1200);
+  let r;
+  try{
+    r=await fetch(API_BASE+path,{method,headers,body:body!=null?JSON.stringify(body):null});
+  }catch(e){
+    clearTimeout(wake);showWake(false);
+    throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
+  }
+  clearTimeout(wake);showWake(false);
+  if(r.status===401){ // utløpt/ugyldig token → tilbake til innlogging
+    setToken(null);CURRENT_USER=null;showLogin();throw new Error('Økt utløpt — logg inn på nytt.');
+  }
+  if(r.status===204)return null;
+  const txt=await r.text();
+  let data=null; try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
+  if(!r.ok){const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));}
+  return data;
+}
+
+function showWake(on){const el=document.getElementById('wakeBar');if(el)el.style.display=on?'flex':'none';}
 
 // ============ Produktbase ============
 let DB=[];               // [{art,navn,enhet,listepris,grossistkost,fbkostpris,grossistprisFB,kostbase}]
@@ -815,116 +858,203 @@ function searchKey(e){const box=document.getElementById('suggest');
 function paintHl(){document.querySelectorAll('#suggest .opt').forEach((o,i)=>o.classList.toggle('hl',i===hlIdx));const el=document.querySelector('#suggest .opt.hl');if(el)el.scrollIntoView({block:'nearest'});}
 document.addEventListener('click',e=>{if(!e.target.closest('.search-box'))document.getElementById('suggest').classList.remove('open');});
 
-// ============ Kunder & kalkyler (CRUD) ============
+// ============ Kunder & kalkyler (CRUD via API) ============
+// Mapping backend → frontend:
+//   kunde:   {id,navn,kundeid,notat,...}  (frontend brukte 'note' før → nå 'notat')
+//   kalkyle: flate felter (genrabatt,kjedebonus,kommentar,scen_navn,scen_besk,snap_*) + linjer[]
+//   linje:   artnr(=art),navn,enhet,listepris,kostbase,fbkostpris,grossistpris_fb,grossistkost,antall,linjerabatt,spesialpris
+// Tall fra JSON kan komme som number; behandle ID-er som strenger (UUID) — aldri parseInt.
+
+// --- konvertering linje: backend-form ↔ frontend-cart-form ---
+function lineFromApi(l){return{
+  art:l.artnr, navn:l.navn, enhet:l.enhet, listepris:num(l.listepris), kostbase:num(l.kostbase),
+  fbkostpris:l.fbkostpris==null?null:num(l.fbkostpris),
+  grossistprisFB:l.grossistpris_fb==null?null:num(l.grossistpris_fb),
+  grossistkost:l.grossistkost==null?null:num(l.grossistkost),
+  antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
+  spesialpris:l.spesialpris==null?null:num(l.spesialpris)
+};}
+function lineToApi(l){return{
+  artnr:String(l.art), navn:l.navn, enhet:l.enhet??null, listepris:num(l.listepris), kostbase:num(l.kostbase),
+  fbkostpris:l.fbkostpris==null?null:num(l.fbkostpris),
+  grossistpris_fb:l.grossistprisFB==null?null:num(l.grossistprisFB),
+  grossistkost:l.grossistkost==null?null:num(l.grossistkost),
+  antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
+  spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris)
+};}
+const num=v=>v==null?0:(typeof v==='number'?v:parseFloat(v)||0);
+
 function openCustModal(){document.getElementById('mCustNavn').value='';document.getElementById('mCustId').value='';document.getElementById('mCustNote').value='';document.getElementById('custModal').classList.add('open');document.getElementById('mCustNavn').focus();}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
+
 async function createCust(){
   const navn=document.getElementById('mCustNavn').value.trim();
   if(!navn){toast('Kundenavn er påkrevd');return;}
-  const c={id:uid(),navn,kundeid:document.getElementById('mCustId').value.trim(),note:document.getElementById('mCustNote').value.trim(),created:Date.now()};
-  await dbPut('customers',c);closeModal('custModal');await refreshCusts();
-  toast('Kunde opprettet');selectCust(c.id);setView('kunder');
+  let c;
+  try{
+    c=await api('/api/kunder',{method:'POST',body:{
+      navn, kundeid:document.getElementById('mCustId').value.trim(), notat:document.getElementById('mCustNote').value.trim()
+    }});
+  }catch(e){toast('Kunne ikke opprette kunde: '+e.message);return;}
+  closeModal('custModal');await refreshCusts();
+  toast('Kunde opprettet');await selectCust(c.id);setView('kunder');
 }
+
 async function refreshCusts(){
-  custCache=(await dbAll('customers')).sort((a,b)=>a.navn.localeCompare(b.navn,'nb'));
   const list=document.getElementById('custList');
-  const counts={};for(const c of await dbAll('calcs'))counts[c.custId]=(counts[c.custId]||0)+1;
+  try{
+    // backend returnerer kunder filtrert på rolle; antar hvert objekt har 'antall_kalkyler' om backend gir det,
+    // ellers faller vi tilbake på 0 (kortene viser uansett tellingen ved åpning av kunde).
+    custCache=(await api('/api/kunder')||[]).sort((a,b)=>a.navn.localeCompare(b.navn,'nb'));
+  }catch(e){
+    list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+e.message+'</span></div>';
+    return;
+  }
   if(!custCache.length){list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:#6b7488">Ingen kunder ennå</div>';return;}
-  list.innerHTML=custCache.map(c=>`<div class="cust-item ${c.id===state.custId?'active':''}" onclick="selectCust('${c.id}')"><span class="nm">${c.navn}</span><span class="cnt">${counts[c.id]||0}</span></div>`).join('');
+  list.innerHTML=custCache.map(c=>{
+    const cnt=c.antall_kalkyler!=null?c.antall_kalkyler:'';
+    return `<div class="cust-item ${c.id===state.custId?'active':''}" onclick="selectCust('${c.id}')"><span class="nm">${esc(c.navn)}</span><span class="cnt">${cnt}</span></div>`;
+  }).join('');
 }
-async function selectCust(id){state.custId=id;await refreshCusts();await renderCalcArea();
+
+async function selectCust(id){
+  state.custId=id;await refreshCusts();await renderCalcArea();
   const c=custCache.find(x=>x.id===id);
   document.getElementById('newCalcBtn').disabled=false;document.getElementById('delCustBtn').disabled=false;
   document.getElementById('kunderTitle').textContent=c?c.navn:'Kunder & kalkyler';
-  document.getElementById('kunderCrumb').textContent=c?`Kunde-ID: ${c.kundeid||'—'}${c.note?' · '+c.note:''}`:'';
+  document.getElementById('kunderCrumb').textContent=c?`Kunde-ID: ${c.kundeid||'—'}${c.notat?' · '+c.notat:''}`:'';
 }
+
 async function deleteCurrentCust(){
   if(!state.custId)return;const c=custCache.find(x=>x.id===state.custId);
-  const cs=await calcsForCust(state.custId);
-  if(!confirm(`Slette «${c.navn}» og ${cs.length} kalkyle(r)? Dette kan ikke angres.`))return;
-  for(const k of cs)await dbDel('calcs',k.id);
-  await dbDel('customers',state.custId);
-  if(state.calcId&&cs.some(k=>k.id===state.calcId)){state.calcId=null;state.cart=[];}
+  if(!confirm(`Slette «${c?c.navn:'kunden'}» og alle kalkyler? Dette kan ikke angres.`))return;
+  try{await api('/api/kunder/'+state.custId,{method:'DELETE'});}
+  catch(e){toast('Kunne ikke slette: '+e.message);return;}
+  if(state.calcId){state.calcId=null;state.cart=[];}
   state.custId=null;document.getElementById('newCalcBtn').disabled=true;document.getElementById('delCustBtn').disabled=true;
   document.getElementById('kunderTitle').textContent='Kunder & kalkyler';document.getElementById('kunderCrumb').textContent='Velg en kunde for å se kalkyler';
   await refreshCusts();await renderCalcArea();toast('Kunde slettet');
 }
+
 async function renderCalcArea(){
   const area=document.getElementById('calcArea');
   if(!state.custId){area.innerHTML='<div class="empty-state"><div class="big">Ingen kunde valgt</div>Velg en kunde i sidemenyen, eller opprett en ny.</div>';return;}
-  const cs=(await calcsForCust(state.custId)).sort((a,b)=>b.updated-a.updated);
+  let cs;
+  try{cs=(await api('/api/kalkyler?kunde_id='+encodeURIComponent(state.custId))||[]);}
+  catch(e){area.innerHTML='<div class="empty-state"><div class="big">Feil ved henting</div>'+esc(e.message)+'</div>';return;}
+  cs.sort((a,b)=>(b.opprettet||'').localeCompare(a.opprettet||''));
   if(!cs.length){area.innerHTML='<div class="empty-state"><div class="big">Ingen kalkyler ennå</div>Klikk «+ Ny kalkyle» for å lage den første.</div>';return;}
   area.innerHTML='<div class="calc-grid">'+cs.map(k=>{
-    const col=statusColor[k.snapshot?.status||'Ingen'];
+    const col=statusColor[k.snap_status||'Ingen'];
+    const dato=k.opprettet?new Date(k.opprettet).toLocaleDateString('nb-NO'):'—';
+    const ant=k.antall_linjer!=null?k.antall_linjer:'';
     return `<div class="calc-card" onclick="openCalc('${k.id}')">
       <span class="statusdot" style="background:${col}"></span>
-      <h4>${k.navn}</h4>
-      <div class="meta">${k.cart.length} linjer · endret ${new Date(k.updated).toLocaleDateString('nb-NO')}</div>
-      <div class="figs"><div>Omsetning<b>${fmtKr(k.snapshot?.oms||0)}</b></div><div>Margin<b>${fmtPct(k.snapshot?.pct||0)}</b></div></div>
+      <h4>${esc(k.navn)}</h4>
+      <div class="meta">${ant!==''?ant+' linjer · ':''}endret ${dato}</div>
+      <div class="figs"><div>Omsetning<b>${fmtKr(num(k.snap_oms))}</b></div><div>Margin<b>${fmtPct(num(k.snap_pct))}</b></div></div>
       <button class="del" onclick="event.stopPropagation();deleteCalc('${k.id}')" title="Slett">🗑</button>
     </div>`;}).join('')+'</div>';
 }
+
 function newCalc(){
   if(!state.custId){toast('Velg en kunde først');return;}
   const c=custCache.find(x=>x.id===state.custId);
   document.getElementById('calcModalSub').textContent='For kunde: '+(c?c.navn:'');
   document.getElementById('mCalcNavn').value='';document.getElementById('calcModal').classList.add('open');document.getElementById('mCalcNavn').focus();
 }
+
 async function createCalc(){
   const navn=document.getElementById('mCalcNavn').value.trim();
   if(!navn){toast('Kalkylenavn er påkrevd');return;}
-  const c=custCache.find(x=>x.id===state.custId);
-  const k={id:uid(),custId:state.custId,navn,cart:[],
-    meta:{kundenavn:c?.navn||'',kundeid:c?.kundeid||'',genrabatt:0,kjedebonus:0,kommentar:'',scenNavn:'Standard scenario',scenBesk:'Hovedscenario for standard pris og rabattstruktur'},
-    snapshot:{oms:0,pct:0,status:'Ingen'},created:Date.now(),updated:Date.now()};
-  await dbPut('calcs',k);closeModal('calcModal');await refreshCusts();await renderCalcArea();openCalc(k.id);
+  let k;
+  try{
+    k=await api('/api/kalkyler',{method:'POST',body:{
+      kunde_id:state.custId, navn, status:'Utkast',
+      genrabatt:0, kjedebonus:0, kommentar:'',
+      scen_navn:'Standard scenario', scen_besk:'Hovedscenario for standard pris og rabattstruktur',
+      snap_oms:0, snap_pct:0, snap_status:'Ingen', linjer:[]
+    }});
+  }catch(e){toast('Kunne ikke opprette kalkyle: '+e.message);return;}
+  closeModal('calcModal');await refreshCusts();await renderCalcArea();await openCalc(k.id);
 }
+
 async function openCalc(id){
-  const k=await dbGet('calcs',id);if(!k)return;
-  state.calcId=id;state.custId=k.custId;state.cart=k.cart.map(l=>({...l}));
-  document.getElementById('kundenavn').value=k.meta.kundenavn||'';
-  document.getElementById('kundeid').value=k.meta.kundeid||'';
+  let k;
+  try{k=await api('/api/kalkyler/'+id);}catch(e){toast('Kunne ikke åpne kalkyle: '+e.message);return;}
+  if(!k)return;
+  state.calcId=k.id;state.custId=k.kunde_id;
+  state.cart=(k.linjer||[]).map(lineFromApi);
+  const c=custCache.find(x=>x.id===k.kunde_id);
+  document.getElementById('kundenavn').value=c?c.navn:'';
+  document.getElementById('kundeid').value=c?(c.kundeid||''):'';
   document.getElementById('kalkylenavn').value=k.navn||'';
-  document.getElementById('genrabatt').value=k.meta.genrabatt??0;
-  document.getElementById('kjedebonus').value=k.meta.kjedebonus??0;
-  document.getElementById('kommentar').value=k.meta.kommentar||'';
-  document.getElementById('scenNavn').value=k.meta.scenNavn||'Standard scenario';
-  document.getElementById('scenBesk').value=k.meta.scenBesk||'';
-  const c=custCache.find(x=>x.id===k.custId);
-  document.getElementById('crumb').innerHTML=`Kunde: <b>${c?c.navn:'?'}</b> · Kalkyle: <b>${k.navn}</b>`;
-  state.dirty=false;setSaved(true);setView('kalkulator');render();await refreshCusts();
+  document.getElementById('genrabatt').value=num(k.genrabatt);
+  document.getElementById('kjedebonus').value=num(k.kjedebonus);
+  document.getElementById('kommentar').value=k.kommentar||'';
+  document.getElementById('scenNavn').value=k.scen_navn||'Standard scenario';
+  document.getElementById('scenBesk').value=k.scen_besk||'';
+  document.getElementById('crumb').innerHTML=`Kunde: <b>${esc(c?c.navn:'?')}</b> · Kalkyle: <b>${esc(k.navn)}</b>`;
+  state.dirty=false;setSaved(true);setView('kalkulator');render();
 }
+
 async function saveCalc(){
   if(!state.calcId){
     if(!state.custId){toast('Opprett/velg en kunde og kalkyle først');setView('kunder');return;}
     newCalc();return;
   }
-  const k=await dbGet('calcs',state.calcId);if(!k)return;
   const r=compute();
-  k.navn=document.getElementById('kalkylenavn').value.trim()||k.navn;
-  k.cart=state.cart.map(l=>({...l}));
-  k.meta={kundenavn:document.getElementById('kundenavn').value,kundeid:document.getElementById('kundeid').value,
-    genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
-    kommentar:document.getElementById('kommentar').value,scenNavn:document.getElementById('scenNavn').value,scenBesk:document.getElementById('scenBesk').value};
-  k.snapshot={oms:r.sumOms,pct:r.totMarginPct,status:r.status};k.updated=Date.now();
-  await dbPut('calcs',k);state.dirty=false;setSaved(true);toast('Kalkyle lagret');
-  const c=custCache.find(x=>x.id===k.custId);
-  document.getElementById('crumb').innerHTML=`Kunde: <b>${c?c.navn:'?'}</b> · Kalkyle: <b>${k.navn}</b>`;
-  await refreshCusts();
+  const navn=document.getElementById('kalkylenavn').value.trim();
+  const payload={
+    navn:navn||undefined,
+    genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,
+    kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
+    kommentar:document.getElementById('kommentar').value,
+    scen_navn:document.getElementById('scenNavn').value,
+    scen_besk:document.getElementById('scenBesk').value,
+    snap_oms:r.sumOms, snap_pct:r.totMarginPct, snap_status:r.status,
+    linjer:state.cart.map(lineToApi)
+  };
+  let k;
+  try{k=await api('/api/kalkyler/'+state.calcId,{method:'PATCH',body:payload});}
+  catch(e){toast('Lagring feilet: '+e.message);return;}
+  state.dirty=false;setSaved(true);toast('Kalkyle lagret');
+  const c=custCache.find(x=>x.id===state.custId);
+  const visnavn=(k&&k.navn)||navn||'kalkyle';
+  document.getElementById('crumb').innerHTML=`Kunde: <b>${esc(c?c.navn:'?')}</b> · Kalkyle: <b>${esc(visnavn)}</b>`;
 }
+
 async function duplicateCalc(){
   if(!state.calcId){toast('Ingen kalkyle å duplisere');return;}
-  await saveCalc();const k=await dbGet('calcs',state.calcId);
-  const copy={...k,id:uid(),navn:k.navn+' (kopi)',created:Date.now(),updated:Date.now(),cart:k.cart.map(l=>({...l}))};
-  await dbPut('calcs',copy);await refreshCusts();openCalc(copy.id);toast('Kalkyle duplisert');
+  await saveCalc();
+  const r=compute();
+  let copy;
+  try{
+    copy=await api('/api/kalkyler',{method:'POST',body:{
+      kunde_id:state.custId,
+      navn:(document.getElementById('kalkylenavn').value.trim()||'Kalkyle')+' (kopi)',
+      status:'Utkast',
+      genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,
+      kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
+      kommentar:document.getElementById('kommentar').value,
+      scen_navn:document.getElementById('scenNavn').value,
+      scen_besk:document.getElementById('scenBesk').value,
+      snap_oms:r.sumOms, snap_pct:r.totMarginPct, snap_status:r.status,
+      linjer:state.cart.map(lineToApi)
+    }});
+  }catch(e){toast('Kunne ikke duplisere: '+e.message);return;}
+  await refreshCusts();await openCalc(copy.id);toast('Kalkyle duplisert');
 }
+
 async function deleteCalc(id){
-  const k=await dbGet('calcs',id);if(!k)return;
-  if(!confirm(`Slette kalkylen «${k.navn}»?`))return;
-  await dbDel('calcs',id);
+  if(!confirm('Slette denne kalkylen?'))return;
+  try{await api('/api/kalkyler/'+id,{method:'DELETE'});}
+  catch(e){toast('Kunne ikke slette: '+e.message);return;}
   if(state.calcId===id){state.calcId=null;state.cart=[];document.getElementById('crumb').textContent='Ingen kalkyle valgt';}
   await refreshCusts();await renderCalcArea();toast('Kalkyle slettet');
 }
+
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 // ============ Dirty / saved indikator ============
 function markDirty(){state.dirty=true;setSaved(false);}
@@ -975,35 +1105,69 @@ function setView(v){
 }
 
 // ============ Init ============
-async function init(){
-  await idb();
+async function boot(){
+  // produktbase + dashboard er lokale/uavhengige av innlogging — last dem først
   try{await loadProducts();}catch(e){return;}
   await loadDash();
   document.getElementById('loadOverlay').style.display='none';
-  await refreshCusts();
-  // gjenopprett sist åpne kalkyle i bakgrunnen, men start på Dashboard
-  const last=await dbGet('meta','lastCalc');
-  if(last&&last.v){const k=await dbGet('calcs',last.v);if(k){await openCalc(k.id);setView('dashboard');return;}}
-  // ellers: seed en demokunde+kalkyle hvis tomt, for å vise at det funker
-  if(!custCache.length){
-    const c={id:uid(),navn:'GRAFEN Trondheim',kundeid:'100245',note:'Demokunde',created:Date.now()};
-    await dbPut('customers',c);state.custId=c.id;
-    const seed=['MOZZARELLA AGEROLA JULIENNE','MEL TIPO 0 W350','PARMASKINKE BLOKK 18','TOMATER POLPA 10 KG','MOZZARELLA CUBETTATA'];
-    const cart=[];const qs=[50,10,10,4,40];
-    seed.forEach((s,i)=>{const p=DB.find(x=>x.navn.toUpperCase().includes(s.toUpperCase()));if(p)cart.push(lineFromProd(p,qs[i]));});
-    const k={id:uid(),custId:c.id,navn:'Eksempel: månedstilbud',cart,
-      meta:{kundenavn:c.navn,kundeid:c.kundeid,genrabatt:2.5,kjedebonus:2.5,kommentar:'Månedlig forbruk',scenNavn:'Standard scenario',scenBesk:'Hovedscenario for standard pris og rabattstruktur'},
-      snapshot:{oms:0,pct:0,status:'Ingen'},created:Date.now(),updated:Date.now()};
-    await dbPut('calcs',k);await refreshCusts();await openCalc(k.id);setView('dashboard');
-  }else{setView('dashboard');}
+  // har vi et token fra før? prøv å gjenopprette økten
+  if(TOKEN){
+    try{CURRENT_USER=await api('/api/auth/meg');showApp();return;}
+    catch(e){setToken(null);} // utløpt → fall til login
+  }
+  showLogin();
 }
-// lagre sist åpne kalkyle ved hver lagring
-const _save=saveCalc;
-saveCalc=async function(){await _save();if(state.calcId)await dbPut('meta',{k:'lastCalc',v:state.calcId});};
-const _open=openCalc;
-openCalc=async function(id){await _open(id);await dbPut('meta',{k:'lastCalc',v:id});};
 
-init();
+async function doLogin(){
+  const epost=document.getElementById('loginEpost').value.trim();
+  const passord=document.getElementById('loginPassord').value;
+  const errEl=document.getElementById('loginErr');
+  errEl.textContent='';
+  if(!epost||!passord){errEl.textContent='Fyll inn e-post og passord.';return;}
+  const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent='Logger inn…';
+  try{
+    const res=await api('/api/auth/logg-inn',{method:'POST',body:{epost,passord}});
+    // backend returnerer token-feltet; godta vanlige navn
+    const tok=res.token||res.access_token||res.jwt;
+    if(!tok)throw new Error('Uventet svar fra server (mangler token).');
+    setToken(tok);
+    CURRENT_USER=await api('/api/auth/meg');
+    document.getElementById('loginPassord').value='';
+    showApp();
+  }catch(e){errEl.textContent=e.message;}
+  finally{btn.disabled=false;btn.textContent='Logg inn';}
+}
+
+function logout(){setToken(null);CURRENT_USER=null;state={custId:null,calcId:null,cart:[],dirty:false};showLogin();}
+
+function showLogin(){
+  document.getElementById('appRoot').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  setTimeout(()=>document.getElementById('loginEpost').focus(),50);
+}
+
+async function showApp(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appRoot').style.display='flex';
+  // vis innlogget bruker i sidemenyen
+  if(CURRENT_USER){
+    const navn=CURRENT_USER.navn||CURRENT_USER.epost||'Bruker';
+    const rolle=CURRENT_USER.rolle||CURRENT_USER.rolle_navn||'';
+    const init2=navn.split(/\s+/).map(s=>s[0]).join('').slice(0,2).toUpperCase()||'??';
+    document.getElementById('userAvatar').textContent=init2;
+    document.getElementById('userNavn').childNodes[0].nodeValue=navn;
+    document.getElementById('userRolle').textContent=rolle;
+  }
+  await refreshCusts();
+  setView('dashboard');
+}
+
+// Enter-tast i login
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('loginScreen').style.display!=='none'){doLogin();}
+});
+
+boot();
 
 </script>
 </body>
