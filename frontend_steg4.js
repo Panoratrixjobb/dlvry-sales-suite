@@ -217,9 +217,9 @@ const Steg4 = (() => {
     const excelKonsept = (excelData?.konsepter || [])
       .map(
         (k) =>
-          `<tr><td>${esc(k.navn || k.konsept)}</td><td style="text-align:right">${kr(
-            k.oms2026 || k.verdi || k.sum || 0
-          )}</td></tr>`
+          `<tr><td>${esc(k.navn || k.konsept)}</td><td style="text-align:right">${
+            (k.y2026 ?? k.oms2026 ?? k.verdi ?? k.sum ?? 0).toLocaleString('nb-NO')
+          } MNOK</td></tr>`
       )
       .join("");
 
