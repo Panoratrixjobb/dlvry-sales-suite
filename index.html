@@ -311,6 +311,7 @@ tbody tr:hover{background:#fafbff}
         </section>
       </div>
       <div class="dash-source" id="dashSource"></div>
+      <div id="dashboard-app" style="margin-top:20px"></div>
     </div>
 
     <!-- ===== KALKULATOR VIEW ===== -->
@@ -445,6 +446,7 @@ tbody tr:hover{background:#fafbff}
         <button class="btn btn-danger" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
       </div>
       <div id="calcArea"></div>
+      <div id="kundekort-steg4" style="margin-top:24px"></div>
     </div>
   </main>
 </div>
@@ -491,6 +493,7 @@ tbody tr:hover{background:#fafbff}
   <div style="font-size:16px;font-weight:600;color:var(--brand)">Laster produktdatabase…</div>
   <div style="font-size:12.5px;color:var(--muted)" id="loadMsg">24 490 produkter</div>
 </div>
+<script src="frontend_steg4.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk hvis data.json finnes i samme mappe (samme kontrakt som Vei A).
@@ -660,7 +663,7 @@ const API_BASE='https://konseptsuite-backend.onrender.com';
 let TOKEN=sessionStorage.getItem('ks_token')||null;
 let CURRENT_USER=null;
 
-function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token');}
+function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
 // Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
 async function api(path,{method='GET',body=null}={}){
@@ -919,6 +922,7 @@ async function refreshCusts(){
 
 async function selectCust(id){
   state.custId=id;await refreshCusts();await renderCalcArea();
+  Steg4.monterKundekort(id,document.getElementById('kundekort-steg4'));
   const c=custCache.find(x=>x.id===id);
   document.getElementById('newCalcBtn').disabled=false;document.getElementById('delCustBtn').disabled=false;
   document.getElementById('kunderTitle').textContent=c?c.navn:'Kunder & kalkyler';
@@ -1101,11 +1105,14 @@ function setView(v){
   // skjul lagre-baren utenfor kalkulator
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder')renderCalcArea();
-  if(v==='dashboard')renderDash();
+  if(v==='dashboard'){renderDash();Steg4.visDashboard(document.getElementById('dashboard-app'),DASH);}
+  if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
 }
 
 // ============ Init ============
 async function boot(){
+  Steg4.API = API_BASE;
+  Steg4.token = TOKEN || '';
   // produktbase + dashboard er lokale/uavhengige av innlogging — last dem først
   try{await loadProducts();}catch(e){return;}
   await loadDash();
