@@ -509,9 +509,25 @@ const Steg4 = (() => {
 
   // ---------- DASHBOARD: APP vs EXCEL side om side ----------
   // excelData: objektet appen allerede har fra data.json (konsepter[], total, ...).
+
+  function norskDato(isoStr) {
+    if (!isoStr) return "—";
+    const d = new Date(isoStr + (isoStr.length === 10 ? "T00:00:00" : ""));
+    return d.toLocaleDateString("nb-NO", { weekday: "short", day: "numeric", month: "short" });
+  }
+
   async function visDashboard(el, excelData) {
-    el.innerHTML = "<p>Laster app-tall…</p>";
-    const app = await api("/api/dashboard");
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;color:var(--muted);padding:20px 0">' +
+      '<span style="display:inline-block;width:18px;height:18px;border:3px solid var(--brand);border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></span>' +
+      "Laster dashboard…</div>" +
+      "<style>@keyframes spin{to{transform:rotate(360deg)}}</style>";
+
+    const [app, moter, oppfolging] = await Promise.all([
+      api("/api/dashboard"),
+      api("/api/moter").catch(() => []),
+      api("/api/oppfolging").catch(() => []),
+    ]);
 
     const appStatus = app.per_status
       .map(
@@ -541,7 +557,64 @@ const Steg4 = (() => {
       )
       .join("");
 
+    const iDagStr = new Date().toISOString().slice(0, 10);
+
+    const moterRader = moter.length
+      ? moter
+          .map((m) => {
+            const erIdag = (m.dato || "").slice(0, 10) === iDagStr;
+            return (
+              `<tr style="${erIdag ? "font-weight:700;background:#eef1fb" : ""}">` +
+              `<td style="white-space:nowrap">${norskDato(m.dato)}</td>` +
+              `<td><a href="#" data-kunde-id="${esc(m.kunde_id)}" style="color:var(--brand);text-decoration:none">${esc(m.kunde_navn)}</a></td>` +
+              `<td style="color:var(--muted)">${esc(m.notat || "—")}</td></tr>`
+            );
+          })
+          .join("")
+      : '<tr><td colspan="3" style="color:var(--muted);font-style:italic">Ingen møter denne uken.</td></tr>';
+
+    const oppfRader = oppfolging.length
+      ? oppfolging
+          .map((o) => {
+            const forfalt = o.dato && (o.dato || "").slice(0, 10) < iDagStr;
+            const typeLabel = o.type === "tilbud" ? "Tilbud" : "Gjenbesøk";
+            return (
+              `<tr>` +
+              `<td style="white-space:nowrap"><span style="font-size:11px;padding:2px 7px;border-radius:4px;background:${o.type === "tilbud" ? "#eef1fb" : "#e7f6ed"};color:${o.type === "tilbud" ? "var(--brand)" : "var(--green)"};font-weight:600">${typeLabel}</span></td>` +
+              `<td>${esc(o.kunde_navn)}</td>` +
+              `<td style="white-space:nowrap;${forfalt ? "color:var(--red);font-weight:700" : "color:var(--muted)"}">${norskDato(o.dato)}</td></tr>`
+            );
+          })
+          .join("")
+      : '<tr><td colspan="3" style="color:var(--muted);font-style:italic">Ingen oppfølginger akkurat nå.</td></tr>';
+
     el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <section class="panel" style="padding:16px">
+          <h3 style="margin:0 0 4px;font-size:14px">Ukens møter</h3>
+          <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">I dag til og med søndag.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead><tr>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Dato</th>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Kunde</th>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Notat</th>
+            </tr></thead>
+            <tbody>${moterRader}</tbody>
+          </table>
+        </section>
+        <section class="panel" style="padding:16px">
+          <h3 style="margin:0 0 4px;font-size:14px">Oppfølging</h3>
+          <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">Tilbud med passert/nær frist og sovende kunder.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead><tr>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Type</th>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Kunde</th>
+              <th style="text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11.5px">Dato</th>
+            </tr></thead>
+            <tbody>${oppfRader}</tbody>
+          </table>
+        </section>
+      </div>
       <div class="ks-dash-grid">
         <section class="ks-dash-app">
           <h3>APP — potensiell omsetning</h3>
@@ -576,6 +649,15 @@ const Steg4 = (() => {
       </div>
       <p class="ks-advarsel">⚠️ App-tall (potensiell) og Excel-tall (fakturert) er
       bevisst adskilt og summeres aldri sammen.</p>`;
+
+    // Klikk på kunde-navn i møte-listen navigerer til kunden
+    el.querySelectorAll("a[data-kunde-id]").forEach((a) => {
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        const id = a.dataset.kundeId;
+        if (id && window.velgKunde) window.velgKunde(id);
+      });
+    });
   }
 
   return {
