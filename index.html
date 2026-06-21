@@ -247,6 +247,8 @@ tbody tr:hover{background:#fafbff}
     </nav>
     <div class="side-sec">
       <div class="lbl">Kunder</div>
+      <input id="custSearch" type="search" placeholder="Søk navn / orgnr…" oninput="searchCusts(this.value)"
+        style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:5px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:12px;outline:none">
       <div class="cust-list" id="custList"></div>
       <button class="side-btn" onclick="openCustModal()">+ Ny kunde</button>
     </div>
@@ -903,20 +905,28 @@ async function createCust(){
   toast('Kunde opprettet');await selectCust(c.id);setView('kunder');
 }
 
-async function refreshCusts(){
+let _custSearchTimer=null;
+async function searchCusts(q){
+  clearTimeout(_custSearchTimer);
+  _custSearchTimer=setTimeout(()=>refreshCusts(q.trim()),300);
+}
+
+async function refreshCusts(q=''){
   const list=document.getElementById('custList');
+  const url='/api/kunder?limit=200'+(q?'&q='+encodeURIComponent(q):'');
   try{
-    // backend returnerer kunder filtrert på rolle; antar hvert objekt har 'antall_kalkyler' om backend gir det,
-    // ellers faller vi tilbake på 0 (kortene viser uansett tellingen ved åpning av kunde).
-    custCache=(await api('/api/kunder')||[]).sort((a,b)=>a.navn.localeCompare(b.navn,'nb'));
+    custCache=(await api(url)||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
   }catch(e){
     list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+e.message+'</span></div>';
     return;
   }
-  if(!custCache.length){list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:#6b7488">Ingen kunder ennå</div>';return;}
+  if(!custCache.length){
+    list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:#6b7488">'+(q?'Ingen treff':'Ingen kunder ennå')+'</div>';
+    return;
+  }
   list.innerHTML=custCache.map(c=>{
     const cnt=c.antall_kalkyler!=null?c.antall_kalkyler:'';
-    return `<div class="cust-item ${c.id===state.custId?'active':''}" onclick="selectCust('${c.id}')"><span class="nm">${esc(c.navn)}</span><span class="cnt">${cnt}</span></div>`;
+    return `<div class="cust-item ${c.id===state.custId?'active':''}" onclick="selectCust('${c.id}')"><span class="nm">${esc(c.navn||'—')}</span><span class="cnt">${cnt}</span></div>`;
   }).join('');
 }
 
