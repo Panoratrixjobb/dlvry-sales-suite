@@ -165,19 +165,346 @@ const Steg4 = (() => {
     });
   }
 
-  // ---------- KUNDEKORT (faner) ----------
-  function monterKundekort(kundeId, el) {
+  // ---------- KONTAKTPERSONER ----------
+  async function monterKontaktpersoner(kundeId, el) {
+    el.innerHTML = "<p>Laster kontaktpersoner…</p>";
+    let kontakter;
+    try {
+      kontakter = await api(`/api/kunder/${kundeId}/kontaktpersoner`);
+    } catch (e) {
+      el.innerHTML = `<p style="color:#dc2626">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+    kontakter.sort((a, b) => (b.er_primaer ? 1 : 0) - (a.er_primaer ? 1 : 0));
+
+    const inp = (id, ph, extra = "") =>
+      `<input id="${id}" placeholder="${ph}" ${extra} style="border:1px solid #e7ebf3;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit">`;
+
+    const rader = kontakter
+      .map(
+        (k) => `
+      <tr style="${k.er_primaer ? "font-weight:600;background:#f0f4ff" : ""}">
+        <td>${esc(k.navn)}${k.er_primaer ? " ★" : ""}</td>
+        <td>${esc(k.rolle || "—")}</td>
+        <td>${esc(k.telefon || "—")}</td>
+        <td>${esc(k.epost || "—")}</td>
+        <td style="white-space:nowrap">
+          ${
+            !k.er_primaer
+              ? `<button data-primaer="${k.id}" style="background:#eef1fb;color:#3b4cca;border:none;border-radius:6px;padding:4px 8px;font-size:11.5px;cursor:pointer;font-family:inherit">Sett primær</button>`
+              : ""
+          }
+          <button data-slett-kon="${k.id}" style="background:#fbe9e9;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;font-size:11.5px;cursor:pointer;margin-left:4px;font-family:inherit">Slett</button>
+        </td>
+      </tr>`
+      )
+      .join("");
+
     el.innerHTML = `
+      <h4>Kontaktpersoner</h4>
+      <table class="ks-tabell">
+        <thead><tr><th>Navn</th><th>Rolle</th><th>Telefon</th><th>E-post</th><th></th></tr></thead>
+        <tbody>${rader || '<tr><td colspan="5">Ingen kontaktpersoner ennå.</td></tr>'}</tbody>
+      </table>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+        ${inp("kp-navn", "Navn *", 'style="border:1px solid #e7ebf3;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;flex:1;min-width:120px"')}
+        ${inp("kp-rolle", "Rolle")}
+        ${inp("kp-tlf", "Telefon")}
+        ${inp("kp-epost", "E-post")}
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8499;cursor:pointer;white-space:nowrap">
+          <input id="kp-primaer" type="checkbox"> Primær
+        </label>
+        <button id="kp-legg" style="background:#3b4cca;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Legg til</button>
+        <span id="kp-status" style="font-size:12px;color:#7a8499"></span>
+      </div>`;
+
+    // Fix the epost input (placeholder hack above won't work cleanly, do it in JS)
+    const epostEl = el.querySelector("#kp-epost");
+    epostEl.type = "email";
+    epostEl.placeholder = "E-post";
+
+    el.querySelectorAll("[data-slett-kon]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (!confirm("Slette kontaktperson?")) return;
+        try {
+          await api(`/api/kontaktpersoner/${b.dataset.slettKon}`, { method: "DELETE" });
+          monterKontaktpersoner(kundeId, el);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+
+    el.querySelectorAll("[data-primaer]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try {
+          await api(`/api/kontaktpersoner/${b.dataset.primaer}`, {
+            method: "PATCH",
+            body: JSON.stringify({ er_primaer: true }),
+          });
+          monterKontaktpersoner(kundeId, el);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+
+    el.querySelector("#kp-legg").addEventListener("click", async () => {
+      const st = el.querySelector("#kp-status");
+      const navn = el.querySelector("#kp-navn").value.trim();
+      if (!navn) {
+        st.textContent = "Navn er påkrevd";
+        st.style.color = "#dc2626";
+        return;
+      }
+      st.textContent = "Lagrer…";
+      st.style.color = "#7a8499";
+      try {
+        await api(`/api/kunder/${kundeId}/kontaktpersoner`, {
+          method: "POST",
+          body: JSON.stringify({
+            navn,
+            rolle: el.querySelector("#kp-rolle").value.trim() || null,
+            telefon: el.querySelector("#kp-tlf").value.trim() || null,
+            epost: el.querySelector("#kp-epost").value.trim() || null,
+            er_primaer: el.querySelector("#kp-primaer").checked,
+          }),
+        });
+        monterKontaktpersoner(kundeId, el);
+      } catch (e) {
+        st.textContent = "Feil: " + e.message;
+        st.style.color = "#dc2626";
+      }
+    });
+  }
+
+  // ---------- KUNDEKORT (kundeinfo + faner) ----------
+  async function monterKundekort(kundeId, el) {
+    el.innerHTML = "<p>Laster kundekort…</p>";
+
+    let kunde;
+    try {
+      kunde = await api(`/api/kunder/${kundeId}`);
+    } catch (e) {
+      el.innerHTML = `<p style="color:#dc2626">Feil ved henting av kunde: ${esc(e.message)}</p>`;
+      return;
+    }
+
+    const STATUSER = ["Lead", "Aktiv dialog", "Kunde", "Sovende", "Konkurs", "Ikke aktuell"];
+    const statusOpt = STATUSER.map(
+      (s) => `<option ${kunde.status === s ? "selected" : ""}>${esc(s)}</option>`
+    ).join("");
+
+    const feltStil =
+      "border:1px solid #e7ebf3;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit";
+    const radStil = "display:flex;align-items:center;gap:8px;margin-bottom:12px";
+    const lblStil = "color:#7a8499;font-size:12.5px;white-space:nowrap;min-width:130px";
+
+    const erSamme = !!kunde.faktura_samme_som_levering;
+    const erIkkeAktuell = kunde.status === "Ikke aktuell";
+    const erSovende = kunde.status === "Sovende";
+    const gjDato = kunde.gjenbesok_dato ? kunde.gjenbesok_dato.slice(0, 10) : "";
+    const segTekst = kunde.naeringsbeskrivelse
+      ? (kunde.naeringskode ? kunde.naeringskode + " — " : "") + kunde.naeringsbeskrivelse
+      : "";
+
+    el.innerHTML = `
+      <div style="background:#fff;border:1px solid #e7ebf3;border-radius:10px;padding:16px;margin-bottom:16px">
+        <h4 style="margin:0 0 14px;font-size:14px;font-weight:700">Kundeinfo</h4>
+
+        <div style="${radStil}">
+          <label style="${lblStil}">Org.nr</label>
+          <input id="ki-orgnr" value="${esc(kunde.orgnr || "")}" placeholder="9 siffer" style="${feltStil};width:120px">
+          <button id="ki-brreg-btn" style="background:#eef1fb;color:#3b4cca;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Hent fra BRREG</button>
+          <span id="ki-brreg-status" style="font-size:12px;color:#7a8499"></span>
+        </div>
+
+        <div id="ki-konkurs-varsel" style="display:none;background:#fbe9e9;color:#dc2626;border:1px solid #f7d7d7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:13px">
+          ⚠ Registrert konkurs i BRREG — vurder å sette status «Konkurs»
+        </div>
+
+        <div id="ki-segment-hint" style="display:${segTekst ? "block" : "none"};font-size:12px;color:#7a8499;margin-bottom:12px;padding:8px 10px;background:#fafbfe;border:1px solid #e7ebf3;border-radius:8px">
+          Næring: <span id="ki-segment-tekst">${esc(segTekst)}</span>
+        </div>
+
+        <div style="${radStil}">
+          <label style="${lblStil}">Status</label>
+          <select id="ki-status" style="${feltStil};min-width:170px">${statusOpt}</select>
+        </div>
+
+        <div id="ki-forklaring-wrap" style="display:${erIkkeAktuell ? "flex" : "none"};${radStil}">
+          <label style="${lblStil}">Forklaring *</label>
+          <input id="ki-forklaring" value="${esc(kunde.ikke_aktuell_forklaring || "")}" placeholder="Påkrevd forklaring" style="${feltStil};flex:1">
+        </div>
+
+        <div id="ki-gjenbesok-wrap" style="display:${erSovende ? "flex" : "none"};${radStil}">
+          <label style="${lblStil}">Gjenbesøk dato</label>
+          <input id="ki-gjenbesok" type="date" value="${gjDato}" style="${feltStil}">
+        </div>
+
+        <div style="${radStil}">
+          <label style="${lblStil}">Leveringsadresse</label>
+          <input id="ki-levadresse" value="${esc(kunde.leveringsadresse || "")}" placeholder="Adresse" style="${feltStil};flex:1">
+        </div>
+
+        <div style="${radStil}">
+          <label style="${lblStil}">Fakturaadresse</label>
+          <input id="ki-faktadresse" value="${esc(kunde.fakturaadresse || "")}" placeholder="Adresse" style="${feltStil};flex:1${erSamme ? ";background:#fafbff;color:#7a8499" : ""}">
+          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8499;cursor:pointer;white-space:nowrap">
+            <input id="ki-samme" type="checkbox" ${erSamme ? "checked" : ""}> Samme som levering
+          </label>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+          <button id="ki-lagre-btn" style="background:#3b4cca;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Lagre kundeinfo</button>
+          <span id="ki-lagre-status" style="font-size:12px;color:#7a8499"></span>
+        </div>
+      </div>
+
       <div class="ks-faner">
         <button class="ks-fane aktiv" data-fane="lev">Leveringssteder</button>
         <button class="ks-fane" data-fane="akt">Aktiviteter</button>
+        <button class="ks-fane" data-fane="kon">Kontaktpersoner</button>
       </div>
       <div id="ks-faneinnhold"></div>`;
+
+    // Disable fakturaadresse on init if same-as-delivery
+    if (erSamme) el.querySelector("#ki-faktadresse").disabled = true;
+
+    // BRREG-oppslag
+    el.querySelector("#ki-brreg-btn").addEventListener("click", async () => {
+      const orgnr = el.querySelector("#ki-orgnr").value.trim();
+      const st = el.querySelector("#ki-brreg-status");
+      const btn = el.querySelector("#ki-brreg-btn");
+      btn.disabled = true;
+      btn.textContent = "Henter…";
+      st.style.color = "#7a8499";
+      st.textContent = "";
+      el.querySelector("#ki-konkurs-varsel").style.display = "none";
+      try {
+        const d = await api(`/api/brreg/${encodeURIComponent(orgnr)}`);
+        if (d.forretningsadresse) {
+          const adr = [
+            ...(d.forretningsadresse.adresse || []),
+            d.forretningsadresse.postnummer,
+            d.forretningsadresse.poststed,
+          ]
+            .filter(Boolean)
+            .join(", ");
+          if (adr) el.querySelector("#ki-levadresse").value = adr;
+          if (el.querySelector("#ki-samme").checked)
+            el.querySelector("#ki-faktadresse").value = adr;
+        }
+        if (d.naeringskode1) {
+          const hint =
+            (d.naeringskode1.kode ? d.naeringskode1.kode + " — " : "") +
+            (d.naeringskode1.beskrivelse || "");
+          if (hint) {
+            el.querySelector("#ki-segment-tekst").textContent = hint;
+            el.querySelector("#ki-segment-hint").style.display = "block";
+          }
+        }
+        if (d.konkurs) {
+          el.querySelector("#ki-konkurs-varsel").style.display = "block";
+        }
+        st.textContent = d.navn ? "Hentet: " + d.navn : "Hentet fra BRREG";
+        st.style.color = "#16a34a";
+      } catch (e) {
+        const kod = e.message.match(/^(\d+)/)?.[1];
+        if (kod === "400") st.textContent = "Org.nr må være 9 siffer";
+        else if (kod === "404") st.textContent = "Fant ikke org.nr i BRREG";
+        else if (kod === "502") st.textContent = "BRREG utilgjengelig, prøv igjen";
+        else st.textContent = "Feil: " + e.message;
+        st.style.color = "#dc2626";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Hent fra BRREG";
+      }
+    });
+
+    // Status → vis/skjul betingede felt
+    el.querySelector("#ki-status").addEventListener("change", () => {
+      const s = el.querySelector("#ki-status").value;
+      el.querySelector("#ki-forklaring-wrap").style.display =
+        s === "Ikke aktuell" ? "flex" : "none";
+      el.querySelector("#ki-gjenbesok-wrap").style.display =
+        s === "Sovende" ? "flex" : "none";
+    });
+
+    // Fakturaadresse = leveringsadresse
+    const sammeEl = el.querySelector("#ki-samme");
+    const faktEl = el.querySelector("#ki-faktadresse");
+    const levEl = el.querySelector("#ki-levadresse");
+
+    const oppdaterFakt = () => {
+      if (sammeEl.checked) {
+        faktEl.value = levEl.value;
+        faktEl.disabled = true;
+        faktEl.style.background = "#fafbff";
+        faktEl.style.color = "#7a8499";
+      } else {
+        faktEl.disabled = false;
+        faktEl.style.background = "";
+        faktEl.style.color = "";
+      }
+    };
+
+    sammeEl.addEventListener("change", oppdaterFakt);
+    levEl.addEventListener("input", () => {
+      if (sammeEl.checked) faktEl.value = levEl.value;
+    });
+
+    // Lagre kundeinfo
+    el.querySelector("#ki-lagre-btn").addEventListener("click", async () => {
+      const st = el.querySelector("#ki-lagre-status");
+      const btn = el.querySelector("#ki-lagre-btn");
+      const statusVal = el.querySelector("#ki-status").value;
+      const forklaring = el.querySelector("#ki-forklaring").value.trim();
+
+      if (statusVal === "Ikke aktuell" && !forklaring) {
+        st.textContent = "Forklaring er påkrevd for «Ikke aktuell»";
+        st.style.color = "#dc2626";
+        el.querySelector("#ki-forklaring").focus();
+        return;
+      }
+
+      btn.disabled = true;
+      st.textContent = "Lagrer…";
+      st.style.color = "#7a8499";
+
+      try {
+        const payload = {
+          status: statusVal,
+          orgnr: el.querySelector("#ki-orgnr").value.trim() || null,
+          leveringsadresse: levEl.value.trim() || null,
+          fakturaadresse: faktEl.value.trim() || null,
+          faktura_samme_som_levering: sammeEl.checked,
+        };
+        if (statusVal === "Ikke aktuell") payload.ikke_aktuell_forklaring = forklaring;
+        if (statusVal === "Sovende") {
+          payload.gjenbesok_dato = el.querySelector("#ki-gjenbesok").value || null;
+        }
+        await api(`/api/kunder/${kundeId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+        st.textContent = "Lagret";
+        st.style.color = "#16a34a";
+      } catch (e) {
+        st.textContent = "Feil: " + e.message;
+        st.style.color = "#dc2626";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Faner
     const innhold = el.querySelector("#ks-faneinnhold");
-    const vis = (f) =>
-      f === "lev"
-        ? monterLeveringssteder(kundeId, innhold)
-        : monterAktiviteter(kundeId, innhold);
+    const vis = (f) => {
+      if (f === "lev") monterLeveringssteder(kundeId, innhold);
+      else if (f === "akt") monterAktiviteter(kundeId, innhold);
+      else if (f === "kon") monterKontaktpersoner(kundeId, innhold);
+    };
     el.querySelectorAll(".ks-fane").forEach((b) =>
       b.addEventListener("click", () => {
         el.querySelectorAll(".ks-fane").forEach((x) =>
@@ -263,6 +590,6 @@ const Steg4 = (() => {
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter,
+    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner,
   };
 })();
