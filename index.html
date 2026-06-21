@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prising & Totalmargin — KonseptSuite</title>
+<link rel="stylesheet" href="dlvry-stil.css">
 <style>
 :root{
   --bg:#f4f6fb; --panel:#ffffff; --ink:#1e2433; --muted:#7a8499; --line:#e7ebf3;
@@ -237,26 +238,28 @@ tbody tr:hover{background:#fafbff}
   </div>
 </div>
 
-<div class="app" id="appRoot" style="display:none">
-  <aside class="sidebar">
-    <div class="logo"><span class="mark">◆</span> KonseptSuite</div>
-    <nav class="nav">
-      <a class="active" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
+<div class="app d-skall" id="appRoot" style="display:none">
+  <aside class="d-sidemeny">
+    <div class="d-logo"><span class="d-mark"></span> DLVRY</div>
+    <nav class="d-meny">
+      <a class="aktiv" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
+      <a class="deaktivert"><span class="ic">◈</span> Konsepter</a>
       <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Prising &amp; Totalmargin</a>
-      <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; kalkyler</a>
-      <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">👥</span> Brukere</a>
+      <a class="deaktivert"><span class="ic">📊</span> Kundeanalyse</a>
+      <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> CRM</a>
+      <a class="deaktivert"><span class="ic">📄</span> Rapporter</a>
+      <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
     </nav>
-    <div class="side-sec">
-      <div class="lbl">Kunder</div>
-      <input id="custSearch" type="search" placeholder="Søk navn / orgnr…" oninput="searchCusts(this.value)"
-        style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:5px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-size:12px;outline:none">
+    <div class="d-side-sek">
+      <div class="d-side-lbl">Kunder</div>
+      <input id="custSearch" class="d-side-sok" type="search" placeholder="Søk navn / orgnr…" oninput="searchCusts(this.value)">
       <div class="cust-list" id="custList"></div>
       <button class="side-btn" onclick="openCustModal()">+ Ny kunde</button>
     </div>
-    <div class="user">
+    <div class="d-side-bruker">
       <div class="avatar" id="userAvatar">MF</div>
       <div class="meta" id="userNavn">Bruker<span id="userRolle"></span></div>
-      <button onclick="logout()" title="Logg ut" style="margin-left:auto;background:none;border:none;color:var(--sidebar-ink);cursor:pointer;font-size:15px;padding:4px">⎋</button>
+      <button onclick="logout()" title="Logg ut" style="margin-left:auto;background:none;border:none;color:var(--sidemeny-tekst);cursor:pointer;font-size:15px;padding:4px">⎋</button>
     </div>
   </aside>
 
@@ -1595,7 +1598,7 @@ function setView(v){
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
   document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
-  document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.view===v));
+  document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
   // skjul lagre-baren utenfor kalkulator
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder')renderCalcArea();

@@ -1,0 +1,214 @@
+/* ============================================================
+   DLVRY KONSEPTSUITE — DESIGNSYSTEM
+   Kilde: DLVRY presentasjonsmal (theme1.xml) + godkjent stilguide 2026-06-21
+   Alle komponentklasser har d- prefiks for å unngå kollisjon med eksisterende CSS.
+   Endre tokens i :root → endrer hele appen. Ikke overstyr farger lokalt.
+   ============================================================ */
+:root{
+  /* --- Flater --- */
+  --bg:            #F4F2ED;   /* varm off-white sidebakgrunn */
+  --panel:         #FFFFFF;
+  --sidemeny:      #3A2D2A;   /* varm mørk brun */
+  --sidemeny-tekst:#C8BEB8;
+  --sidemeny-aktiv:#FFFFFF;
+
+  /* --- Merkevare (DLVRY korall-terrakotta) --- */
+  --primaer:       #D65742;   /* theme dk2 — logo/merkevare */
+  --primaer-mork:  #B8472F;   /* hover */
+  --primaer-svak:  #FBEAE6;   /* lys korall bakgrunn (aktiv/hover) */
+
+  /* --- Sekundær data (theme teal) --- */
+  --teal:          #0097B8;
+  --teal-mork:     #006383;
+
+  /* --- Status (pille; dempet mot varm palett) --- */
+  --d-gronn:    #3F7D55;  --d-gronn-bg:    #E3F0E6;
+  --d-gul:      #B45309;  --d-gul-bg:      #FBEBD2;
+  --d-bla:      #006383;  --d-bla-bg:      #DCEEF3;
+  --d-roed:     #C0392B;  --d-roed-bg:     #FBE3DF;
+  --d-lilla:    #56423E;  --d-lilla-bg:    #EFE9E6;
+  --d-graa:     #6B6560;  --d-graa-bg:     #EEEBE6;
+
+  /* --- Tekst --- */
+  --d-tekst:      #211C1A;
+  --d-tekst-2:    #5C534E;
+  --d-tekst-3:    #948C86;
+  --d-ramme:      #E6E1DA;
+  --d-ramme-mork: #D6CFC6;
+
+  /* --- Form --- */
+  --d-radius:     14px;
+  --d-radius-sm:  9px;
+  --d-radius-pille: 999px;
+  --d-skygge:     0 1px 2px rgba(58,45,42,.05), 0 1px 3px rgba(58,45,42,.07);
+  --d-skygge-hev: 0 4px 12px rgba(58,45,42,.10);
+
+  /* --- Avstand (4px-skala) --- */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px;
+
+  /* --- Type (DLVRY-mal: Trebuchet overskrift, Arial body) --- */
+  --font-display: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  --d-font: Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+/* ---------- Typografi ---------- */
+.d-t-kpi   {font-family:var(--font-display); font-size:30px; font-weight:700; letter-spacing:-.02em; line-height:1.1;}
+.d-t-h1    {font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:-.01em; color:var(--d-tekst);}
+.d-t-h2    {font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--d-tekst);}
+.d-t-body  {font-size:14px; font-weight:400;}
+.d-t-label {font-size:12px; font-weight:500; color:var(--d-tekst-2);}
+.d-t-hint  {font-size:11px; font-weight:500; color:var(--d-tekst-3); text-transform:uppercase; letter-spacing:.04em;}
+
+/* ---------- Layout-skall (sidemeny + innhold) ---------- */
+.d-skall{display:flex; min-height:100vh;}
+.d-sidemeny{
+  width:230px; flex:0 0 230px; background:var(--sidemeny);
+  padding:var(--s5) var(--s3); color:var(--sidemeny-tekst);
+  position:sticky; top:0; height:100vh; overflow-y:auto;
+  display:flex; flex-direction:column;
+}
+.d-logo{display:flex; align-items:center; gap:var(--s2); color:#fff;
+  font-family:var(--font-display); font-weight:700; font-size:18px; letter-spacing:.02em;
+  padding:var(--s2) var(--s3) var(--s6);}
+.d-logo .d-mark{width:26px;height:24px; background:var(--primaer);
+  border-radius:14px 14px 14px 3px; transform:rotate(-2deg); flex-shrink:0;}
+.d-meny a{display:flex; align-items:center; gap:var(--s3);
+  padding:10px var(--s3); border-radius:var(--d-radius-sm);
+  color:var(--sidemeny-tekst); text-decoration:none; font-weight:500;
+  font-size:14px; margin-bottom:2px; cursor:pointer;}
+.d-meny a .ic{width:18px;height:18px;opacity:.85; flex-shrink:0; text-align:center;}
+.d-meny a:hover{background:rgba(255,255,255,.06); color:#fff;}
+.d-meny a.aktiv{background:var(--primaer); color:#fff;}
+.d-meny a.deaktivert{opacity:.35; cursor:not-allowed; pointer-events:none;}
+.d-innhold{flex:1; padding:var(--s8); max-width:1180px;}
+
+/* Kunde-seksjon i sidemeny */
+.d-side-sek{margin-top:var(--s4); padding-top:var(--s4); border-top:1px solid rgba(255,255,255,.07);}
+.d-side-lbl{font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#6b7488;
+  padding:0 var(--s2) var(--s2); font-weight:600;}
+.d-side-sok{width:100%; box-sizing:border-box; margin-bottom:6px; padding:5px 8px;
+  border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06);
+  color:#fff; font-size:12px; outline:none; font-family:inherit;}
+.d-side-sok::placeholder{color:rgba(255,255,255,.4);}
+.d-side-bruker{margin-top:auto; display:flex; align-items:center; gap:10px;
+  padding:12px var(--s2) 2px; border-top:1px solid rgba(255,255,255,.07);}
+
+/* ---------- Panel / kort ---------- */
+.d-panel{background:var(--panel); border:1px solid var(--d-ramme);
+  border-radius:var(--d-radius); box-shadow:var(--d-skygge); padding:var(--s5);}
+.d-panel-hode{display:flex; align-items:flex-start; justify-content:space-between;
+  margin-bottom:var(--s4); gap:var(--s3);}
+.d-panel-hode .d-lenke{color:var(--primaer); font-size:13px; font-weight:550; text-decoration:none;}
+.d-panel-hode .d-lenke:hover{text-decoration:underline;}
+
+/* ---------- KPI-kort ---------- */
+.d-kpi{background:var(--panel); border:1px solid var(--d-ramme);
+  border-radius:var(--d-radius); box-shadow:var(--d-skygge); padding:var(--s4) var(--s5);}
+.d-kpi .d-label{font-size:13px; color:var(--d-tekst-2); font-weight:500;}
+.d-kpi .d-rad{display:flex; align-items:baseline; gap:var(--s3); margin-top:var(--s2);}
+.d-kpi .d-tall{font-family:var(--font-display); font-size:28px; font-weight:700; letter-spacing:-.02em;}
+.d-kpi .d-vs{font-size:12px; color:var(--d-tekst-3); margin-top:var(--s1);}
+.d-trend{font-size:12px; font-weight:650; display:inline-flex; align-items:center; gap:3px;}
+.d-trend.opp{color:var(--d-gronn);} .d-trend.ned{color:var(--d-roed);}
+
+/* ---------- Badge (status-pille) ---------- */
+.d-badge{display:inline-flex; align-items:center; gap:5px;
+  padding:3px 10px; border-radius:var(--d-radius-pille);
+  font-size:12px; font-weight:600; line-height:1.4; white-space:nowrap;}
+.d-badge::before{content:""; width:6px; height:6px; border-radius:50%;
+  background:currentColor; opacity:.9; flex-shrink:0;}
+.d-badge.gronn{color:var(--d-gronn); background:var(--d-gronn-bg);}
+.d-badge.gul  {color:var(--d-gul);   background:var(--d-gul-bg);}
+.d-badge.bla  {color:var(--d-bla);   background:var(--d-bla-bg);}
+.d-badge.roed {color:var(--d-roed);  background:var(--d-roed-bg);}
+.d-badge.lilla{color:var(--d-lilla); background:var(--d-lilla-bg);}
+.d-badge.graa {color:var(--d-graa);  background:var(--d-graa-bg);}
+.d-badge.flat{padding:3px 12px;}
+.d-badge.flat::before{display:none;}
+
+/* ---------- Knapper ---------- */
+.d-knapp{display:inline-flex; align-items:center; gap:var(--s2);
+  padding:9px 16px; border-radius:var(--d-radius-sm); font-size:14px;
+  font-weight:600; border:1px solid transparent; cursor:pointer;
+  font-family:inherit; transition:background .12s,border-color .12s; line-height:1.2;}
+.d-knapp:disabled{opacity:.5; cursor:not-allowed;}
+.d-knapp.primar{background:var(--primaer); color:#fff; border-color:var(--primaer);}
+.d-knapp.primar:hover:not(:disabled){background:var(--primaer-mork); border-color:var(--primaer-mork);}
+.d-knapp.sekundar{background:#fff; color:var(--d-tekst); border-color:var(--d-ramme-mork);}
+.d-knapp.sekundar:hover:not(:disabled){background:var(--bg); border-color:var(--d-tekst-3);}
+.d-knapp.subtil{background:transparent; color:var(--primaer); border-color:transparent;}
+.d-knapp.subtil:hover:not(:disabled){background:var(--primaer-svak);}
+.d-knapp.fare{background:#fff; color:var(--d-roed); border-color:#E6B5AE;}
+.d-knapp.fare:hover:not(:disabled){background:var(--d-roed-bg);}
+.d-knapp.sm{padding:5px 10px; font-size:12px;}
+
+/* ---------- Felt / input ---------- */
+.d-felt{display:flex; flex-direction:column; gap:5px;}
+.d-felt label{font-size:12px; font-weight:600; color:var(--d-tekst-2);}
+.d-input,.d-select{padding:9px 12px; border:1px solid var(--d-ramme-mork);
+  border-radius:var(--d-radius-sm); font-size:13px; font-family:inherit;
+  background:#fff; color:var(--d-tekst); width:100%; box-sizing:border-box;}
+.d-input:focus,.d-select:focus{outline:none; border-color:var(--primaer);
+  box-shadow:0 0 0 3px var(--primaer-svak);}
+.d-input:disabled{background:var(--bg); color:var(--d-tekst-3);}
+.d-sok{position:relative;}
+.d-sok .d-input{padding-left:36px;}
+.d-sok .ic{position:absolute; left:11px; top:50%; transform:translateY(-50%);
+  width:16px;height:16px; color:var(--d-tekst-3);}
+
+/* ---------- Tabell ---------- */
+.d-tabell{width:100%; border-collapse:collapse; font-size:13px;}
+.d-tabell thead th{text-align:left; font-size:11.5px; font-weight:600;
+  color:var(--d-tekst-2); padding:10px var(--s3); border-bottom:1px solid var(--d-ramme);
+  white-space:nowrap; background:#fafaf8;}
+.d-tabell tbody td{padding:11px var(--s3); border-bottom:1px solid var(--d-ramme); color:var(--d-tekst);}
+.d-tabell tbody tr:hover{background:var(--bg);}
+.d-tabell tbody tr:last-child td{border-bottom:none;}
+.d-tabell .d-navn{font-weight:600;}
+.d-tabell .d-sub{color:var(--d-tekst-3); font-size:12px;}
+
+/* ---------- Faner (kundekort) ---------- */
+.d-faner{display:flex; gap:4px; border-bottom:2px solid var(--d-ramme);
+  margin:var(--s5) 0 var(--s4);}
+.d-fane{background:none; border:none; padding:9px var(--s3); font-size:13px;
+  color:var(--d-tekst-2); cursor:pointer; border-bottom:2px solid transparent;
+  font-weight:500; font-family:inherit; margin-bottom:-2px; transition:.12s;}
+.d-fane:hover{color:var(--d-tekst);}
+.d-fane.aktiv{color:var(--primaer); border-bottom-color:var(--primaer);}
+
+/* ---------- Pipeline-bånd ---------- */
+.d-pipeline{display:flex; gap:6px; flex-wrap:wrap;}
+.d-steg{flex:1; min-width:118px; background:#fff; border:1px solid var(--d-ramme);
+  border-radius:var(--d-radius-sm); padding:var(--s3) var(--s4);}
+.d-steg .d-topp{height:3px; border-radius:3px; margin:-2px -2px 10px;}
+.d-steg .d-navn{font-size:12px; color:var(--d-tekst-2); font-weight:600;}
+.d-steg .d-ant{font-family:var(--font-display); font-size:22px; font-weight:700; margin:3px 0;}
+.d-steg .d-verdi{font-size:12px; color:var(--d-tekst-3);}
+
+/* ---------- Tidslinje (aktivitet) ---------- */
+.d-tidslinje{display:flex; flex-direction:column; gap:var(--s4); list-style:none; padding:0; margin:0;}
+.d-hending{display:flex; gap:var(--s3);}
+.d-hending .d-punkt{width:30px;height:30px;border-radius:50%; flex:0 0 30px;
+  display:grid; place-items:center; background:var(--primaer-svak); color:var(--primaer);
+  font-size:13px; font-weight:600;}
+.d-hending .d-innh{flex:1;}
+.d-hending .d-innh .d-tit{font-weight:600; font-size:13px; color:var(--d-tekst);}
+.d-hending .d-innh .d-meta{font-size:12px; color:var(--d-tekst-3); margin-top:2px;}
+.d-hending .d-innh .d-notat{font-size:13px; color:var(--d-tekst-2); margin-top:4px;}
+
+/* ---------- Legg-til-rad (input-område under tabell) ---------- */
+.d-legg-til{display:flex; gap:var(--s2); margin-top:var(--s3); flex-wrap:wrap; align-items:flex-end;}
+
+/* ---------- Grid-hjelpere ---------- */
+.d-grid{display:grid; gap:var(--s4);}
+.d-g6{grid-template-columns:repeat(6,1fr);}
+.d-g4{grid-template-columns:repeat(4,1fr);}
+.d-g3{grid-template-columns:repeat(3,1fr);}
+.d-g2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:1000px){
+  .d-g6,.d-g4{grid-template-columns:repeat(2,1fr)}
+  .d-g3,.d-g2{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+  .d-sidemeny{display:none;}
+}
