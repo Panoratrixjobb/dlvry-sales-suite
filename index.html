@@ -466,9 +466,9 @@ tbody tr:hover{background:#fafbff}
         <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
           <input id="leadsSearch" type="search" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)"
             style="flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;font-family:inherit">
-          <select id="leadsGrossist" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
-          <select id="leadsSegment" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
-          <select id="leadsSelger" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+          <select id="leadsGrossist" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+          <select id="leadsSegment" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+          <select id="leadsSelger" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -489,6 +489,12 @@ tbody tr:hover{background:#fafbff}
             </tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
+        </div>
+
+        <div id="leadsPager" style="display:none;gap:14px;align-items:center;justify-content:center;margin-top:14px">
+          <button id="leadsPrev" class="btn btn-ghost" onclick="leadsGaaSide(-1)">‹ Forrige</button>
+          <span id="leadsPagerInfo" style="font-size:12.5px;color:var(--muted)"></span>
+          <button id="leadsNext" class="btn btn-ghost" onclick="leadsGaaSide(1)">Neste ›</button>
         </div>
       </div>
     </div>
@@ -729,7 +735,7 @@ let CURRENT_USER=null;
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
 // Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
-async function api(path,{method='GET',body=null}={}){
+async function api(path,{method='GET',body=null,onResponse=null}={}){
   const headers={'Content-Type':'application/json'};
   if(TOKEN)headers['Authorization']='Bearer '+TOKEN;
   // vis «vekker server» hvis kallet drøyer (typisk kaldstart på Render Free)
@@ -742,6 +748,8 @@ async function api(path,{method='GET',body=null}={}){
     throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
   }
   clearTimeout(wake);showWake(false);
+  // Lar kalleren lese rå-respons (f.eks. X-Total-Count-header til paginering).
+  if(onResponse)try{onResponse(r);}catch(_){}
   if(r.status===401){ // utløpt/ugyldig token → tilbake til innlogging
     setToken(null);CURRENT_USER=null;showLogin();throw new Error('Økt utløpt — logg inn på nytt.');
   }
@@ -777,7 +785,9 @@ let custCache=[];
 
 // Leads-underfane
 let leadsCache=[], leadsSel=new Set(), leadsAllFilter=false, leadsAllIds=[],
-    leadsGrossister=[], leadsMounted=false, _leadsSearchTimer=null;
+    leadsGrossister=[], leadsMounted=false, _leadsSearchTimer=null,
+    leadsPage=1, leadsTotal=0, leadsTotalKjent=false;
+const LEADS_PER_SIDE=200;
 const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurtigmat","Indisk","Tex-Mex"];
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
@@ -1205,7 +1215,7 @@ async function mountLeads(){
       selgerOpts+='<option value="'+CURRENT_USER.id+'">'+esc(CURRENT_USER.navn||CURRENT_USER.epost||'meg')+' (meg)</option>';
     document.getElementById('tildelSelger').innerHTML=selgerOpts;
   }
-  loadLeads();
+  leadsResetAndLoad();
 }
 
 function leadsParams(extra){
@@ -1220,16 +1230,35 @@ function leadsParams(extra){
   return p;
 }
 
-function onLeadsSearch(){ clearTimeout(_leadsSearchTimer); _leadsSearchTimer=setTimeout(loadLeads,300); }
+// Søk/filter-endring snevrer resultatet → start alltid på side 1 (ellers kan
+// offset peke forbi det nye, mindre resultatet).
+function onLeadsSearch(){ clearTimeout(_leadsSearchTimer); _leadsSearchTimer=setTimeout(leadsResetAndLoad,300); }
+
+function leadsResetAndLoad(){ leadsPage=1; loadLeads(); }
+
+// Paginering: navigerer mellom sider på 200. Søk/filter snevrer inn — sammen = komplett.
+function leadsGaaSide(delta){
+  const maxSide=Math.max(1,Math.ceil(leadsTotal/LEADS_PER_SIDE));
+  const ny=Math.min(maxSide,Math.max(1,leadsPage+delta));
+  if(ny===leadsPage) return;
+  leadsPage=ny; loadLeads();
+}
 
 async function loadLeads(){
   const body=document.getElementById('leadsBody');
   body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Laster leads…</td></tr>';
-  // Filterendring nullstiller utvalg + "alle treff"-modus
+  // Sidebytte/filterendring nullstiller utvalg + "alle treff"-modus (avkrysninger gjelder gjeldende side)
   leadsSel.clear(); leadsAllFilter=false; leadsAllIds=[];
+  const offset=(leadsPage-1)*LEADS_PER_SIDE;
   let rows;
-  try{ rows = await api('/api/kunder?'+leadsParams({limit:'200'}).toString())||[]; }
+  try{
+    rows = await api('/api/kunder?'+leadsParams({limit:String(LEADS_PER_SIDE),offset:String(offset)}).toString(),
+      {onResponse:r=>{ const t=r.headers.get('X-Total-Count'); leadsTotalKjent = t!=null; if(t!=null) leadsTotal=parseInt(t,10)||0; }})||[];
+  }
   catch(e){ body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--red)">Feil: '+esc(e.message)+'</td></tr>'; return; }
+  // Offset endte forbi resultatet (f.eks. etter masse-tildel som krympet treffet) → klem til siste side.
+  const maxSide=Math.max(1,Math.ceil(leadsTotal/LEADS_PER_SIDE));
+  if(leadsPage>maxSide){ leadsPage=maxSide; return loadLeads(); }
   leadsCache=rows;
   renderLeads();
 }
@@ -1241,6 +1270,7 @@ function renderLeads(){
   if(!leadsCache.length){
     body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
     document.getElementById('leadsCount').textContent='0 leads';
+    renderLeadsPager();
     updateLeadsBar(); return;
   }
   body.innerHTML=leadsCache.map(k=>{
@@ -1267,10 +1297,28 @@ function renderLeads(){
   body.querySelectorAll('[data-leadrow]').forEach(tr=>{
     tr.addEventListener('click',e=>{ if(e.target.closest('input'))return; openLeadRow(tr.dataset.leadrow); });
   });
-  let cnt=leadsCache.length+' leads';
-  if(leadsCache.length>=200) cnt+=' (viser 200 — søk/filtrer for å snevre inn)';
-  document.getElementById('leadsCount').textContent=cnt;
+  if(leadsTotalKjent){
+    const fra=(leadsPage-1)*LEADS_PER_SIDE+1, til=(leadsPage-1)*LEADS_PER_SIDE+leadsCache.length;
+    document.getElementById('leadsCount').textContent='Viser '+fra+'–'+til+' av '+leadsTotal.toLocaleString('no')+' leads';
+  }else{
+    // Eldre backend uten X-Total-Count → fall tilbake til enkel teller.
+    let cnt=leadsCache.length+' leads';
+    if(leadsCache.length>=LEADS_PER_SIDE) cnt+=' (viser '+LEADS_PER_SIDE+' — søk/filtrer for å snevre inn)';
+    document.getElementById('leadsCount').textContent=cnt;
+  }
+  renderLeadsPager();
   updateLeadsBar();
+}
+
+function renderLeadsPager(){
+  const maxSide=Math.max(1,Math.ceil(leadsTotal/LEADS_PER_SIDE));
+  const pager=document.getElementById('leadsPager');
+  // Skjul navigasjonen uten kjent total, eller når alt får plass på én side.
+  pager.style.display = (leadsTotalKjent && leadsTotal>LEADS_PER_SIDE) ? 'flex' : 'none';
+  document.getElementById('leadsPagerInfo').textContent=
+    'Side '+leadsPage+' av '+maxSide+'  ·  '+leadsTotal.toLocaleString('no')+' leads totalt';
+  document.getElementById('leadsPrev').disabled = leadsPage<=1;
+  document.getElementById('leadsNext').disabled = leadsPage>=maxSide;
 }
 
 function leadsRowToggle(id,checked){
@@ -1316,7 +1364,9 @@ function updateLeadsBar(){
   tBtn.disabled = n===0;
   document.getElementById('leadsClear').style.display = n>0 ? '' : 'none';
   const selAll=document.getElementById('leadsSelAll');
-  selAll.style.display = (leadsCache.length>=200 && !leadsAllFilter) ? '' : 'none';
+  // Treffet strekker seg over flere sider → tilby «Velg alle treff» (på tvers av sider).
+  const harFlere = leadsTotalKjent ? leadsTotal>LEADS_PER_SIDE : leadsCache.length>=LEADS_PER_SIDE;
+  selAll.style.display = (harFlere && !leadsAllFilter) ? '' : 'none';
   const info=document.getElementById('leadsSelInfo');
   if(leadsAllFilter) info.textContent='Alle treff valgt ('+leadsAllIds.length+')';
   else if(leadsSel.size) info.textContent=leadsSel.size+' valgt';
