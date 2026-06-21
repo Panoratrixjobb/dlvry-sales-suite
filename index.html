@@ -454,9 +454,9 @@ tbody tr:hover{background:#fafbff}
     <div id="view-kunder" style="display:none">
       <div class="topbar"><h1 id="kunderTitle">Kunder &amp; kalkyler</h1></div>
 
-      <div class="tabs" id="kunderSubTabs">
-        <button class="active" data-sub="kunder" onclick="setKunderSub('kunder')">Kunder</button>
-        <button data-sub="leads" onclick="setKunderSub('leads')">Leads</button>
+      <div class="tabs d-faner" id="kunderSubTabs" style="border-bottom:2px solid var(--d-ramme)">
+        <button class="active d-fane aktiv" data-sub="kunder" onclick="setKunderSub('kunder')">Kunder</button>
+        <button class="d-fane" data-sub="leads" onclick="setKunderSub('leads')">Leads</button>
       </div>
 
       <!-- Undervisning: Kunder (eksisterende kundekort-flyt) -->
@@ -475,24 +475,26 @@ tbody tr:hover{background:#fafbff}
       <div id="sub-leads" style="display:none">
         <div class="crumb">Prospekter (status = Lead). Søk, filtrer og masse-tildel grossist/selger.</div>
 
-        <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
-          <input id="leadsSearch" type="search" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)"
-            style="flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;font-family:inherit">
-          <select id="leadsGrossist" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
-          <select id="leadsSegment" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
-          <select id="leadsSelger" onchange="leadsResetAndLoad()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+        <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+          <div class="d-sok" style="flex:1;min-width:200px">
+            <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+            <input id="leadsSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)">
+          </div>
+          <select id="leadsGrossist" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:150px"></select>
+          <select id="leadsSegment" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px"></select>
+          <select id="leadsSelger" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:140px"></select>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <span id="leadsCount" style="font-size:12.5px;color:var(--muted)"></span>
-          <span id="leadsSelInfo" style="font-size:12.5px;color:var(--brand);font-weight:600"></span>
-          <button id="leadsSelAll" class="btn btn-ghost" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
-          <button id="leadsClear" class="btn btn-ghost" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
-          <button id="leadsTildel" class="btn btn-primary" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
+          <span id="leadsCount" class="d-t-label"></span>
+          <span id="leadsSelInfo" style="font-size:12.5px;color:var(--primaer);font-weight:600"></span>
+          <button id="leadsSelAll" class="d-knapp subtil sm" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
+          <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
+          <button id="leadsTildel" class="d-knapp primar" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
         </div>
 
-        <div class="table-wrap">
-          <table style="min-width:1180px">
+        <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
+          <table class="d-tabell" style="min-width:1180px">
             <thead><tr id="leadsHead">
               <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
               <th>Kategori</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
@@ -504,9 +506,9 @@ tbody tr:hover{background:#fafbff}
         </div>
 
         <div id="leadsPager" style="display:none;gap:14px;align-items:center;justify-content:center;margin-top:14px">
-          <button id="leadsPrev" class="btn btn-ghost" onclick="leadsGaaSide(-1)">‹ Forrige</button>
-          <span id="leadsPagerInfo" style="font-size:12.5px;color:var(--muted)"></span>
-          <button id="leadsNext" class="btn btn-ghost" onclick="leadsGaaSide(1)">Neste ›</button>
+          <button id="leadsPrev" class="d-knapp sekundar sm" onclick="leadsGaaSide(-1)">‹ Forrige</button>
+          <span id="leadsPagerInfo" class="d-t-hint"></span>
+          <button id="leadsNext" class="d-knapp sekundar sm" onclick="leadsGaaSide(1)">Neste ›</button>
         </div>
       </div>
     </div>
@@ -581,17 +583,17 @@ tbody tr:hover{background:#fafbff}
   <div class="modal">
     <h2>Tildel valgte leads</h2>
     <p class="sub" id="tildelSub">Velg grossist og/eller selger. Bare felt du setter blir endret.</p>
-    <div class="scen-field"><label>Grossist</label>
-      <select id="tildelGrossist" style="width:100%"></select>
+    <div class="d-felt" style="margin-bottom:14px"><label>Grossist</label>
+      <select id="tildelGrossist" class="d-select"></select>
     </div>
-    <div class="scen-field"><label>Selger</label>
-      <select id="tildelSelger" style="width:100%"></select>
+    <div class="d-felt" style="margin-bottom:14px"><label>Selger</label>
+      <select id="tildelSelger" class="d-select"></select>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('tildelModal')">Avbryt</button>
-      <button class="btn btn-primary" id="tildelBekreft" onclick="bekreftTildel()">Bekreft tildeling</button>
+      <button class="d-knapp sekundar" onclick="closeModal('tildelModal')">Avbryt</button>
+      <button class="d-knapp primar" id="tildelBekreft" onclick="bekreftTildel()">Bekreft tildeling</button>
     </div>
-    <div id="tildelStatus" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+    <div id="tildelStatus" class="d-t-label" style="margin-top:8px"></div>
   </div>
 </div>
 
@@ -1248,7 +1250,11 @@ function copyLines(){
 function setKunderSub(sub){
   document.getElementById('sub-kunder').style.display = sub==='kunder' ? '' : 'none';
   document.getElementById('sub-leads').style.display  = sub==='leads'  ? '' : 'none';
-  document.querySelectorAll('#kunderSubTabs button').forEach(b=>b.classList.toggle('active',b.dataset.sub===sub));
+  document.querySelectorAll('#kunderSubTabs button').forEach(b=>{
+    const on=b.dataset.sub===sub;
+    b.classList.toggle('active',on);
+    b.classList.toggle('aktiv',on);
+  });
   if(sub==='leads') mountLeads();
 }
 
@@ -1345,12 +1351,15 @@ function renderLeads(){
     let chk='<td></td>';
     if(showChk) chk='<td><input type="checkbox" data-lead="'+k.id+'" '+checkedAttr+' onclick="leadsRowToggle(\''+k.id+'\',this.checked)"></td>';
     const tildelt = k.grossist_navn ? esc(k.grossist_navn) : dash;
+    const segCell = k.kjokkensegment
+      ? '<span class="d-badge flat graa">'+esc(k.kjokkensegment)+'</span>'
+      : dash;
     return '<tr data-leadrow="'+k.id+'" style="cursor:pointer">'
       + chk
       + '<td>'+esc(k.kategori_kilde||dash)+'</td>'
-      + '<td>'+esc(k.kjokkensegment||dash)+'</td>'
-      + '<td style="font-weight:600;color:var(--brand)">'+esc(k.navn||dash)+'</td>'
-      + '<td>'+esc(k.orgnr||dash)+'</td>'
+      + '<td>'+segCell+'</td>'
+      + '<td class="d-navn">'+esc(k.navn||dash)+'</td>'
+      + '<td class="d-sub">'+esc(k.orgnr||dash)+'</td>'
       + '<td>'+esc(k.leveringsadresse||dash)+'</td>'
       + '<td>'+esc(k.poststed||dash)+'</td>'
       + '<td>'+esc(k.telefon||dash)+'</td>'
