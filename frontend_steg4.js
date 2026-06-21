@@ -282,12 +282,12 @@ const Steg4 = (() => {
   async function monterKundekort(kundeId, el) {
     el.innerHTML = "<p>Laster kundekort…</p>";
 
-    let kunde;
+    let kunde = {};
     try {
       kunde = await api(`/api/kunder/${kundeId}`);
     } catch (e) {
-      el.innerHTML = `<p style="color:#dc2626">Feil ved henting av kunde: ${esc(e.message)}</p>`;
-      return;
+      // Fallback: render med tomme felter slik at kortet alltid vises
+      console.warn("Kunne ikke hente kundedata:", e.message);
     }
 
     const STATUSER = ["Lead", "Aktiv dialog", "Kunde", "Sovende", "Konkurs", "Ikke aktuell"];
@@ -295,10 +295,9 @@ const Steg4 = (() => {
       (s) => `<option ${kunde.status === s ? "selected" : ""}>${esc(s)}</option>`
     ).join("");
 
-    const feltStil =
-      "border:1px solid #e7ebf3;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit";
-    const radStil = "display:flex;align-items:center;gap:8px;margin-bottom:12px";
-    const lblStil = "color:#7a8499;font-size:12.5px;white-space:nowrap;min-width:130px";
+    const fs = "border:1px solid #e7ebf3;border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit";
+    const rs = "align-items:center;gap:8px;margin-bottom:12px"; // uten display — settes per rad
+    const ls = "color:#7a8499;font-size:12.5px;white-space:nowrap;min-width:130px";
 
     const erSamme = !!kunde.faktura_samme_som_levering;
     const erIkkeAktuell = kunde.status === "Ikke aktuell";
@@ -308,65 +307,66 @@ const Steg4 = (() => {
       ? (kunde.naeringskode ? kunde.naeringskode + " — " : "") + kunde.naeringsbeskrivelse
       : "";
 
-    el.innerHTML = `
-      <div style="background:#fff;border:1px solid #e7ebf3;border-radius:10px;padding:16px;margin-bottom:16px">
-        <h4 style="margin:0 0 14px;font-size:14px;font-weight:700">Kundeinfo</h4>
+    el.innerHTML = [
+      '<div style="background:#fff;border:1px solid #e7ebf3;border-radius:10px;padding:16px;margin-bottom:16px">',
+      '<h4 style="margin:0 0 14px;font-size:14px;font-weight:700">Kundeinfo</h4>',
 
-        <div style="${radStil}">
-          <label style="${lblStil}">Org.nr</label>
-          <input id="ki-orgnr" value="${esc(kunde.orgnr || "")}" placeholder="9 siffer" style="${feltStil};width:120px">
-          <button id="ki-brreg-btn" style="background:#eef1fb;color:#3b4cca;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Hent fra BRREG</button>
-          <span id="ki-brreg-status" style="font-size:12px;color:#7a8499"></span>
-        </div>
+      '<div style="display:flex;' + rs + '">',
+      '<label style="' + ls + '">Org.nr</label>',
+      '<input id="ki-orgnr" value="' + esc(kunde.orgnr || "") + '" placeholder="9 siffer" style="' + fs + ';width:120px">',
+      '<button id="ki-brreg-btn" style="background:#eef1fb;color:#3b4cca;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Hent fra BRREG</button>',
+      '<span id="ki-brreg-status" style="font-size:12px;color:#7a8499"></span>',
+      '</div>',
 
-        <div id="ki-konkurs-varsel" style="display:none;background:#fbe9e9;color:#dc2626;border:1px solid #f7d7d7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:13px">
-          ⚠ Registrert konkurs i BRREG — vurder å sette status «Konkurs»
-        </div>
+      '<div id="ki-konkurs-varsel" style="display:none;background:#fbe9e9;color:#dc2626;border:1px solid #f7d7d7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:13px">',
+      '⚠ Registrert konkurs i BRREG — vurder å sette status «Konkurs»',
+      '</div>',
 
-        <div id="ki-segment-hint" style="display:${segTekst ? "block" : "none"};font-size:12px;color:#7a8499;margin-bottom:12px;padding:8px 10px;background:#fafbfe;border:1px solid #e7ebf3;border-radius:8px">
-          Næring: <span id="ki-segment-tekst">${esc(segTekst)}</span>
-        </div>
+      '<div id="ki-segment-hint" style="display:' + (segTekst ? "block" : "none") + ';font-size:12px;color:#7a8499;margin-bottom:12px;padding:8px 10px;background:#fafbfe;border:1px solid #e7ebf3;border-radius:8px">',
+      'Næring: <span id="ki-segment-tekst">' + esc(segTekst) + '</span>',
+      '</div>',
 
-        <div style="${radStil}">
-          <label style="${lblStil}">Status</label>
-          <select id="ki-status" style="${feltStil};min-width:170px">${statusOpt}</select>
-        </div>
+      '<div style="display:flex;' + rs + '">',
+      '<label style="' + ls + '">Status</label>',
+      '<select id="ki-status" style="' + fs + ';min-width:170px">' + statusOpt + '</select>',
+      '</div>',
 
-        <div id="ki-forklaring-wrap" style="display:${erIkkeAktuell ? "flex" : "none"};${radStil}">
-          <label style="${lblStil}">Forklaring *</label>
-          <input id="ki-forklaring" value="${esc(kunde.ikke_aktuell_forklaring || "")}" placeholder="Påkrevd forklaring" style="${feltStil};flex:1">
-        </div>
+      '<div id="ki-forklaring-wrap" style="display:' + (erIkkeAktuell ? "flex" : "none") + ';' + rs + '">',
+      '<label style="' + ls + '">Forklaring *</label>',
+      '<input id="ki-forklaring" value="' + esc(kunde.ikke_aktuell_forklaring || "") + '" placeholder="Påkrevd forklaring" style="' + fs + ';flex:1">',
+      '</div>',
 
-        <div id="ki-gjenbesok-wrap" style="display:${erSovende ? "flex" : "none"};${radStil}">
-          <label style="${lblStil}">Gjenbesøk dato</label>
-          <input id="ki-gjenbesok" type="date" value="${gjDato}" style="${feltStil}">
-        </div>
+      '<div id="ki-gjenbesok-wrap" style="display:' + (erSovende ? "flex" : "none") + ';' + rs + '">',
+      '<label style="' + ls + '">Gjenbesøk dato</label>',
+      '<input id="ki-gjenbesok" type="date" value="' + gjDato + '" style="' + fs + '">',
+      '</div>',
 
-        <div style="${radStil}">
-          <label style="${lblStil}">Leveringsadresse</label>
-          <input id="ki-levadresse" value="${esc(kunde.leveringsadresse || "")}" placeholder="Adresse" style="${feltStil};flex:1">
-        </div>
+      '<div style="display:flex;' + rs + '">',
+      '<label style="' + ls + '">Leveringsadresse</label>',
+      '<input id="ki-levadresse" value="' + esc(kunde.leveringsadresse || "") + '" placeholder="Adresse" style="' + fs + ';flex:1">',
+      '</div>',
 
-        <div style="${radStil}">
-          <label style="${lblStil}">Fakturaadresse</label>
-          <input id="ki-faktadresse" value="${esc(kunde.fakturaadresse || "")}" placeholder="Adresse" style="${feltStil};flex:1${erSamme ? ";background:#fafbff;color:#7a8499" : ""}">
-          <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8499;cursor:pointer;white-space:nowrap">
-            <input id="ki-samme" type="checkbox" ${erSamme ? "checked" : ""}> Samme som levering
-          </label>
-        </div>
+      '<div style="display:flex;' + rs + '">',
+      '<label style="' + ls + '">Fakturaadresse</label>',
+      '<input id="ki-faktadresse" value="' + esc(kunde.fakturaadresse || "") + '" placeholder="Adresse" style="' + fs + ';flex:1' + (erSamme ? ";background:#fafbff;color:#7a8499" : "") + '">',
+      '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#7a8499;cursor:pointer;white-space:nowrap">',
+      '<input id="ki-samme" type="checkbox"' + (erSamme ? " checked" : "") + '> Samme som levering',
+      '</label>',
+      '</div>',
 
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-          <button id="ki-lagre-btn" style="background:#3b4cca;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Lagre kundeinfo</button>
-          <span id="ki-lagre-status" style="font-size:12px;color:#7a8499"></span>
-        </div>
-      </div>
+      '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
+      '<button id="ki-lagre-btn" style="background:#3b4cca;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">Lagre kundeinfo</button>',
+      '<span id="ki-lagre-status" style="font-size:12px;color:#7a8499"></span>',
+      '</div>',
+      '</div>',
 
-      <div class="ks-faner">
-        <button class="ks-fane aktiv" data-fane="lev">Leveringssteder</button>
-        <button class="ks-fane" data-fane="akt">Aktiviteter</button>
-        <button class="ks-fane" data-fane="kon">Kontaktpersoner</button>
-      </div>
-      <div id="ks-faneinnhold"></div>`;
+      '<div class="ks-faner">',
+      '<button class="ks-fane aktiv" data-fane="lev">Leveringssteder</button>',
+      '<button class="ks-fane" data-fane="akt">Aktiviteter</button>',
+      '<button class="ks-fane" data-fane="kon">Kontaktpersoner</button>',
+      '</div>',
+      '<div id="ks-faneinnhold"></div>',
+    ].join("");
 
     // Disable fakturaadresse on init if same-as-delivery
     if (erSamme) el.querySelector("#ki-faktadresse").disabled = true;
