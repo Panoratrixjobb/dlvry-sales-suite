@@ -244,6 +244,7 @@ tbody tr:hover{background:#fafbff}
       <a class="active" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
       <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Prising &amp; Totalmargin</a>
       <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; kalkyler</a>
+      <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">👥</span> Brukere</a>
     </nav>
     <div class="side-sec">
       <div class="lbl">Kunder</div>
@@ -498,6 +499,54 @@ tbody tr:hover{background:#fafbff}
         </div>
       </div>
     </div>
+
+    <!-- ===== BRUKERE VIEW (steg 7) ===== -->
+    <div id="view-brukere" style="display:none">
+      <div class="topbar"><h1>Brukere &amp; invitasjoner</h1></div>
+      <div class="crumb">Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.</div>
+
+      <!-- Inviter bruker-form -->
+      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px">
+        <div style="background:var(--card);border-radius:14px;padding:20px 24px;min-width:320px;flex:1;max-width:480px">
+          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Inviter ny bruker</h3>
+          <div class="scen-field" style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">E-post</label>
+            <input id="invEpost" type="email" placeholder="ny.bruker@firma.no"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px">
+          </div>
+          <div class="scen-field" style="margin-bottom:10px">
+            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">Rolle</label>
+            <select id="invRolle" onchange="oppdaterInvGrossistFelt()"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px"></select>
+          </div>
+          <div id="invGrossistFelt" style="margin-bottom:10px;display:none">
+            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">Grossist (påkrevd for selger)</label>
+            <select id="invGrossist"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px">
+              <option value="">— velg grossist —</option>
+            </select>
+          </div>
+          <div id="invErr" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+          <button class="btn btn-primary" onclick="sendInvitasjon()" id="invBtn" style="width:100%">Send invitasjon</button>
+        </div>
+
+        <!-- Brukerliste -->
+        <div style="background:var(--card);border-radius:14px;padding:20px 24px;flex:2;min-width:300px">
+          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Aktive brukere</h3>
+          <div id="brukerListe" style="font-size:13px;color:var(--muted)">Laster…</div>
+        </div>
+      </div>
+
+      <!-- Invitasjonsliste -->
+      <div style="background:var(--card);border-radius:14px;padding:20px 24px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Sendte invitasjoner</h3>
+          <button class="btn btn-ghost" onclick="lastInvitasjoner()" style="font-size:12px;padding:5px 12px">↻ Oppdater</button>
+        </div>
+        <div id="invitasjonListe" style="font-size:13px;color:var(--muted)">Laster…</div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -785,7 +834,7 @@ let custCache=[];
 
 // Leads-underfane
 let leadsCache=[], leadsSel=new Set(), leadsAllFilter=false, leadsAllIds=[],
-    leadsGrossister=[], leadsMounted=false, _leadsSearchTimer=null,
+    leadsGrossister=[], leadsBrukere=[], leadsMounted=false, _leadsSearchTimer=null,
     leadsPage=1, leadsTotal=0, leadsTotalKjent=false;
 const LEADS_PER_SIDE=200;
 const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurtigmat","Indisk","Tex-Mex"];
@@ -1206,14 +1255,19 @@ async function mountLeads(){
     document.getElementById('leadsGrossist').innerHTML='<option value="">Alle grossister</option>'+gOpt;
     document.getElementById('leadsSegment').innerHTML='<option value="">Alle segment</option>'+
       SEGMENTER.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
-    // Selger-filter: brukerliste-endepunkt mangler i backend → kun "Alle" foreløpig.
-    document.getElementById('leadsSelger').innerHTML='<option value="">Alle selgere</option>';
-    // Tildel-modal: grossist (full liste) + selger (kun innlogget bruker pga manglende endepunkt)
+    // Selger-filter + tildel-selger (steg 7): hent full brukerliste fra /api/brukere.
+    // Endepunktet krever leder/admin/superadmin — selger ser uansett ikke disse kontrollene.
+    let brukerOpts='';
+    if(!erSelger){
+      try{ leadsBrukere = await api('/api/brukere')||[]; }catch(e){ leadsBrukere=[]; }
+      brukerOpts = leadsBrukere
+        .map(u=>'<option value="'+u.id+'">'+esc(u.navn||u.id)+(u.rolle?' ('+esc(u.rolle)+')':'')+'</option>')
+        .join('');
+    }
+    document.getElementById('leadsSelger').innerHTML='<option value="">Alle selgere</option>'+brukerOpts;
+    // Tildel-modal: grossist (full liste) + selger (full brukerliste)
     document.getElementById('tildelGrossist').innerHTML='<option value="">— ikke endre —</option>'+gOpt;
-    let selgerOpts='<option value="">— ikke endre —</option>';
-    if(CURRENT_USER && CURRENT_USER.id)
-      selgerOpts+='<option value="'+CURRENT_USER.id+'">'+esc(CURRENT_USER.navn||CURRENT_USER.epost||'meg')+' (meg)</option>';
-    document.getElementById('tildelSelger').innerHTML=selgerOpts;
+    document.getElementById('tildelSelger').innerHTML='<option value="">— ikke endre —</option>'+brukerOpts;
   }
   leadsResetAndLoad();
 }
@@ -1413,17 +1467,141 @@ async function bekreftTildel(){
   finally{ btn.disabled=false; }
 }
 
+// ============ Brukere & invitasjoner (steg 7) ============
+let brukereMounted = false;
+let invGrossister = [];
+
+// Rollehierarki — hvilke roller kan innlogget bruker invitere?
+const KAN_INVITERE = { superadmin:'admin', admin:'leder', leder:'selger' };
+
+async function mountBrukere(){
+  if(brukereMounted) return;
+  brukereMounted = true;
+
+  // Fyll grossist-dropdown (brukes kun ved selger-invitasjon)
+  try{ invGrossister = await api('/api/grossister')||[]; }catch(e){ invGrossister=[]; }
+  document.getElementById('invGrossist').innerHTML =
+    '<option value="">— velg grossist —</option>' +
+    invGrossister.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
+
+  // Fyll rolle-dropdown — kun nivåer denne brukeren kan invitere
+  const tillattRolle = KAN_INVITERE[CURRENT_USER?.rolle];
+  document.getElementById('invRolle').innerHTML = tillattRolle
+    ? '<option value="'+tillattRolle+'">'+tillattRolle+'</option>'
+    : '<option value="">— ingen tilgjengelig —</option>';
+  oppdaterInvGrossistFelt();
+
+  await Promise.all([lastBrukere(), lastInvitasjoner()]);
+}
+
+function oppdaterInvGrossistFelt(){
+  const rolle = document.getElementById('invRolle').value;
+  document.getElementById('invGrossistFelt').style.display = rolle==='selger' ? '' : 'none';
+}
+
+async function lastBrukere(){
+  const el = document.getElementById('brukerListe');
+  try{
+    const brukere = await api('/api/brukere')||[];
+    if(!brukere.length){ el.innerHTML='<em>Ingen brukere funnet.</em>'; return; }
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      +'<thead><tr style="border-bottom:1px solid var(--line)">'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Navn</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Rolle</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist / Region</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Aktiv</th>'
+      +'</tr></thead><tbody>'
+      + brukere.map(b=>
+        '<tr style="border-bottom:1px solid var(--line)">'
+        +'<td style="padding:7px 8px">'+esc(b.navn)+'</td>'
+        +'<td style="padding:7px 8px"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">'+esc(b.rolle)+'</span></td>'
+        +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : '<span style="color:var(--muted)">—</span>')+'</td>'
+        +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
+        +'</tr>'
+      ).join('')
+      +'</tbody></table>';
+  }catch(e){ el.innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>'; }
+}
+
+async function lastInvitasjoner(){
+  const el = document.getElementById('invitasjonListe');
+  try{
+    const liste = await api('/api/invitasjoner')||[];
+    if(!liste.length){ el.innerHTML='<em style="color:var(--muted)">Ingen invitasjoner sendt ennå.</em>'; return; }
+    const statusFarge = {sendt:'#f59e0b',godtatt:'#16a34a',utløpt:'var(--muted)',kansellert:'var(--muted)'};
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+      +'<thead><tr style="border-bottom:1px solid var(--line)">'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">E-post</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Rolle</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Status</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Utløper</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Sendt av</th>'
+      +'<th></th>'
+      +'</tr></thead><tbody>'
+      + liste.map(i=>{
+          const utloper = new Date(i.utloper).toLocaleDateString('no-NO');
+          const aktiv = i.status==='sendt';
+          return '<tr style="border-bottom:1px solid var(--line)">'
+            +'<td style="padding:7px 8px">'+esc(i.epost)+'</td>'
+            +'<td style="padding:7px 8px">'+esc(i.rolle)+'</td>'
+            +'<td style="padding:7px 8px">'+(i.grossist_navn?esc(i.grossist_navn):'—')+'</td>'
+            +'<td style="padding:7px 8px"><span style="color:'+(statusFarge[i.status]||'inherit')+';font-weight:500">'+esc(i.status)+'</span></td>'
+            +'<td style="padding:7px 8px;color:var(--muted)">'+utloper+'</td>'
+            +'<td style="padding:7px 8px;color:var(--muted)">'+(i.invitert_av_navn?esc(i.invitert_av_navn):'—')+'</td>'
+            +'<td style="padding:7px 8px">'+(aktiv?'<button class="btn btn-ghost" style="font-size:11px;padding:3px 9px;color:var(--red)" onclick="kansellerInvitasjon(\''+i.id+'\')">Kanseller</button>':'')+'</td>'
+            +'</tr>';
+        }).join('')
+      +'</tbody></table>';
+  }catch(e){ el.innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>'; }
+}
+
+async function sendInvitasjon(){
+  const epost = document.getElementById('invEpost').value.trim();
+  const rolle = document.getElementById('invRolle').value;
+  const grossist_id = rolle==='selger' ? document.getElementById('invGrossist').value : null;
+  const errEl = document.getElementById('invErr');
+  errEl.textContent = '';
+
+  if(!epost){ errEl.textContent='Fyll inn e-post.'; return; }
+  if(!rolle){ errEl.textContent='Velg rolle.'; return; }
+  if(rolle==='selger' && !grossist_id){ errEl.textContent='Velg grossist for selger-invitasjon.'; return; }
+
+  const btn = document.getElementById('invBtn');
+  btn.disabled = true; btn.textContent = 'Sender…';
+  try{
+    const body = {epost, rolle};
+    if(grossist_id) body.grossist_id = grossist_id;
+    const res = await api('/api/invitasjoner', {method:'POST', body});
+    document.getElementById('invEpost').value = '';
+    const epostOk = res.epost_sendt;
+    toast(epostOk ? 'Invitasjon sendt til '+esc(epost) : 'Invitasjon opprettet (e-post ikke bekreftet — sjekk SMTP2GO-nøkkel)');
+    await lastInvitasjoner();
+  }catch(e){ errEl.textContent = e.message; }
+  finally{ btn.disabled=false; btn.textContent='Send invitasjon'; }
+}
+
+async function kansellerInvitasjon(id){
+  try{
+    await api('/api/invitasjoner/'+id, {method:'DELETE'});
+    toast('Invitasjon kansellert');
+    await lastInvitasjoner();
+  }catch(e){ toast('Feil: '+e.message); }
+}
+
 // ============ Views ============
 function setView(v){
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
+  document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
   document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.view===v));
   // skjul lagre-baren utenfor kalkulator
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder')renderCalcArea();
   if(v==='dashboard'){renderDash();Steg4.visDashboard(document.getElementById('dashboard-app'),DASH);}
   if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
+  if(v==='brukere')mountBrukere();
 }
 
 // ============ Init ============
@@ -1483,6 +1661,9 @@ async function showApp(){
     document.getElementById('userRolle').textContent=rolle;
   }
   await refreshCusts();
+  // Vis Brukere-fane for alle som kan invitere (leder/admin/superadmin)
+  const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle !== 'selger';
+  document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   setView('dashboard');
 }
 
