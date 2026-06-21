@@ -266,58 +266,66 @@ tbody tr:hover{background:#fafbff}
   <main class="main">
     <!-- ===== DASHBOARD VIEW ===== -->
     <div id="view-dashboard" style="display:none">
-      <div class="topbar"><h1>Dashboard — Konseptoversikt</h1></div>
+      <div class="topbar"><h1>Dashboard</h1></div>
       <div class="crumb" id="dashCrumb">YTD uke 1–25 · 2026 vs 2025</div>
 
-      <!-- KPI-kort -->
-      <div class="dash-kpis" id="dashKpis"></div>
+      <!-- APP-seksjon: CRM-data fra Postgres → fylles av Steg4.visDashboard() -->
+      <div id="dashboard-app" style="margin-bottom:var(--s8)"></div>
 
-      <div class="dash-row2">
-        <section class="panel">
-          <h3>Månedlig omsetning per konsept <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK, stablet)</small></h3>
-          <svg id="dashStacked" viewBox="0 0 720 300" style="width:100%;height:300px"></svg>
-          <div class="legend-row" id="dashStackedLegend"></div>
-        </section>
-        <section class="panel">
-          <h3>Vekst per konsept</h3>
-          <div id="dashGrowth"></div>
-          <div class="estimat-box" id="dashEstimat"></div>
-        </section>
-      </div>
+      <!-- EXCEL-seksjon: fakturert omsetning fra data.json — aldri summert med APP -->
+      <div id="dash-excel-seksjon">
+        <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);padding-top:var(--s6);border-top:2px solid var(--d-ramme)">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--d-tekst-3)">EXCEL — fakturert omsetning (data.json)</span>
+          <span style="font-size:11px;color:var(--d-roed);font-weight:700;background:var(--d-roed-bg);padding:2px 8px;border-radius:999px">⚠ Ikke summert med APP-tall</span>
+        </div>
+        <div class="d-grid d-g6" id="dashKpis" style="margin-bottom:var(--s5)"></div>
 
-      <div class="dash-row3">
-        <section class="panel">
-          <h3>Omsetning per region <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
-          <div id="dashRegioner"></div>
-        </section>
-        <section class="panel">
-          <h3>La Salumeria — topp grossister <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
-          <div id="dashGrossister"></div>
-        </section>
-        <section class="panel">
-          <h3>Toppkunder <small style="font-weight:400;color:var(--muted);font-size:11px">(MNOK)</small></h3>
-          <div id="dashToppkunder"></div>
-        </section>
-      </div>
+        <div class="dash-row2" style="margin-bottom:var(--s4)">
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Månedlig omsetning per konsept <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK, stablet)</small></h3>
+            <svg id="dashStacked" viewBox="0 0 720 300" style="width:100%;height:300px"></svg>
+            <div class="legend-row" id="dashStackedLegend"></div>
+          </section>
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Vekst per konsept</h3>
+            <div id="dashGrowth"></div>
+            <div class="estimat-box" id="dashEstimat"></div>
+          </section>
+        </div>
 
-      <div class="dash-row2">
-        <section class="panel">
-          <h3>Toppvinnere <small style="font-weight:400;color:var(--muted);font-size:11px">(vekst %)</small></h3>
-          <div id="dashVinnere"></div>
-        </section>
-        <section class="panel">
-          <h3>Konseptfordeling 2026</h3>
-          <div class="vk-wrap">
-            <div class="donut" style="width:140px;height:140px">
-              <svg width="140" height="140" viewBox="0 0 140 140" id="dashDonut"></svg>
-              <div class="ctr" id="dashDonutCtr" style="font-size:13px"></div>
+        <div class="dash-row3" style="margin-bottom:var(--s4)">
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Omsetning per region <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
+            <div id="dashRegioner"></div>
+          </section>
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">La Salumeria — topp grossister <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
+            <div id="dashGrossister"></div>
+          </section>
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Toppkunder <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
+            <div id="dashToppkunder"></div>
+          </section>
+        </div>
+
+        <div class="dash-row2" style="margin-bottom:var(--s4)">
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Toppvinnere <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(vekst %)</small></h3>
+            <div id="dashVinnere"></div>
+          </section>
+          <section class="d-panel">
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Konseptfordeling 2026</h3>
+            <div class="vk-wrap">
+              <div class="donut" style="width:140px;height:140px">
+                <svg width="140" height="140" viewBox="0 0 140 140" id="dashDonut"></svg>
+                <div class="ctr" id="dashDonutCtr" style="font-size:13px"></div>
+              </div>
+              <div class="legend" id="dashDonutLegend" style="flex:1"></div>
             </div>
-            <div class="legend" id="dashDonutLegend" style="flex:1"></div>
-          </div>
-        </section>
+          </section>
+        </div>
+        <div class="dash-source" id="dashSource"></div>
       </div>
-      <div class="dash-source" id="dashSource"></div>
-      <div id="dashboard-app" style="margin-top:20px"></div>
     </div>
 
     <!-- ===== KALKULATOR VIEW ===== -->
@@ -685,12 +693,13 @@ function renderDash(){
   // KPI-kort
   const kpis=document.getElementById('dashKpis');
   const cards=[{navn:D.total.navn,...D.total,total:true},...D.konsepter];
-  kpis.innerHTML=cards.map(k=>`
-    <div class="dash-card ${k.total?'total':''}">
-      <div class="dc-name">${k.navn}</div>
-      <div class="dc-val">${k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}<small>MNOK</small></div>
-      <div class="dc-growth">${growthTag(k.vekst)} <span class="dc-prev">fra ${k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}</span></div>
-    </div>`).join('');
+  kpis.innerHTML=cards.map(k=>(
+    '<div class="d-kpi' + (k.total?' d-kpi-total':'') + '">' +
+    '<div class="d-label">' + k.navn + '</div>' +
+    '<div class="d-rad"><span class="d-tall">' + k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}) + '</span><span style="font-size:14px;color:var(--d-tekst-3)"> MNOK</span></div>' +
+    '<div class="d-vs">' + growthTag(k.vekst) + ' fra ' + k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' MNOK</div>' +
+    '</div>'
+  )).join('');
 
   // Stablet søylediagram
   drawStacked(D.monthly);
