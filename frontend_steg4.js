@@ -278,6 +278,75 @@ const Steg4 = (() => {
     });
   }
 
+  // ---------- KONSEPTER (kun ekte kunder, ikke leads) ----------
+  const KONSEPTER = ["La Salumeria", "East Essence", "Godt Lokalt", "Sabor"];
+  async function monterKonsepter(kundeId, el) {
+    el.innerHTML = '<p style="margin:0;font-size:12px;color:#7a8499">Laster konsepter…</p>';
+    let liste;
+    try {
+      liste = await api(`/api/kunder/${kundeId}/konsepter`);
+    } catch (e) {
+      el.innerHTML = '<p style="margin:0;color:#dc2626;font-size:12px">Feil: ' + esc(e.message) + "</p>";
+      return;
+    }
+    const valgte = new Set(liste.map((k) => k.konsept));
+    const tags = liste
+      .map(
+        (k) =>
+          '<span style="display:inline-flex;align-items:center;gap:6px;background:#eef1fb;color:#3b4cca;border-radius:999px;padding:4px 6px 4px 12px;font-size:12px;font-weight:600">' +
+          esc(k.konsept) +
+          '<button data-slett-kon="' + k.id + '" title="Fjern" style="background:#dde3fb;color:#3b4cca;border:none;border-radius:999px;width:18px;height:18px;line-height:1;cursor:pointer;font-family:inherit;font-size:13px">×</button>' +
+          "</span>"
+      )
+      .join("");
+    const ledige = KONSEPTER.filter((k) => !valgte.has(k));
+    const addCtrl = ledige.length
+      ? '<select id="kon-velg" style="border:1px solid #e7ebf3;border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit">' +
+        ledige.map((k) => "<option>" + esc(k) + "</option>").join("") +
+        '</select><button id="kon-legg" style="background:#3b4cca;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit">+ Legg til</button>'
+      : '<span style="font-size:12px;color:#7a8499">Alle konsepter er lagt til</span>';
+
+    el.innerHTML = [
+      '<div style="background:#fff;border:1px solid #e7ebf3;border-radius:10px;padding:16px;margin-bottom:16px">',
+      '<h4 style="margin:0 0 12px;font-size:14px;font-weight:700">Konsepter</h4>',
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">',
+      tags || '<span style="font-size:12px;color:#7a8499">Ingen konsepter ennå</span>',
+      "</div>",
+      '<div style="display:flex;gap:8px;align-items:center">',
+      addCtrl,
+      '<span id="kon-status" style="font-size:12px;color:#7a8499"></span>',
+      "</div>",
+      "</div>",
+    ].join("");
+
+    el.querySelectorAll("[data-slett-kon]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try {
+          await api(`/api/konsepter/${b.dataset.slettKon}`, { method: "DELETE" });
+          monterKonsepter(kundeId, el);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+    const leggBtn = el.querySelector("#kon-legg");
+    if (leggBtn)
+      leggBtn.addEventListener("click", async () => {
+        const st = el.querySelector("#kon-status");
+        st.textContent = "Lagrer…";
+        try {
+          await api(`/api/kunder/${kundeId}/konsepter`, {
+            method: "POST",
+            body: JSON.stringify({ konsept: el.querySelector("#kon-velg").value }),
+          });
+          monterKonsepter(kundeId, el);
+        } catch (e) {
+          st.textContent = "Feil: " + e.message;
+          st.style.color = "#dc2626";
+        }
+      });
+  }
+
   // ---------- KUNDEKORT (kundeinfo + faner) ----------
   async function monterKundekort(kundeId, el) {
     el.innerHTML = "<p>Laster kundekort…</p>";
@@ -360,6 +429,9 @@ const Steg4 = (() => {
       '</div>',
       '</div>',
 
+      // Konsept-seksjon — kun for ekte kunder (skjules for leads)
+      '<div id="ks-konsepter"></div>',
+
       '<div class="ks-faner">',
       '<button class="ks-fane aktiv" data-fane="lev">Leveringssteder</button>',
       '<button class="ks-fane" data-fane="akt">Aktiviteter</button>',
@@ -370,6 +442,13 @@ const Steg4 = (() => {
 
     // Disable fakturaadresse on init if same-as-delivery
     if (erSamme) el.querySelector("#ki-faktadresse").disabled = true;
+
+    // Konsepter: vis kun for ekte kunder (leads har ingen konsepter ennå)
+    const konseptEl = el.querySelector("#ks-konsepter");
+    if (konseptEl) {
+      if (kunde.status && kunde.status !== "Lead") monterKonsepter(kundeId, konseptEl);
+      else konseptEl.style.display = "none";
+    }
 
     // BRREG-oppslag
     el.querySelector("#ki-brreg-btn").addEventListener("click", async () => {
@@ -663,6 +742,6 @@ const Steg4 = (() => {
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner,
+    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter,
   };
 })();

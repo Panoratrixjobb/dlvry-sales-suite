@@ -441,14 +441,56 @@ tbody tr:hover{background:#fafbff}
     <!-- ===== KUNDER VIEW ===== -->
     <div id="view-kunder" style="display:none">
       <div class="topbar"><h1 id="kunderTitle">Kunder &amp; kalkyler</h1></div>
-      <div class="crumb" id="kunderCrumb">Velg en kunde for å se kalkyler</div>
-      <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="openCustModal()">+ Ny kunde</button>
-        <button class="btn btn-ghost" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
-        <button class="btn btn-danger" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+
+      <div class="tabs" id="kunderSubTabs">
+        <button class="active" data-sub="kunder" onclick="setKunderSub('kunder')">Kunder</button>
+        <button data-sub="leads" onclick="setKunderSub('leads')">Leads</button>
       </div>
-      <div id="calcArea"></div>
-      <div id="kundekort-steg4" style="margin-top:24px"></div>
+
+      <!-- Undervisning: Kunder (eksisterende kundekort-flyt) -->
+      <div id="sub-kunder">
+        <div class="crumb" id="kunderCrumb">Velg en kunde for å se kalkyler</div>
+        <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="openCustModal()">+ Ny kunde</button>
+          <button class="btn btn-ghost" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
+          <button class="btn btn-danger" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+        </div>
+        <div id="calcArea"></div>
+        <div id="kundekort-steg4" style="margin-top:24px"></div>
+      </div>
+
+      <!-- Undervisning: Leads (prospekt-tabell m/ filtre + masse-tildel) -->
+      <div id="sub-leads" style="display:none">
+        <div class="crumb">Prospekter (status = Lead). Søk, filtrer og masse-tildel grossist/selger.</div>
+
+        <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+          <input id="leadsSearch" type="search" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)"
+            style="flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13px;font-family:inherit">
+          <select id="leadsGrossist" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+          <select id="leadsSegment" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+          <select id="leadsSelger" onchange="loadLeads()" style="border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:12.5px;font-family:inherit"></select>
+        </div>
+
+        <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <span id="leadsCount" style="font-size:12.5px;color:var(--muted)"></span>
+          <span id="leadsSelInfo" style="font-size:12.5px;color:var(--brand);font-weight:600"></span>
+          <button id="leadsSelAll" class="btn btn-ghost" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
+          <button id="leadsClear" class="btn btn-ghost" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
+          <button id="leadsTildel" class="btn btn-primary" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
+        </div>
+
+        <div class="table-wrap">
+          <table style="min-width:1180px">
+            <thead><tr id="leadsHead">
+              <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
+              <th>Kategori</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
+              <th>Adresse</th><th>Poststed</th><th>Tlf</th><th>E-post</th>
+              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th>
+            </tr></thead>
+            <tbody id="leadsBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -465,6 +507,25 @@ tbody tr:hover{background:#fafbff}
       <button class="btn btn-ghost" onclick="closeModal('custModal')">Avbryt</button>
       <button class="btn btn-primary" onclick="createCust()">Opprett kunde</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal: masse-tildel -->
+<div class="modal-bg" id="tildelModal">
+  <div class="modal">
+    <h2>Tildel valgte leads</h2>
+    <p class="sub" id="tildelSub">Velg grossist og/eller selger. Bare felt du setter blir endret.</p>
+    <div class="scen-field"><label>Grossist</label>
+      <select id="tildelGrossist" style="width:100%"></select>
+    </div>
+    <div class="scen-field"><label>Selger</label>
+      <select id="tildelSelger" style="width:100%"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('tildelModal')">Avbryt</button>
+      <button class="btn btn-primary" id="tildelBekreft" onclick="bekreftTildel()">Bekreft tildeling</button>
+    </div>
+    <div id="tildelStatus" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
   </div>
 </div>
 
@@ -714,6 +775,11 @@ async function loadProducts(){
 let state={custId:null, calcId:null, cart:[], dirty:false};
 let custCache=[];
 
+// Leads-underfane
+let leadsCache=[], leadsSel=new Set(), leadsAllFilter=false, leadsAllIds=[],
+    leadsGrossister=[], leadsMounted=false, _leadsSearchTimer=null;
+const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurtigmat","Indisk","Tex-Mex"];
+
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
 function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
 function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null};}
@@ -913,7 +979,8 @@ async function searchCusts(q){
 
 async function refreshCusts(q=''){
   const list=document.getElementById('custList');
-  const url='/api/kunder?limit=200'+(q?'&q='+encodeURIComponent(q):'');
+  // Sidemeny = ekte kunder (leads ligger i egen Leads-underfane).
+  const url='/api/kunder?status_ikke=Lead&limit=200'+(q?'&q='+encodeURIComponent(q):'');
   try{
     custCache=(await api(url)||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
   }catch(e){
@@ -1104,6 +1171,196 @@ function copyLines(){
   const r=compute();
   const txt=r.lines.map(x=>`${x.l.art}\t${x.l.navn}\t${x.l.antall}\t${x.endelig.toFixed(2)}\t${x.oms.toFixed(0)}`).join('\n');
   navigator.clipboard.writeText(txt).then(()=>toast('Linjer kopiert')).catch(()=>toast('Kunne ikke kopiere'));
+}
+
+// ============ Leads-underfane ============
+function setKunderSub(sub){
+  document.getElementById('sub-kunder').style.display = sub==='kunder' ? '' : 'none';
+  document.getElementById('sub-leads').style.display  = sub==='leads'  ? '' : 'none';
+  document.querySelectorAll('#kunderSubTabs button').forEach(b=>b.classList.toggle('active',b.dataset.sub===sub));
+  if(sub==='leads') mountLeads();
+}
+
+async function mountLeads(){
+  if(!leadsMounted){
+    leadsMounted=true;
+    const erSelger = CURRENT_USER && CURRENT_USER.rolle==='selger';
+    if(erSelger){
+      // Masse-tildel er leder/admin-only — skjul handlinger + avkrysning for selger
+      document.getElementById('leadsActions').style.display='none';
+      const th=document.getElementById('leadsHead').querySelector('th');
+      if(th) th.style.visibility='hidden';
+    }
+    try{ leadsGrossister = await api('/api/grossister')||[]; }catch(e){ leadsGrossister=[]; }
+    const gOpt = leadsGrossister.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
+    document.getElementById('leadsGrossist').innerHTML='<option value="">Alle grossister</option>'+gOpt;
+    document.getElementById('leadsSegment').innerHTML='<option value="">Alle segment</option>'+
+      SEGMENTER.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
+    // Selger-filter: brukerliste-endepunkt mangler i backend → kun "Alle" foreløpig.
+    document.getElementById('leadsSelger').innerHTML='<option value="">Alle selgere</option>';
+    // Tildel-modal: grossist (full liste) + selger (kun innlogget bruker pga manglende endepunkt)
+    document.getElementById('tildelGrossist').innerHTML='<option value="">— ikke endre —</option>'+gOpt;
+    let selgerOpts='<option value="">— ikke endre —</option>';
+    if(CURRENT_USER && CURRENT_USER.id)
+      selgerOpts+='<option value="'+CURRENT_USER.id+'">'+esc(CURRENT_USER.navn||CURRENT_USER.epost||'meg')+' (meg)</option>';
+    document.getElementById('tildelSelger').innerHTML=selgerOpts;
+  }
+  loadLeads();
+}
+
+function leadsParams(extra){
+  const p=new URLSearchParams();
+  p.set('status','Lead');
+  const q=document.getElementById('leadsSearch').value.trim();
+  if(q) p.set('q',q);
+  const g=document.getElementById('leadsGrossist').value; if(g) p.set('grossist_id',g);
+  const s=document.getElementById('leadsSegment').value;  if(s) p.set('kjokkensegment',s);
+  const sel=document.getElementById('leadsSelger').value; if(sel) p.set('selger_id',sel);
+  if(extra) for(const k in extra) p.set(k,extra[k]);
+  return p;
+}
+
+function onLeadsSearch(){ clearTimeout(_leadsSearchTimer); _leadsSearchTimer=setTimeout(loadLeads,300); }
+
+async function loadLeads(){
+  const body=document.getElementById('leadsBody');
+  body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Laster leads…</td></tr>';
+  // Filterendring nullstiller utvalg + "alle treff"-modus
+  leadsSel.clear(); leadsAllFilter=false; leadsAllIds=[];
+  let rows;
+  try{ rows = await api('/api/kunder?'+leadsParams({limit:'200'}).toString())||[]; }
+  catch(e){ body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--red)">Feil: '+esc(e.message)+'</td></tr>'; return; }
+  leadsCache=rows;
+  renderLeads();
+}
+
+function renderLeads(){
+  const body=document.getElementById('leadsBody');
+  const dash='–';
+  const showChk = !(CURRENT_USER && CURRENT_USER.rolle==='selger');
+  if(!leadsCache.length){
+    body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
+    document.getElementById('leadsCount').textContent='0 leads';
+    updateLeadsBar(); return;
+  }
+  body.innerHTML=leadsCache.map(k=>{
+    const sel = leadsAllFilter || leadsSel.has(k.id);
+    const checkedAttr = sel ? 'checked' : '';
+    let chk='<td></td>';
+    if(showChk) chk='<td><input type="checkbox" data-lead="'+k.id+'" '+checkedAttr+' onclick="leadsRowToggle(\''+k.id+'\',this.checked)"></td>';
+    const tildelt = k.grossist_navn ? esc(k.grossist_navn) : dash;
+    return '<tr data-leadrow="'+k.id+'" style="cursor:pointer">'
+      + chk
+      + '<td>'+esc(k.kategori_kilde||dash)+'</td>'
+      + '<td>'+esc(k.kjokkensegment||dash)+'</td>'
+      + '<td style="font-weight:600;color:var(--brand)">'+esc(k.navn||dash)+'</td>'
+      + '<td>'+esc(k.orgnr||dash)+'</td>'
+      + '<td>'+esc(k.leveringsadresse||dash)+'</td>'
+      + '<td>'+esc(k.poststed||dash)+'</td>'
+      + '<td>'+esc(k.telefon||dash)+'</td>'
+      + '<td>'+esc(k.epost||dash)+'</td>'
+      + '<td>'+esc(k.est_omsetning||dash)+'</td>'
+      + '<td>'+esc(k.okonomi||dash)+'</td>'
+      + '<td>'+tildelt+'</td>'
+      + '</tr>';
+  }).join('');
+  body.querySelectorAll('[data-leadrow]').forEach(tr=>{
+    tr.addEventListener('click',e=>{ if(e.target.closest('input'))return; openLeadRow(tr.dataset.leadrow); });
+  });
+  let cnt=leadsCache.length+' leads';
+  if(leadsCache.length>=200) cnt+=' (viser 200 — søk/filtrer for å snevre inn)';
+  document.getElementById('leadsCount').textContent=cnt;
+  updateLeadsBar();
+}
+
+function leadsRowToggle(id,checked){
+  leadsAllFilter=false;
+  if(checked) leadsSel.add(id); else leadsSel.delete(id);
+  updateLeadsBar();
+}
+
+function leadsToggleSide(checked){
+  leadsAllFilter=false;
+  if(checked) leadsCache.forEach(k=>leadsSel.add(k.id)); else leadsCache.forEach(k=>leadsSel.delete(k.id));
+  renderLeads();
+}
+
+async function fetchAllLeadIds(){
+  const ids=[]; let offset=0; const lim=1000;
+  for(let i=0;i<20;i++){
+    const rows=await api('/api/kunder?'+leadsParams({limit:String(lim),offset:String(offset)}).toString())||[];
+    rows.forEach(r=>ids.push(r.id));
+    if(rows.length<lim) break;
+    offset+=lim;
+  }
+  return ids;
+}
+
+async function leadsVelgAlleTreff(){
+  const btn=document.getElementById('leadsSelAll'); const old=btn.textContent;
+  btn.disabled=true; btn.textContent='Henter…';
+  try{
+    const ids=await fetchAllLeadIds();
+    leadsAllIds=ids; leadsAllFilter=true; leadsSel=new Set(ids);
+  }catch(e){ toast('Klarte ikke hente alle treff: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent=old; }
+  renderLeads();
+}
+
+function leadsNullstill(){ leadsSel.clear(); leadsAllFilter=false; leadsAllIds=[]; renderLeads(); }
+
+function updateLeadsBar(){
+  const n = leadsAllFilter ? leadsAllIds.length : leadsSel.size;
+  const tBtn=document.getElementById('leadsTildel');
+  tBtn.textContent='Tildel valgte ('+n+')';
+  tBtn.disabled = n===0;
+  document.getElementById('leadsClear').style.display = n>0 ? '' : 'none';
+  const selAll=document.getElementById('leadsSelAll');
+  selAll.style.display = (leadsCache.length>=200 && !leadsAllFilter) ? '' : 'none';
+  const info=document.getElementById('leadsSelInfo');
+  if(leadsAllFilter) info.textContent='Alle treff valgt ('+leadsAllIds.length+')';
+  else if(leadsSel.size) info.textContent=leadsSel.size+' valgt';
+  else info.textContent='';
+  const ca=document.getElementById('leadsCheckAll');
+  if(ca) ca.checked = leadsCache.length>0 && leadsCache.every(k=>leadsAllFilter||leadsSel.has(k.id));
+}
+
+function openLeadRow(id){ setKunderSub('kunder'); selectCust(id); }
+
+function openTildelModal(){
+  const n = leadsAllFilter ? leadsAllIds.length : leadsSel.size;
+  if(!n) return;
+  document.getElementById('tildelSub').textContent='Tildeler '+n+' lead'+(n===1?'':'s')+'. Bare felt du setter blir endret.';
+  document.getElementById('tildelGrossist').value='';
+  document.getElementById('tildelSelger').value='';
+  document.getElementById('tildelStatus').textContent='';
+  document.getElementById('tildelModal').classList.add('open');
+}
+
+async function bekreftTildel(){
+  const g=document.getElementById('tildelGrossist').value;
+  const s=document.getElementById('tildelSelger').value;
+  const st=document.getElementById('tildelStatus');
+  if(!g && !s){ st.textContent='Velg grossist eller selger.'; st.style.color='var(--red)'; return; }
+  const ids = leadsAllFilter ? leadsAllIds.slice() : Array.from(leadsSel);
+  if(!ids.length) return;
+  const btn=document.getElementById('tildelBekreft'); btn.disabled=true;
+  st.style.color='var(--muted)'; st.textContent='Tildeler…';
+  const base={}; if(g) base.grossist_id=g; if(s) base.selger_id=s;
+  try{
+    let total=0; const CH=500;
+    for(let i=0;i<ids.length;i+=CH){
+      const chunk=ids.slice(i,i+CH);
+      const res=await api('/api/kunder/masse-tildel',{method:'PATCH',body:Object.assign({},base,{kunde_ids:chunk})});
+      total += (res&&res.antall)||0;
+      st.textContent='Tildeler… '+total+'/'+ids.length;
+    }
+    closeModal('tildelModal');
+    toast('Tildelt '+total+' lead'+(total===1?'':'s'));
+    leadsNullstill();
+    loadLeads();
+  }catch(e){ st.textContent='Feil: '+e.message; st.style.color='var(--red)'; }
+  finally{ btn.disabled=false; }
 }
 
 // ============ Views ============
