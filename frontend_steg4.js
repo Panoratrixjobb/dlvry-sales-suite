@@ -383,26 +383,17 @@ const Steg4 = (() => {
       el.querySelector("#ki-konkurs-varsel").style.display = "none";
       try {
         const d = await api(`/api/brreg/${encodeURIComponent(orgnr)}`);
+        // d.forretningsadresse er en ferdig formatert streng fra backend
         if (d.forretningsadresse) {
-          const adr = [
-            ...(d.forretningsadresse.adresse || []),
-            d.forretningsadresse.postnummer,
-            d.forretningsadresse.poststed,
-          ]
-            .filter(Boolean)
-            .join(", ");
-          if (adr) el.querySelector("#ki-levadresse").value = adr;
+          el.querySelector("#ki-levadresse").value = d.forretningsadresse;
           if (el.querySelector("#ki-samme").checked)
-            el.querySelector("#ki-faktadresse").value = adr;
+            el.querySelector("#ki-faktadresse").value = d.forretningsadresse;
         }
-        if (d.naeringskode1) {
-          const hint =
-            (d.naeringskode1.kode ? d.naeringskode1.kode + " — " : "") +
-            (d.naeringskode1.beskrivelse || "");
-          if (hint) {
-            el.querySelector("#ki-segment-tekst").textContent = hint;
-            el.querySelector("#ki-segment-hint").style.display = "block";
-          }
+        // d.naeringskode + d.naeringsbeskrivelse er flate felt fra backend
+        if (d.naeringsbeskrivelse) {
+          const hint = (d.naeringskode ? d.naeringskode + " — " : "") + d.naeringsbeskrivelse;
+          el.querySelector("#ki-segment-tekst").textContent = hint;
+          el.querySelector("#ki-segment-hint").style.display = "block";
         }
         if (d.konkurs) {
           el.querySelector("#ki-konkurs-varsel").style.display = "block";
