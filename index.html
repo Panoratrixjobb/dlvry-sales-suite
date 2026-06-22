@@ -8,7 +8,7 @@
 <style>
 :root{
   --bg:#f4f6fb; --panel:#ffffff; --ink:#1e2433; --muted:#7a8499; --line:#e7ebf3;
-  --brand:#3b4cca; --brand2:#5b6ef5; --sidebar:#1c2333; --sidebar-ink:#aeb6c9;
+  --brand:#D65742; --brand2:#B8472F; --sidebar:#3A2D2A; --sidebar-ink:#C8BEB8;
   --green:#16a34a; --green-bg:#e7f6ed; --orange:#ea8a1e; --orange-bg:#fdf1e1;
   --red:#dc2626; --red-bg:#fbe9e9; --pos:#16a34a; --neg:#dc2626;
   --radius:14px; --shadow:0 1px 3px rgba(20,30,60,.06),0 6px 24px rgba(20,30,60,.05);
@@ -21,7 +21,7 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
 .sidebar{width:218px;background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;
   display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
 .logo{display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:16px;padding:4px 8px 18px}
-.logo .mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--brand2),#8b5cf6);display:grid;place-items:center;font-size:14px}
+.logo .mark{width:26px;height:26px;border-radius:8px;background:var(--brand);display:grid;place-items:center;font-size:14px}
 .nav{display:flex;flex-direction:column;gap:2px}
 .nav a{display:flex;align-items:center;gap:11px;color:var(--sidebar-ink);text-decoration:none;padding:9px 11px;border-radius:9px;font-size:13px;font-weight:500;transition:.15s;cursor:pointer}
 .nav a:hover{background:rgba(255,255,255,.05);color:#fff}
@@ -32,13 +32,13 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
 .cust-list{display:flex;flex-direction:column;gap:1px;max-height:230px;overflow-y:auto}
 .cust-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--sidebar-ink)}
 .cust-item:hover{background:rgba(255,255,255,.05);color:#fff}
-.cust-item.active{background:rgba(91,110,245,.22);color:#fff}
+.cust-item.active{background:rgba(214,87,66,.18);color:#fff}
 .cust-item .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cust-item .cnt{font-size:10.5px;color:#7a8499;background:rgba(255,255,255,.06);border-radius:10px;padding:1px 7px;flex-shrink:0;margin-left:6px}
 .side-btn{margin-top:8px;width:100%;background:rgba(255,255,255,.06);color:#fff;border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit}
 .side-btn:hover{background:rgba(255,255,255,.1)}
 .sidebar .user{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 2px;border-top:1px solid rgba(255,255,255,.07)}
-.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#5b6ef5,#a855f7);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#D65742,#B8472F);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
 .user .meta{font-size:12px;color:#fff;font-weight:600;line-height:1.2}
 .user .meta span{display:block;color:var(--muted);font-weight:400;font-size:11px}
 
@@ -59,7 +59,7 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
 .field{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
 .field label{color:var(--muted);font-size:12.5px;white-space:nowrap}
 .field input,.field textarea{border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;color:var(--ink);width:150px;text-align:right;background:#fcfdff}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(91,110,245,.12)}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(214,87,66,.15)}
 .field textarea{resize:vertical;min-height:34px;text-align:left}
 
 .kpi-row{display:flex;align-items:flex-start;gap:18px}
@@ -91,8 +91,8 @@ body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helv
 .cart-actions{display:flex;gap:8px}
 .btn{border:none;border-radius:9px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--brand);color:#fff}
-.btn-primary:hover{background:#3140b5}
-.btn-ghost{background:#eef1fb;color:var(--brand)}
+.btn-primary:hover{background:#B8472F}
+.btn-ghost{background:#FBEAE6;color:var(--brand)}
 .btn-ghost:hover{background:#e2e7fa}
 .btn-danger{background:#fbe9e9;color:var(--red)}
 .btn-danger:hover{background:#f7d7d7}
@@ -114,7 +114,7 @@ tbody tr:hover{background:#fafbff}
 .neg{color:var(--neg);font-weight:600}
 .cell-input{width:62px;border:1px solid transparent;border-radius:6px;padding:5px 7px;font-size:12px;text-align:right;font-family:inherit;background:transparent;color:var(--ink)}
 .cell-input:hover{border-color:var(--line);background:#fff}
-.cell-input:focus{outline:none;border-color:var(--brand2);background:#fff;box-shadow:0 0 0 2px rgba(91,110,245,.12)}
+.cell-input:focus{outline:none;border-color:var(--brand2);background:#fff;box-shadow:0 0 0 2px rgba(214,87,66,.15)}
 .row-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:3px}
 .row-del:hover{color:var(--red)}
 .flag-warn{color:var(--orange);font-weight:700}
@@ -122,12 +122,12 @@ tbody tr:hover{background:#fafbff}
 .addrow{display:flex;gap:10px;padding:12px;background:#fafbfe;border-top:1px solid var(--line);align-items:center;position:relative;flex-wrap:wrap}
 .search-box{position:relative;flex:1;min-width:240px;max-width:380px}
 .search-box input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit}
-.search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(91,110,245,.12)}
+.search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(214,87,66,.15)}
 .suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 12px 32px rgba(20,30,60,.14);max-height:300px;overflow-y:auto;z-index:40;display:none}
 .suggest.open{display:block}
 .suggest .opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px}
 .suggest .opt:last-child{border-bottom:none}
-.suggest .opt:hover,.suggest .opt.hl{background:#eef1fb}
+.suggest .opt:hover,.suggest .opt.hl{background:#FBEAE6}
 .suggest .opt .nm{font-weight:600;color:var(--ink)}
 .suggest .opt .meta{color:var(--muted);font-size:11px;margin-top:2px;display:flex;gap:10px}
 .suggest .empty{padding:14px;color:var(--muted);text-align:center}
@@ -184,14 +184,14 @@ tbody tr:hover{background:#fafbff}
 /* ===== Dashboard ===== */
 .dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
 .dash-card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
-.dash-card.total{background:linear-gradient(135deg,#2b3566,#3b4cca);color:#fff}
+.dash-card.total{background:linear-gradient(135deg,#7A2E1F,#D65742);color:#fff}
 .dash-card .dc-name{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px}
-.dash-card.total .dc-name{color:#c9d0ff}
+.dash-card.total .dc-name{color:rgba(255,255,255,.8)}
 .dash-card .dc-val{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1}
 .dash-card .dc-val small{font-size:12px;font-weight:600;margin-left:4px;opacity:.7}
 .dash-card .dc-growth{margin-top:8px;font-size:11.5px}
 .dash-card .dc-prev{color:var(--muted)}
-.dash-card.total .dc-prev{color:#aeb6e8}
+.dash-card.total .dc-prev{color:rgba(255,255,255,.65)}
 .dash-row2{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
 .dash-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
 .legend-row,.lg-item{font-size:11.5px}
@@ -221,10 +221,10 @@ tbody tr:hover{background:#fafbff}
 <body>
 
 <!-- ============ Innloggingsskjerm ============ -->
-<div id="loginScreen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1c2333,#2a3450);z-index:600;align-items:center;justify-content:center">
+<div id="loginScreen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#3A2D2A,#5A3830);z-index:600;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:34px 32px;width:340px;max-width:90vw">
     <div style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;margin-bottom:4px;color:#1e2433">
-      <span style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#5b6ef5,#8b5cf6);display:grid;place-items:center;color:#fff;font-size:15px">◆</span>
+      <span style="width:30px;height:30px;border-radius:9px;background:#D65742;display:grid;place-items:center;color:#fff;font-size:15px">◆</span>
       KonseptSuite
     </div>
     <div style="font-size:12.5px;color:#7a8499;margin-bottom:22px">Logg inn for å fortsette</div>
@@ -233,7 +233,7 @@ tbody tr:hover{background:#fafbff}
     <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">Passord</label>
     <input id="loginPassord" type="password" autocomplete="current-password" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
     <div id="loginErr" style="color:#dc2626;font-size:12px;min-height:16px;margin-bottom:8px"></div>
-    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:#3b4cca;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
+    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:#D65742;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
     <div style="font-size:11px;color:#a0a8ba;text-align:center;margin-top:14px;line-height:1.4">Første kall kan ta ~50 sek mens serveren våkner.</div>
   </div>
 </div>
@@ -334,7 +334,7 @@ tbody tr:hover{background:#fafbff}
       <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
 
       <div class="grid4">
-        <section class="panel">
+        <section class="d-panel">
           <h3>Kundeinformasjon</h3>
           <div class="field"><label>Kundenavn</label><input id="kundenavn" oninput="markDirty()"></div>
           <div class="field"><label>Kunde-ID</label><input id="kundeid" oninput="markDirty()"></div>
@@ -344,7 +344,7 @@ tbody tr:hover{background:#fafbff}
           <div class="field"><label>Kommentar</label><textarea id="kommentar" oninput="markDirty()"></textarea></div>
         </section>
 
-        <section class="panel">
+        <section class="d-panel">
           <h3>Nøkkeltall (KPI)</h3>
           <div class="kpi-row">
             <div class="kpi-list">
@@ -366,14 +366,14 @@ tbody tr:hover{background:#fafbff}
           <div class="kpi-foot">Total margin er netto etter kjedebonus/kickback (trekkes per linje).</div>
         </section>
 
-        <section class="panel">
+        <section class="d-panel">
           <h3>Scenario</h3>
-          <div class="scen-field"><label>Scenarionavn</label><input id="scenNavn" value="Standard scenario" oninput="markDirty()"></div>
-          <div class="scen-field"><label>Beskrivelse</label><textarea id="scenBesk" oninput="markDirty()">Hovedscenario for standard pris og rabattstruktur</textarea></div>
-          <div style="text-align:right"><a onclick="saveCalc()" style="color:var(--brand);font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer">Lagre kalkyle →</a></div>
+          <div class="d-felt"><label>Scenarionavn</label><input class="d-input" id="scenNavn" value="Standard scenario" oninput="markDirty()"></div>
+          <div class="d-felt" style="margin-top:10px"><label>Beskrivelse</label><textarea class="d-input" id="scenBesk" oninput="markDirty()">Hovedscenario for standard pris og rabattstruktur</textarea></div>
+          <div style="text-align:right;margin-top:10px"><a onclick="saveCalc()" style="color:var(--primaer);font-size:12.5px;font-weight:600;text-decoration:none;cursor:pointer">Lagre kalkyle →</a></div>
         </section>
 
-        <section class="panel">
+        <section class="d-panel">
           <h3>Verktøy</h3>
           <div class="toollist">
             <button onclick="document.getElementById('csvFile').click()">Importer produkter (CSV) <span class="ic">⤓</span></button>
@@ -385,12 +385,12 @@ tbody tr:hover{background:#fafbff}
         </section>
       </div>
 
-      <section class="panel" style="padding:18px 18px 0">
+      <section class="d-panel" style="padding:18px 18px 0">
         <div class="cart-head">
           <h3>Handlekurv / linjer</h3>
           <div class="cart-actions">
-            <button class="btn btn-primary" onclick="document.getElementById('searchInput').focus()">+ Legg til produkt</button>
-            <button class="btn btn-ghost" onclick="saveCalc()">💾 Lagre</button>
+            <button class="d-knapp primar" onclick="document.getElementById('searchInput').focus()">+ Legg til produkt</button>
+            <button class="d-knapp subtil" onclick="saveCalc()">💾 Lagre</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -409,12 +409,12 @@ tbody tr:hover{background:#fafbff}
             <div class="suggest" id="suggest"></div>
           </div>
           <input class="qty" id="searchQty" type="number" placeholder="Antall" value="1" min="1">
-          <button class="btn btn-ghost" onclick="addFromSearch()">Legg til</button>
+          <button class="d-knapp subtil" onclick="addFromSearch()">Legg til</button>
         </div>
       </section>
 
       <div class="grid-bottom">
-        <section class="panel">
+        <section class="d-panel">
           <h3>Sammendrag</h3>
           <div class="sum-line"><span class="lbl">Sum listepris</span><span class="val" id="sumListe">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Sum rabatter</span><span class="val neg" id="sumRabatt">0 kr</span></div>
@@ -424,7 +424,7 @@ tbody tr:hover{background:#fafbff}
           <div class="sum-line total"><span class="lbl">Total margin (NOK)</span><span class="val pos" id="sumMargNok">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total margin (%)</span><span class="val" id="sumMargPct">0,0 %</span></div>
         </section>
-        <section class="panel">
+        <section class="d-panel">
           <h3>Margin per verdikjede</h3>
           <div class="vk-wrap">
             <div class="donut" style="width:120px;height:120px">
@@ -434,11 +434,11 @@ tbody tr:hover{background:#fafbff}
             <div class="legend" id="vkLegend" style="flex:1"></div>
           </div>
         </section>
-        <section class="panel">
-          <h3>Marginutvikling <small style="font-weight:400;color:var(--muted);font-size:11px">(simulert trend)</small></h3>
+        <section class="d-panel">
+          <h3>Marginutvikling <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(simulert trend)</small></h3>
           <svg class="spark" id="spark" viewBox="0 0 360 120" preserveAspectRatio="none"></svg>
         </section>
-        <section class="panel kpi2">
+        <section class="d-panel kpi2">
           <h3>Nøkkeltall</h3>
           <div class="kpi-line"><span class="lbl">Bidragsgrad</span><span class="val" id="nkBidrag">0,0 %</span></div>
           <div class="kpi-line"><span class="lbl">Dekningsgrad</span><span class="val" id="nkDekning">0,0 %</span></div>
@@ -463,9 +463,9 @@ tbody tr:hover{background:#fafbff}
       <div id="sub-kunder">
         <div class="crumb" id="kunderCrumb">Velg en kunde for å se kalkyler</div>
         <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="openCustModal()">+ Ny kunde</button>
-          <button class="btn btn-ghost" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
-          <button class="btn btn-danger" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+          <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
+          <button class="d-knapp subtil" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
+          <button class="d-knapp fare" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
         </div>
         <div id="calcArea"></div>
         <div id="kundekort-steg4" style="margin-top:24px"></div>
@@ -520,43 +520,40 @@ tbody tr:hover{background:#fafbff}
 
       <!-- Inviter bruker-form -->
       <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px">
-        <div style="background:var(--card);border-radius:14px;padding:20px 24px;min-width:320px;flex:1;max-width:480px">
+        <div class="d-panel" style="min-width:320px;flex:1;max-width:480px">
           <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Inviter ny bruker</h3>
-          <div class="scen-field" style="margin-bottom:10px">
-            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">E-post</label>
-            <input id="invEpost" type="email" placeholder="ny.bruker@firma.no"
-              style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px">
+          <div class="d-felt" style="margin-bottom:10px">
+            <label>E-post</label>
+            <input id="invEpost" type="email" class="d-input" placeholder="ny.bruker@firma.no">
           </div>
-          <div class="scen-field" style="margin-bottom:10px">
-            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">Rolle</label>
-            <select id="invRolle" onchange="oppdaterInvGrossistFelt()"
-              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px"></select>
+          <div class="d-felt" style="margin-bottom:10px">
+            <label>Rolle</label>
+            <select id="invRolle" class="d-select" onchange="oppdaterInvGrossistFelt()"></select>
           </div>
-          <div id="invGrossistFelt" style="margin-bottom:10px;display:none">
-            <label style="font-size:12px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px">Grossist (påkrevd for selger)</label>
-            <select id="invGrossist"
-              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px">
+          <div id="invGrossistFelt" class="d-felt" style="margin-bottom:10px;display:none">
+            <label>Grossist (påkrevd for selger)</label>
+            <select id="invGrossist" class="d-select">
               <option value="">— velg grossist —</option>
             </select>
           </div>
-          <div id="invErr" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
-          <button class="btn btn-primary" onclick="sendInvitasjon()" id="invBtn" style="width:100%">Send invitasjon</button>
+          <div id="invErr" style="font-size:12px;color:var(--d-roed);min-height:16px;margin-bottom:8px"></div>
+          <button class="d-knapp primar" onclick="sendInvitasjon()" id="invBtn" style="width:100%">Send invitasjon</button>
         </div>
 
         <!-- Brukerliste -->
-        <div style="background:var(--card);border-radius:14px;padding:20px 24px;flex:2;min-width:300px">
+        <div class="d-panel" style="flex:2;min-width:300px">
           <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Aktive brukere</h3>
-          <div id="brukerListe" style="font-size:13px;color:var(--muted)">Laster…</div>
+          <div id="brukerListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
         </div>
       </div>
 
       <!-- Invitasjonsliste -->
-      <div style="background:var(--card);border-radius:14px;padding:20px 24px">
+      <div class="d-panel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <h3 style="margin:0;font-size:14px;font-weight:600">Sendte invitasjoner</h3>
-          <button class="btn btn-ghost" onclick="lastInvitasjoner()" style="font-size:12px;padding:5px 12px">↻ Oppdater</button>
+          <button class="d-knapp subtil sm" onclick="lastInvitasjoner()">↻ Oppdater</button>
         </div>
-        <div id="invitasjonListe" style="font-size:13px;color:var(--muted)">Laster…</div>
+        <div id="invitasjonListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
       </div>
     </div>
 
@@ -568,12 +565,12 @@ tbody tr:hover{background:#fafbff}
   <div class="modal">
     <h2>Ny kunde</h2>
     <p class="sub">Opprett en kunde for å samle kalkyler.</p>
-    <div class="scen-field"><label>Kundenavn *</label><input id="mCustNavn" placeholder="f.eks. GRAFEN Trondheim"></div>
-    <div class="scen-field"><label>Kunde-ID</label><input id="mCustId" placeholder="f.eks. 100245"></div>
-    <div class="scen-field"><label>Notat</label><textarea id="mCustNote" placeholder="valgfritt"></textarea></div>
+    <div class="d-felt"><label>Kundenavn *</label><input class="d-input" id="mCustNavn" placeholder="f.eks. GRAFEN Trondheim"></div>
+    <div class="d-felt" style="margin-top:10px"><label>Kunde-ID</label><input class="d-input" id="mCustId" placeholder="f.eks. 100245"></div>
+    <div class="d-felt" style="margin-top:10px"><label>Notat</label><textarea class="d-input" id="mCustNote" placeholder="valgfritt"></textarea></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('custModal')">Avbryt</button>
-      <button class="btn btn-primary" onclick="createCust()">Opprett kunde</button>
+      <button class="d-knapp sekundar" onclick="closeModal('custModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="createCust()">Opprett kunde</button>
     </div>
   </div>
 </div>
@@ -602,21 +599,21 @@ tbody tr:hover{background:#fafbff}
   <div class="modal">
     <h2>Ny kalkyle</h2>
     <p class="sub" id="calcModalSub"></p>
-    <div class="scen-field"><label>Kalkylenavn *</label><input id="mCalcNavn" placeholder="f.eks. Tilbud uke 25"></div>
+    <div class="d-felt"><label>Kalkylenavn *</label><input class="d-input" id="mCalcNavn" placeholder="f.eks. Tilbud uke 25"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('calcModal')">Avbryt</button>
-      <button class="btn btn-primary" onclick="createCalc()">Opprett kalkyle</button>
+      <button class="d-knapp sekundar" onclick="closeModal('calcModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="createCalc()">Opprett kalkyle</button>
     </div>
   </div>
 </div>
 
 <div class="recalc-bar">
   <div class="saved-pill" id="savedPill"><span class="dot"></span><span id="savedTxt">Lagret</span></div>
-  <button class="btn btn-primary btn-lg" onclick="saveCalc()">💾 Lagre kalkyle</button>
+  <button class="d-knapp primar" onclick="saveCalc()">💾 Lagre kalkyle</button>
 </div>
 <div class="toast" id="toast"></div>
-<div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#1c2333;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
-  <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#5b6ef5;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
+<div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#3A2D2A;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
+  <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#D65742;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
   Kobler til server… (kan ta ~50 sek)
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
@@ -1570,7 +1567,7 @@ async function lastInvitasjoner(){
             +'<td style="padding:7px 8px"><span style="color:'+(statusFarge[i.status]||'inherit')+';font-weight:500">'+esc(i.status)+'</span></td>'
             +'<td style="padding:7px 8px;color:var(--muted)">'+utloper+'</td>'
             +'<td style="padding:7px 8px;color:var(--muted)">'+(i.invitert_av_navn?esc(i.invitert_av_navn):'—')+'</td>'
-            +'<td style="padding:7px 8px">'+(aktiv?'<button class="btn btn-ghost" style="font-size:11px;padding:3px 9px;color:var(--red)" onclick="kansellerInvitasjon(\''+i.id+'\')">Kanseller</button>':'')+'</td>'
+            +'<td style="padding:7px 8px">'+(aktiv?'<button class="d-knapp fare sm" onclick="kansellerInvitasjon(\''+i.id+'\')">Kanseller</button>':'')+'</td>'
             +'</tr>';
         }).join('')
       +'</tbody></table>';
