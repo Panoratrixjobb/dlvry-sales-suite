@@ -199,6 +199,88 @@
 /* ---------- Legg-til-rad (input-område under tabell) ---------- */
 .d-legg-til{display:flex; gap:var(--s2); margin-top:var(--s3); flex-wrap:wrap; align-items:flex-end;}
 
+/* ============================================================
+   KUNDEKORT — Variant A (Oversikt)
+   ============================================================ */
+/* Placeholder-markering: felt uten datakilde ennå */
+.d-ph{color:var(--d-tekst-3); font-style:italic;}
+.d-kommer{display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--d-tekst-3); background:var(--d-graa-bg);
+  border:1px solid var(--d-ramme); border-radius:6px; padding:1px 6px; vertical-align:middle;
+  line-height:1.5;}
+
+/* Ytre kort */
+.d-kk{background:var(--panel); border:1px solid var(--d-ramme); border-radius:var(--d-radius);
+  box-shadow:var(--d-skygge); overflow:hidden; margin-bottom:var(--s4);}
+
+/* Header */
+.d-kk-hode{display:flex; align-items:flex-start; justify-content:space-between; gap:var(--s5);
+  padding:var(--s6) var(--s6) var(--s5);}
+.d-kk-avatar{width:56px; height:56px; border-radius:15px; background:var(--sidemeny); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-family:var(--font-display);
+  font-weight:700; font-size:20px; flex:none;}
+.d-kk-navn{display:flex; align-items:center; gap:var(--s3); flex-wrap:wrap;}
+.d-kk-meta{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:8px;
+  font-size:13px; font-weight:500; color:var(--d-tekst-3);}
+.d-kk-meta .skille{opacity:.4;}
+.d-kk-mono{font-family:"JetBrains Mono","Consolas",monospace; font-size:12.5px; color:var(--d-tekst-2);}
+.d-kk-kam{display:inline-flex; align-items:center; gap:6px;}
+.d-kk-kam .pp{width:18px; height:18px; border-radius:50%; background:var(--primaer); color:#fff;
+  font-size:8.5px; font-weight:600; display:flex; align-items:center; justify-content:center;}
+.d-kk-handling{display:flex; gap:var(--s2); flex:none;}
+.d-kk-ikonknapp{width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:var(--d-radius-sm); background:#fff; color:var(--d-tekst-2);
+  border:1px solid var(--d-ramme-mork); cursor:pointer;}
+.d-kk-ikonknapp:hover{background:var(--bg);}
+.d-kk-ikonknapp.aktiv{background:var(--primaer-svak); color:var(--primaer); border-color:var(--primaer);}
+
+/* KPI-strip */
+.d-kk-kpi{display:flex; gap:var(--s3); padding:0 var(--s6) var(--s5); flex-wrap:wrap;}
+.d-kk-kpi .kort{flex:1; min-width:150px; background:var(--bg); border:1px solid var(--d-ramme);
+  border-radius:13px; padding:14px 15px;}
+.d-kk-kpi .lbl{font-size:12px; font-weight:500; color:var(--d-tekst-3);
+  display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+.d-kk-kpi .verdi{font-family:var(--font-display); font-size:22px; font-weight:700;
+  letter-spacing:-.01em; color:var(--d-tekst); margin-top:7px; font-variant-numeric:tabular-nums;}
+.d-kk-kpi .sub{font-size:12px; font-weight:500; color:var(--d-tekst-3); margin-top:5px;}
+
+/* To-kolonne body */
+.d-kk-body{display:grid; grid-template-columns:1fr 1.12fr; border-top:1px solid var(--d-ramme);}
+.d-kk-venstre{padding:var(--s5) var(--s6); border-right:1px solid var(--d-ramme);
+  display:flex; flex-direction:column; gap:var(--s5);}
+.d-kk-hoyre{padding:var(--s5) var(--s6); display:flex; flex-direction:column; gap:var(--s4);}
+.d-kk-skille{height:1px; background:var(--d-ramme);}
+.d-kk-rad{display:flex; justify-content:space-between; align-items:center; gap:var(--s3);}
+.d-kk-rad .k{font-size:13px; font-weight:500; color:var(--d-tekst-3);}
+.d-kk-rad .v{font-size:13px; font-weight:600; color:var(--d-tekst);}
+.d-kk-adr{display:flex; gap:10px; align-items:flex-start;}
+.d-kk-adr .albl{font-size:12px; font-weight:500; color:var(--d-tekst-3);}
+.d-kk-adr .aval{font-size:13.5px; font-weight:600; color:var(--d-tekst); margin-top:2px;}
+.d-kk-piller{display:flex; flex-wrap:wrap; gap:6px;}
+.d-kk-pille{padding:5px 10px; border-radius:var(--d-radius-pille); background:var(--d-graa-bg);
+  border:1px solid var(--d-ramme); font-size:12px; font-weight:500; color:var(--d-tekst-2);}
+
+/* Neste oppgave-kort (placeholder) */
+.d-kk-oppgave{background:var(--primaer-svak); border:1px solid #F2DCD4; border-radius:13px;
+  padding:13px 15px; display:flex; gap:var(--s3); align-items:flex-start;}
+.d-kk-oppgave .ikon{width:34px; height:34px; border-radius:var(--d-radius-sm); background:var(--primaer);
+  color:#fff; display:inline-flex; align-items:center; justify-content:center; flex:none; font-size:16px;}
+
+/* Engasjement-rader (faneinnhold på kundekort) */
+.d-kk-linje{display:flex; align-items:center; gap:var(--s3); padding:11px 0;
+  border-bottom:1px solid var(--d-ramme);}
+.d-kk-linje:last-child{border-bottom:none;}
+.d-kk-linje .pp{width:34px; height:34px; border-radius:50%; color:#fff; font-size:12px; font-weight:600;
+  display:flex; align-items:center; justify-content:center; flex:none;}
+.d-kk-linje .navn{font-size:13.5px; font-weight:600; color:var(--d-tekst);}
+.d-kk-linje .und{font-size:12px; font-weight:500; color:var(--d-tekst-3); margin-top:1px;}
+.d-kk-tomstat{color:var(--d-tekst-3); font-size:13px; padding:var(--s4) 0;}
+
+@media(max-width:1000px){
+  .d-kk-body{grid-template-columns:1fr;}
+  .d-kk-venstre{border-right:none; border-bottom:1px solid var(--d-ramme);}
+}
+
 /* ---------- Grid-hjelpere ---------- */
 .d-grid{display:grid; gap:var(--s4);}
 .d-g6{grid-template-columns:repeat(6,1fr);}

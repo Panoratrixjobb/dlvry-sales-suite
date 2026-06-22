@@ -417,9 +417,30 @@ const Steg4 = (() => {
       });
   }
 
-  // ---------- KUNDEKORT (kundeinfo + faner) ----------
+  // ---------- KUNDEKORT (kundeinfo + faner) — Variant A "Oversikt" ----------
+  function initialer(navn) {
+    return (
+      String(navn || "").trim().split(/\s+/).filter(Boolean).slice(0, 2)
+        .map((w) => w[0].toUpperCase()).join("") || "?"
+    );
+  }
+
+  /* Liten "data kommer"-merkelapp for placeholder-felt */
+  const KOMMER =
+    '<span class="d-kommer" title="Data kommer når ordre-/Excel-kobling er på plass">kommer</span>';
+
+  function placeholderFane(tit, tekst) {
+    return (
+      '<div class="d-kk-tomstat">' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+      '<span class="d-t-h2">' + esc(tit) + "</span>" + KOMMER + "</div>" +
+      esc(tekst) + "</div>"
+    );
+  }
+
   async function monterKundekort(kundeId, el) {
-    el.innerHTML = '<p style="color:var(--d-tekst-3);font-size:13px;padding:var(--s4) 0">Laster kundekort…</p>';
+    el.innerHTML =
+      '<p style="color:var(--d-tekst-3);font-size:13px;padding:var(--s4) 0">Laster kundekort…</p>';
 
     let kunde = {};
     try {
@@ -441,103 +462,246 @@ const Steg4 = (() => {
       ? (kunde.naeringskode ? kunde.naeringskode + " — " : "") + kunde.naeringsbeskrivelse
       : "";
 
-    const badgeFarge = statusFarge(kunde.status || "Lead");
+    const status = kunde.status || "Lead";
+    const badgeFarge = statusFarge(status);
+    const navn = kunde.navn || "Kunde";
+    const erLead = status === "Lead";
+    const selger = kunde.selger_navn || "";
+
+    /* ── Meta-rad under navnet ── */
+    const meta = [];
+    if (kunde.orgnr) meta.push(`<span class="d-kk-mono">${esc(kunde.orgnr)}</span>`);
+    if (segTekst) meta.push(`<span>${esc(segTekst)}</span>`);
+    meta.push(`<span>Kunde siden ${KOMMER}</span>`);
+    if (selger)
+      meta.push(
+        `<span class="d-kk-kam"><span class="pp">${esc(initialer(selger))}</span>${esc(selger)}</span>`
+      );
+    const metaHtml = meta.join('<span class="skille">·</span>');
+
+    /* ── KPI-strip (placeholder) ── */
+    const kpi = [
+      ["Omsetning i år", "mot i fjor"],
+      ["Totalmargin", "dekningsbidrag"],
+      ["Utestående", "av kredittgrense"],
+      ["Snittordre", "ordrefrekvens"],
+    ]
+      .map(
+        ([lbl, sub]) =>
+          '<div class="kort">' +
+          '<div class="lbl">' + esc(lbl) + KOMMER + "</div>" +
+          '<div class="verdi d-ph">—</div>' +
+          '<div class="sub">' + esc(sub) + "</div>" +
+          "</div>"
+      )
+      .join("");
 
     el.innerHTML = [
-      /* ── Topp-panel: kundenavn + status ── */
-      `<div class="d-panel" style="margin-bottom:var(--s4)">`,
-      `<div class="d-panel-hode">`,
-      `<div>`,
-      `<div class="d-t-h1">${esc(kunde.navn || "Kunde")}</div>`,
-      `<div class="d-t-label" style="margin-top:4px">`,
-      kunde.orgnr ? `Org.nr: ${esc(kunde.orgnr)}` : "",
-      `</div>`,
-      `</div>`,
-      `<span class="d-badge ${badgeFarge}">${esc(kunde.status || "Lead")}</span>`,
-      `</div>`,
+      '<div class="d-kk">',
 
-      /* Konsept-tagger */
-      `<div id="ks-konsepter" style="margin-bottom:var(--s4)"></div>`,
+      /* ===== HEADER ===== */
+      '<div class="d-kk-hode">',
+      '<div style="display:flex;gap:var(--s4)">',
+      `<div class="d-kk-avatar">${esc(initialer(navn))}</div>`,
+      "<div>",
+      '<div class="d-kk-navn">',
+      `<span class="d-t-h1">${esc(navn)}</span>`,
+      `<span class="d-badge ${badgeFarge}">${esc(status)}</span>`,
+      "</div>",
+      `<div class="d-kk-meta">${metaHtml}</div>`,
+      "</div>",
+      "</div>",
+      /* handlingsknapper */
+      '<div class="d-kk-handling">',
+      '<button id="kk-ny-kalkyle" class="d-knapp primar">+ Ny kalkyle</button>',
+      '<button id="kk-ny-aktivitet" class="d-knapp sekundar">Aktivitet</button>',
+      '<button id="kk-edit-toggle" class="d-kk-ikonknapp" title="Rediger kundeinfo">✎</button>',
+      "</div>",
+      "</div>",
+
+      /* ===== KPI-STRIP ===== */
+      `<div class="d-kk-kpi">${kpi}</div>`,
+
+      /* ===== EDIT-PANEL (skjult til blyant trykkes) ===== */
+      '<div id="ki-edit" style="display:none;border-top:1px solid var(--d-ramme);padding:var(--s5) var(--s6);background:var(--bg)">',
 
       /* BRREG-rad */
-      `<div style="display:flex;align-items:flex-end;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)">`,
-      `<div class="d-felt" style="flex:0 0 auto">`,
-      `<label>Org.nr</label>`,
+      '<div style="display:flex;align-items:flex-end;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)">',
+      '<div class="d-felt" style="flex:0 0 auto">',
+      "<label>Org.nr</label>",
       `<input id="ki-orgnr" class="d-input" value="${esc(kunde.orgnr || "")}" placeholder="9 siffer" style="width:130px">`,
-      `</div>`,
-      `<button id="ki-brreg-btn" class="d-knapp subtil">Hent fra BRREG</button>`,
-      `<span id="ki-brreg-status" style="font-size:12px;color:var(--d-tekst-3)"></span>`,
-      `</div>`,
+      "</div>",
+      '<button id="ki-brreg-btn" class="d-knapp subtil">Hent fra BRREG</button>',
+      '<span id="ki-brreg-status" style="font-size:12px;color:var(--d-tekst-3)"></span>',
+      "</div>",
 
       /* Konkurs-varsel */
-      `<div id="ki-konkurs-varsel" style="display:none;background:var(--d-roed-bg);color:var(--d-roed);border:1px solid #E6B5AE;border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-weight:600;font-size:13px">`,
-      `⚠ Registrert konkurs i BRREG — vurder å sette status «Konkurs»`,
-      `</div>`,
+      '<div id="ki-konkurs-varsel" style="display:none;background:var(--d-roed-bg);color:var(--d-roed);border:1px solid #E6B5AE;border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-weight:600;font-size:13px">',
+      "⚠ Registrert konkurs i BRREG — vurder å sette status «Konkurs»",
+      "</div>",
 
       /* Segment-hint */
-      `<div id="ki-segment-hint" style="display:${segTekst ? "block" : "none"};font-size:12px;color:var(--d-tekst-3);margin-bottom:var(--s3);padding:8px 10px;background:var(--bg);border:1px solid var(--d-ramme);border-radius:var(--d-radius-sm)">`,
+      `<div id="ki-segment-hint" style="display:${segTekst ? "block" : "none"};font-size:12px;color:var(--d-tekst-3);margin-bottom:var(--s3);padding:8px 10px;background:var(--panel);border:1px solid var(--d-ramme);border-radius:var(--d-radius-sm)">`,
       `Næring: <span id="ki-segment-tekst">${esc(segTekst)}</span>`,
-      `</div>`,
+      "</div>",
 
       /* Status */
-      `<div class="d-felt" style="max-width:280px;margin-bottom:var(--s3)">`,
-      `<label>Status</label>`,
+      '<div class="d-felt" style="max-width:280px;margin-bottom:var(--s3)">',
+      "<label>Status</label>",
       `<select id="ki-status" class="d-select">${statusOpt}</select>`,
-      `</div>`,
+      "</div>",
 
       /* Forklaring (betinget) */
       `<div id="ki-forklaring-wrap" style="display:${erIkkeAktuell ? "block" : "none"};margin-bottom:var(--s3)">`,
-      `<div class="d-felt">`,
-      `<label>Forklaring *</label>`,
+      '<div class="d-felt">',
+      "<label>Forklaring *</label>",
       `<input id="ki-forklaring" class="d-input" value="${esc(kunde.ikke_aktuell_forklaring || "")}" placeholder="Påkrevd forklaring">`,
-      `</div>`,
-      `</div>`,
+      "</div>",
+      "</div>",
 
       /* Gjenbesøk (betinget) */
       `<div id="ki-gjenbesok-wrap" style="display:${erSovende ? "block" : "none"};margin-bottom:var(--s3)">`,
-      `<div class="d-felt" style="max-width:200px">`,
-      `<label>Gjenbesøk dato</label>`,
+      '<div class="d-felt" style="max-width:200px">',
+      "<label>Gjenbesøk dato</label>",
       `<input id="ki-gjenbesok" type="date" class="d-input" value="${gjDato}">`,
-      `</div>`,
-      `</div>`,
+      "</div>",
+      "</div>",
 
-      /* Adresser */
-      `<div class="d-grid d-g2" style="margin-bottom:var(--s3)">`,
-      `<div class="d-felt">`,
-      `<label>Leveringsadresse</label>`,
+      /* Adresser (redigerbare) */
+      '<div class="d-grid d-g2" style="margin-bottom:var(--s3)">',
+      '<div class="d-felt">',
+      "<label>Leveringsadresse</label>",
       `<input id="ki-levadresse" class="d-input" value="${esc(kunde.leveringsadresse || "")}" placeholder="Adresse">`,
-      `</div>`,
-      `<div class="d-felt">`,
-      `<label>Fakturaadresse</label>`,
+      "</div>",
+      '<div class="d-felt">',
+      "<label>Fakturaadresse</label>",
       `<input id="ki-faktadresse" class="d-input" value="${esc(kunde.fakturaadresse || "")}" placeholder="Adresse"${erSamme ? " disabled" : ""}>`,
-      `<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--d-tekst-3);cursor:pointer;margin-top:4px;font-weight:400">`,
+      '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--d-tekst-3);cursor:pointer;margin-top:4px;font-weight:400">',
       `<input id="ki-samme" type="checkbox"${erSamme ? " checked" : ""}> Samme som levering`,
-      `</label>`,
-      `</div>`,
-      `</div>`,
+      "</label>",
+      "</div>",
+      "</div>",
 
       /* Lagre */
-      `<div style="display:flex;align-items:center;gap:var(--s3)">`,
-      `<button id="ki-lagre-btn" class="d-knapp primar">Lagre kundeinfo</button>`,
-      `<span id="ki-lagre-status" style="font-size:12px;color:var(--d-tekst-3)"></span>`,
-      `</div>`,
-      `</div>`,
+      '<div style="display:flex;align-items:center;gap:var(--s3)">',
+      '<button id="ki-lagre-btn" class="d-knapp primar">Lagre kundeinfo</button>',
+      '<span id="ki-lagre-status" style="font-size:12px;color:var(--d-tekst-3)"></span>',
+      "</div>",
+      "</div>",
 
-      /* ── Faner ── */
-      `<div class="d-faner">`,
-      `<button class="d-fane aktiv" data-fane="kon">Kontaktpersoner</button>`,
-      `<button class="d-fane" data-fane="lev">Leveringssteder</button>`,
-      `<button class="d-fane" data-fane="akt">Aktiviteter</button>`,
-      `</div>`,
-      `<div id="ks-faneinnhold"></div>`,
+      /* ===== BODY: to kolonner ===== */
+      '<div class="d-kk-body">',
+
+      /* --- VENSTRE: detaljer --- */
+      '<div class="d-kk-venstre">',
+
+      /* Konsepter */
+      "<div>",
+      '<div style="display:flex;align-items:center;justify-content:space-between">',
+      '<span class="d-kk-sek-tit">Konsepter</span>',
+      "</div>",
+      '<div id="ks-konsepter" style="margin-top:var(--s3)"></div>',
+      "</div>",
+
+      '<div class="d-kk-skille"></div>',
+
+      /* Adresser (lese) */
+      "<div>",
+      '<span class="d-kk-sek-tit">Adresser</span>',
+      '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:13px">',
+      '<div class="d-kk-adr"><div><div class="albl">Leveringsadresse</div>',
+      `<div class="aval">${kunde.leveringsadresse ? esc(kunde.leveringsadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
+      '<div class="d-kk-adr"><div><div class="albl">Fakturaadresse</div>',
+      `<div class="aval">${kunde.fakturaadresse ? esc(kunde.fakturaadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
+      "</div>",
+      "</div>",
+
+      '<div class="d-kk-skille"></div>',
+
+      /* Levering & logistikk (placeholder) */
+      "<div>",
+      `<span class="d-kk-sek-tit">Levering &amp; logistikk</span> ${KOMMER}`,
+      '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:11px">',
+      '<div class="d-kk-rad"><span class="k">Leveringsdager</span><span class="v d-ph">—</span></div>',
+      '<div class="d-kk-rad"><span class="k">Rute</span><span class="v d-ph">—</span></div>',
+      '<div class="d-kk-rad"><span class="k">Leveringsvindu</span><span class="v d-ph">—</span></div>',
+      "</div>",
+      "</div>",
+
+      '<div class="d-kk-skille"></div>',
+
+      /* Produktkategorier (placeholder) */
+      "<div>",
+      `<span class="d-kk-sek-tit">Produktkategorier</span> ${KOMMER}`,
+      '<div style="margin-top:var(--s3)" class="d-ph">Kjøpsmiks vises når ordre-/Excel-koblingen er på plass.</div>',
+      "</div>",
+
+      '<div class="d-kk-skille"></div>',
+
+      /* Betingelser (placeholder) */
+      "<div>",
+      `<span class="d-kk-sek-tit">Betingelser</span> ${KOMMER}`,
+      '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:11px">',
+      '<div class="d-kk-rad"><span class="k">Betaling</span><span class="v d-ph">—</span></div>',
+      '<div class="d-kk-rad"><span class="k">Prisavtale</span><span class="v d-ph">—</span></div>',
+      "</div>",
+      "</div>",
+
+      "</div>",
+
+      /* --- HØYRE: engasjement --- */
+      '<div class="d-kk-hoyre">',
+
+      /* Neste oppgave (placeholder) */
+      '<div class="d-kk-oppgave">',
+      '<span class="ikon">⚑</span>',
+      '<div style="flex:1;min-width:0">',
+      `<div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--primaer)">Neste oppgave ${KOMMER}</div>`,
+      '<div style="font-size:13px;color:var(--d-tekst-2);margin-top:4px">Oppgaver/påminnelser kobles på senere. Logg aktiviteter under.</div>',
+      "</div>",
+      "</div>",
+
+      /* Faner */
+      '<div class="d-faner">',
+      '<button class="d-fane aktiv" data-fane="kon">Kontaktpersoner</button>',
+      '<button class="d-fane" data-fane="akt">Aktiviteter</button>',
+      '<button class="d-fane" data-fane="kalk">Kalkyler</button>',
+      '<button class="d-fane" data-fane="ord">Ordrehistorikk</button>',
+      '<button class="d-fane" data-fane="lev">Leveringssteder</button>',
+      "</div>",
+      '<div id="ks-faneinnhold"></div>',
+
+      "</div>",
+      "</div>",
+      "</div>",
     ].join("");
 
     /* Konsepter: vis kun for ekte kunder */
     const konseptEl = el.querySelector("#ks-konsepter");
     if (konseptEl) {
-      if (kunde.status && kunde.status !== "Lead") monterKonsepter(kundeId, konseptEl);
-      else konseptEl.style.display = "none";
+      if (status && status !== "Lead") monterKonsepter(kundeId, konseptEl);
+      else
+        konseptEl.innerHTML =
+          '<span class="d-ph" style="font-size:12px">Tilgjengelig når kunden ikke lenger er Lead.</span>';
     }
+
+    /* Handlingsknapper i header */
+    const nyKalkBtn = el.querySelector("#kk-ny-kalkyle");
+    if (nyKalkBtn)
+      nyKalkBtn.addEventListener("click", () => {
+        if (typeof window.newCalc === "function") window.newCalc();
+      });
+
+    /* Blyant: vis/skjul edit-panel */
+    const editPanel = el.querySelector("#ki-edit");
+    const editToggle = el.querySelector("#kk-edit-toggle");
+    if (editToggle && editPanel)
+      editToggle.addEventListener("click", () => {
+        const vis = editPanel.style.display === "none";
+        editPanel.style.display = vis ? "block" : "none";
+        editToggle.classList.toggle("aktiv", vis);
+        if (vis) editPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
 
     /* BRREG-oppslag — uendret logikk */
     el.querySelector("#ki-brreg-btn").addEventListener("click", async () => {
@@ -640,12 +804,12 @@ const Steg4 = (() => {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        st.textContent = "Lagret ✓";
+        st.textContent = "Lagret ✓ — oppdaterer…";
         st.style.color = "var(--d-gronn)";
+        setTimeout(() => monterKundekort(kundeId, el), 600);
       } catch (e) {
         st.textContent = "Feil: " + e.message;
         st.style.color = "var(--d-roed)";
-      } finally {
         btn.disabled = false;
       }
     });
@@ -656,6 +820,16 @@ const Steg4 = (() => {
       if (f === "lev") monterLeveringssteder(kundeId, innhold);
       else if (f === "akt") monterAktiviteter(kundeId, innhold);
       else if (f === "kon") monterKontaktpersoner(kundeId, innhold);
+      else if (f === "kalk")
+        innhold.innerHTML = placeholderFane(
+          "Kalkyler",
+          "Kalkyler knyttet til kundekortet vises her når kalkyle-koblingen er ferdig. Du kan opprette kalkyler nå via «Ny kalkyle»."
+        );
+      else if (f === "ord")
+        innhold.innerHTML = placeholderFane(
+          "Ordrehistorikk",
+          "Fakturerte ordre kommer når ordre-/Excel-koblingen er på plass. Kilden er ikke koblet til appen ennå."
+        );
     };
     el.querySelectorAll(".d-fane").forEach((b) =>
       b.addEventListener("click", () => {
@@ -665,6 +839,15 @@ const Steg4 = (() => {
         visFane(b.dataset.fane);
       })
     );
+
+    /* "Aktivitet"-knapp i header → hopp til Aktiviteter-fanen */
+    const aktBtn = el.querySelector("#kk-ny-aktivitet");
+    if (aktBtn)
+      aktBtn.addEventListener("click", () => {
+        const f = el.querySelector('.d-fane[data-fane="akt"]');
+        if (f) f.click();
+      });
+
     visFane("kon");
   }
 
