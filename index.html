@@ -462,16 +462,46 @@ tbody tr:hover{background:#fafbff}
         <button class="d-fane" data-sub="leads" onclick="setKunderSub('leads')">Leads</button>
       </div>
 
-      <!-- Undervisning: Kunder (eksisterende kundekort-flyt) -->
+      <!-- Kunder: liste-visning (standard) -->
       <div id="sub-kunder">
-        <div class="crumb" id="kunderCrumb">Velg en kunde for å se kalkyler</div>
-        <div style="margin-bottom:18px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
-          <button class="d-knapp subtil" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
-          <button class="d-knapp fare" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+
+        <!-- ── LISTE-PANEL ── -->
+        <div id="kunder-liste-panel">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <div class="d-sok" style="flex:1;min-width:220px">
+              <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+              <input id="klSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="klOnSearch(this.value)">
+            </div>
+            <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
+            <span id="klCount" class="d-t-label"></span>
+          </div>
+          <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
+            <table class="d-tabell" style="min-width:600px">
+              <thead><tr>
+                <th>Kundenavn</th><th>Org.nr</th><th>Kalkyler</th><th>Status</th>
+              </tr></thead>
+              <tbody id="klBody"></tbody>
+            </table>
+          </div>
+          <div id="klPager" style="display:none;gap:14px;align-items:center;justify-content:center;margin-top:14px">
+            <button id="klPrev" class="d-knapp sekundar sm" onclick="klGaaSide(-1)">‹ Forrige</button>
+            <span id="klPagerInfo" class="d-t-hint"></span>
+            <button id="klNext" class="d-knapp sekundar sm" onclick="klGaaSide(1)">Neste ›</button>
+          </div>
         </div>
-        <div id="calcArea"></div>
-        <div id="kundekort-steg4" style="margin-top:24px"></div>
+
+        <!-- ── KUNDEKORT-PANEL ── -->
+        <div id="kunder-kort-panel" style="display:none">
+          <div style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button class="d-knapp sekundar" onclick="klTilbake()">← Tilbake til kundeliste</button>
+            <button class="d-knapp subtil" id="newCalcBtn" onclick="newCalc()" disabled>+ Ny kalkyle</button>
+            <button class="d-knapp fare" id="delCustBtn" onclick="deleteCurrentCust()" disabled>Slett kunde</button>
+          </div>
+          <div class="crumb" id="kunderCrumb"></div>
+          <div id="calcArea"></div>
+          <div id="kundekort-steg4" style="margin-top:24px"></div>
+        </div>
+
       </div>
 
       <!-- Undervisning: Leads (prospekt-tabell m/ filtre + masse-tildel) -->
@@ -1086,8 +1116,9 @@ async function deleteCurrentCust(){
   catch(e){toast('Kunne ikke slette: '+e.message);return;}
   if(state.calcId){state.calcId=null;state.cart=[];}
   state.custId=null;document.getElementById('newCalcBtn').disabled=true;document.getElementById('delCustBtn').disabled=true;
-  document.getElementById('kunderTitle').textContent='Kunder & kalkyler';document.getElementById('kunderCrumb').textContent='Velg en kunde for å se kalkyler';
+  document.getElementById('kunderTitle').textContent='Kunder & kalkyler';
   await refreshCusts();await renderCalcArea();toast('Kunde slettet');
+  klTilbake();
 }
 
 async function renderCalcArea(){
@@ -1246,6 +1277,71 @@ function copyLines(){
   navigator.clipboard.writeText(txt).then(()=>toast('Linjer kopiert')).catch(()=>toast('Kunne ikke kopiere'));
 }
 
+// ============ Kundeliste (hoved-panel) ============
+let klPage=0, klQ='', klTotal=0, klSearchTimer=null;
+const KL_LIMIT=100;
+
+function klOnSearch(q){
+  clearTimeout(klSearchTimer);
+  klSearchTimer=setTimeout(()=>{klPage=0;klQ=q.trim();klLastOgVis();},300);
+}
+function klGaaSide(d){
+  const maxPage=Math.max(0,Math.ceil(klTotal/KL_LIMIT)-1);
+  klPage=Math.max(0,Math.min(klPage+d,maxPage));
+  klLastOgVis();
+}
+async function klLastOgVis(){
+  const body=document.getElementById('klBody');
+  if(!body)return;
+  body.innerHTML='<tr><td colspan="4" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
+  const url='/api/kunder?status_ikke=Lead&limit='+KL_LIMIT+'&offset='+(klPage*KL_LIMIT)+(klQ?'&q='+encodeURIComponent(klQ):'');
+  let data=[], total=0;
+  try{
+    const resp=await fetch(Steg4.API+url,{headers:{'Authorization':'Bearer '+Steg4.token}});
+    total=parseInt(resp.headers.get('X-Total-Count')||'0',10);
+    data=await resp.json();
+  }catch(e){
+    body.innerHTML='<tr><td colspan="4" style="color:var(--d-roed);padding:16px">Feil: '+esc(e.message)+'</td></tr>';
+    return;
+  }
+  klTotal=total;
+  document.getElementById('klCount').textContent=total.toLocaleString('nb-NO')+' kunder';
+  if(!data.length){
+    body.innerHTML='<tr><td colspan="4" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
+    document.getElementById('klPager').style.display='none';
+    return;
+  }
+  body.innerHTML=data.map(c=>`
+    <tr style="cursor:pointer" onclick="klVelgKunde('${c.id}')">
+      <td class="d-navn">${esc(c.navn||'—')}</td>
+      <td style="color:var(--d-tekst-3)">${esc(c.orgnr||'—')}</td>
+      <td style="text-align:right">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
+      <td><span class="d-badge ${statusFarge(c.status||'')} flat">${esc(c.status||'Kunde')}</span></td>
+    </tr>`).join('');
+  const totPages=Math.ceil(klTotal/KL_LIMIT)||1;
+  const pager=document.getElementById('klPager');
+  pager.style.display=totPages>1?'flex':'none';
+  document.getElementById('klPagerInfo').textContent='Side '+(klPage+1)+' av '+totPages+' ('+klTotal.toLocaleString('nb-NO')+' totalt)';
+  document.getElementById('klPrev').disabled=klPage===0;
+  document.getElementById('klNext').disabled=klPage>=totPages-1;
+}
+function statusFarge(s){
+  return({'Lead':'bla','Aktiv dialog':'gul','Kunde':'gronn','Sovende':'graa','Konkurs':'roed','Ikke aktuell':'graa'}[s]||'graa');
+}
+async function klVelgKunde(id){
+  document.getElementById('kunder-liste-panel').style.display='none';
+  document.getElementById('kunder-kort-panel').style.display='';
+  await selectCust(id);
+}
+function klTilbake(){
+  document.getElementById('kunder-kort-panel').style.display='none';
+  document.getElementById('kunder-liste-panel').style.display='';
+  state.custId=null;
+  document.getElementById('newCalcBtn').disabled=true;
+  document.getElementById('delCustBtn').disabled=true;
+  document.getElementById('kunderTitle').textContent='Kunder & kalkyler';
+}
+
 // ============ Leads-underfane ============
 function setKunderSub(sub){
   document.getElementById('sub-kunder').style.display = sub==='kunder' ? '' : 'none';
@@ -1256,6 +1352,7 @@ function setKunderSub(sub){
     b.classList.toggle('aktiv',on);
   });
   if(sub==='leads') mountLeads();
+  if(sub==='kunder'){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
 }
 
 async function mountLeads(){
@@ -1619,7 +1716,8 @@ function setView(v){
   document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
   // skjul lagre-baren utenfor kalkulator
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
-  if(v==='kunder')renderCalcArea();
+  if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
+  if(v==='kunder'&&state.custId)renderCalcArea();
   if(v==='dashboard'){renderDash();Steg4.visDashboard(document.getElementById('dashboard-app'),DASH);}
   if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
   if(v==='brukere')mountBrukere();
