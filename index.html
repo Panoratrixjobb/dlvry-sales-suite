@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prising & Totalmargin — KonseptSuite</title>
+<title>Tilbudsverktøy — KonseptSuite</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="dlvry-stil.css">
 <style>
 :root{
@@ -247,7 +249,7 @@ tbody tr:hover{background:#fafbff}
     <nav class="d-meny">
       <a class="aktiv" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
       <a class="deaktivert"><span class="ic">◈</span> Konsepter</a>
-      <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Prising &amp; Totalmargin</a>
+      <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Tilbudsverktøy</a>
       <a class="deaktivert"><span class="ic">📊</span> Kundeanalyse</a>
       <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
       <a class="deaktivert"><span class="ic">📄</span> Rapporter</a>
@@ -333,7 +335,7 @@ tbody tr:hover{background:#fafbff}
 
     <!-- ===== KALKULATOR VIEW ===== -->
     <div id="view-kalkulator">
-      <div class="topbar"><h1>Prising &amp; Totalmargin</h1></div>
+      <div class="topbar"><h1>Tilbudsverktøy</h1></div>
       <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
 
       <div class="grid4">
@@ -393,6 +395,7 @@ tbody tr:hover{background:#fafbff}
           <h3>Handlekurv / linjer</h3>
           <div class="cart-actions">
             <button class="d-knapp subtil" onclick="saveCalc()">💾 Lagre</button>
+            <button class="d-knapp sekundar" onclick="skrivUtTilbud()">📄 Skriv ut tilbud (PDF)</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -609,6 +612,20 @@ tbody tr:hover{background:#fafbff}
     </div>
 
   </main>
+</div>
+
+<!-- Modal: tilbud oppfølging -->
+<div class="modal-bg" id="tilbudModal">
+  <div class="modal">
+    <h2>Tilbud sendt</h2>
+    <p class="sub">PDF-en er lastet ned. Velg dato for oppfølging — tilbudet legges under åpne tilbud og i oppfølgingslista di.</p>
+    <div class="d-felt" style="margin-bottom:10px"><label>Oppfølgingsdato</label><input id="tbOppfolgDato" type="date" class="d-input"></div>
+    <div id="tbErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
+    <div class="modal-actions">
+      <button class="d-knapp subtil" onclick="document.getElementById('tilbudModal').classList.remove('open')">Avbryt</button>
+      <button class="d-knapp primar" onclick="registrerTilbudSendt()">Registrer tilbud sendt</button>
+    </div>
+  </div>
 </div>
 
 <!-- Modal: tvungen passordbytte -->
@@ -1959,6 +1976,84 @@ function leggTilFakturaForslag(){
   document.getElementById('fakturaModal').classList.remove('open');
   if(typeof toast==='function')toast(n+' linjer lagt til fra faktura');
 }
+
+// ===== Tilbud: PDF-utskrift + registrering =====
+// TODO (senere): hent grossist-logo + -adresse fra backend pr. selgers grossist.
+const GROSSIST_PLACEHOLDER = { logoTekst:'DLVRY', adresse:'[Grossistadresse — settes i senere utvikling]' };
+
+async function skrivUtTilbud(){
+  const r=compute();
+  if(!r.lines.length){toast('Legg til produkter før du lager tilbud.');return;}
+  if(!state.calcId){toast('Lagre kalkylen først.');return;}
+  let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', adresse:'', kontakt:''};
+  kunde.navn=kunde.navn.replace('Kunde','').trim()||'Kunde';
+  if(state.custId){
+    try{
+      const k=await api('/api/kunder/'+state.custId);
+      kunde.navn=k.navn||kunde.navn; kunde.adresse=k.leveringsadresse||'';
+      const kp=await api('/api/kunder/'+state.custId+'/kontaktpersoner')||[];
+      const pri=kp.find(x=>x.er_primaer)||kp[0];
+      if(pri)kunde.kontakt=pri.navn+(pri.telefon?(' · '+pri.telefon):'')+(pri.epost?(' · '+pri.epost):'');
+    }catch(e){/* faller tilbake på kalkyle-feltet */}
+  }
+  byggTilbudPdf(r, kunde);
+  visTilbudOppfolging();
+}
+
+function byggTilbudPdf(r, kunde){
+  const { jsPDF }=window.jspdf; const doc=new jsPDF();
+  const idag=new Date().toLocaleDateString('nb-NO');
+  doc.setFontSize(18); doc.text(GROSSIST_PLACEHOLDER.logoTekst, 14, 18);
+  doc.setFontSize(9); doc.setTextColor(120); doc.text(GROSSIST_PLACEHOLDER.adresse, 14, 24);
+  doc.setTextColor(0); doc.setFontSize(15); doc.text('Tilbud', 196, 18, {align:'right'});
+  doc.setFontSize(9); doc.text('Dato: '+idag, 196, 24, {align:'right'});
+  doc.setFontSize(11); doc.text('Til:', 14, 38);
+  doc.setFontSize(10); let y=44; doc.text(String(kunde.navn), 14, y);
+  if(kunde.adresse){y+=5; doc.text(String(kunde.adresse),14,y);}
+  if(kunde.kontakt){y+=5; doc.text('Kontakt: '+kunde.kontakt,14,y);}
+  const body=r.lines.map(x=>[
+    x.l.navn, fmtNum(x.l.antall), fmtKr2(x.l.listepris),
+    (x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})+' %',
+    fmtKr2(x.endelig), fmtKr(x.endelig*x.l.antall)
+  ]);
+  doc.autoTable({
+    startY:y+8,
+    head:[['Produkt','Antall','Listepris','Rabatt','Pris','Sum']],
+    body, styles:{fontSize:9}, headStyles:{fillColor:[58,45,42]},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}}
+  });
+  let ty=doc.lastAutoTable.finalY+8;
+  doc.setFontSize(11); doc.text('Sum tilbud: '+fmtKr(r.sumOms), 196, ty, {align:'right'});
+  const komEl=document.getElementById('kommentar');
+  const kom=(komEl?komEl.value:'').trim();
+  if(kom){ ty+=12; doc.setFontSize(10); doc.text('Kommentar:',14,ty); ty+=5;
+    doc.setFontSize(9); doc.text(doc.splitTextToSize(kom,180),14,ty); }
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('Selger: '+((CURRENT_USER&&CURRENT_USER.navn)||'[Selger]'), 14, 285);
+  const trygg=String(kunde.navn).replace(/[^0-9A-Za-zæøåÆØÅ -]/g,'').trim().replace(/\s+/g,'_');
+  doc.save('Tilbud-'+trygg+'-'+idag.replace(/\./g,'')+'.pdf');
+}
+
+function visTilbudOppfolging(){
+  const d=new Date(); d.setDate(d.getDate()+14);
+  document.getElementById('tbOppfolgDato').value=d.toISOString().slice(0,10);
+  document.getElementById('tbErr').textContent='';
+  document.getElementById('tilbudModal').classList.add('open');
+}
+
+async function registrerTilbudSendt(){
+  const dato=document.getElementById('tbOppfolgDato').value;
+  if(!dato){document.getElementById('tbErr').textContent='Velg en oppfølgingsdato.';return;}
+  try{
+    await api('/api/kalkyler/'+state.calcId,{method:'PATCH',body:{status:'Sendt',svarfrist_dato:dato}});
+    document.getElementById('tilbudModal').classList.remove('open');
+    toast('Tilbud registrert som sendt — oppfølging '+dato);
+    const cr=document.getElementById('crumb'); if(cr)cr.textContent='Tilbud sendt · oppfølging '+dato;
+  }catch(e){document.getElementById('tbErr').textContent='Feil: '+e.message;}
+}
+
+// TODO (senere, når e-post er aktivert via M365): send tilbud-PDF direkte fra selgerens e-post.
+function sendTilbudEpost(){ toast('Direkte e-postutsending kommer når M365 er på plass.'); }
 
 </script>
 </body>
