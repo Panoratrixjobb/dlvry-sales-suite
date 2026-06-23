@@ -344,7 +344,6 @@ tbody tr:hover{background:#fafbff}
           <div class="field"><label>Kalkylenavn</label><input id="kalkylenavn" oninput="markDirty()"></div>
           <div class="field"><label>Generell rabatt %</label><input id="genrabatt" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
           <div class="field"><label>Kjedebonus / kickback %</label><input id="kjedebonus" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
-          <div class="field"><label>Kommentar</label><textarea id="kommentar" oninput="markDirty()"></textarea></div>
         </section>
 
         <section class="d-panel">
@@ -392,7 +391,6 @@ tbody tr:hover{background:#fafbff}
         <div class="cart-head">
           <h3>Handlekurv / linjer</h3>
           <div class="cart-actions">
-            <button class="d-knapp primar" onclick="document.getElementById('searchInput').focus()">+ Legg til produkt</button>
             <button class="d-knapp subtil" onclick="saveCalc()">💾 Lagre</button>
           </div>
         </div>
@@ -451,6 +449,12 @@ tbody tr:hover{background:#fafbff}
           <div class="kpi-line"><span class="lbl">Sum antall enheter</span><span class="val" id="nkEnheter">0</span></div>
         </section>
       </div>
+
+      <section class="d-panel" style="margin-top:18px">
+        <h3>Kommentar</h3>
+        <div class="kpi-foot" style="margin:0 0 8px">Blir brødtekst i tilbudet til kunde (tilbudsgenerering kommer).</div>
+        <div class="field" style="margin:0"><textarea id="kommentar" oninput="markDirty()" style="min-height:90px"></textarea></div>
+      </section>
     </div>
 
     <!-- ===== KUNDER VIEW ===== -->
