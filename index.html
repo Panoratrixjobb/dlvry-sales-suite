@@ -401,7 +401,7 @@ tbody tr:hover{background:#fafbff}
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>Art.nr</th><th>Produkt</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
+              <th>Art.nr</th><th>Produkt</th><th>Match</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
               <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Konfidens</th><th>Linjeomsetning</th>
               <th>Grossist-margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
@@ -648,6 +648,10 @@ tbody tr:hover{background:#fafbff}
     <div class="d-felt"><label>Kundenavn *</label><input class="d-input" id="mCustNavn" placeholder="f.eks. GRAFEN Trondheim"></div>
     <div class="d-felt" style="margin-top:10px"><label>Kunde-ID</label><input class="d-input" id="mCustId" placeholder="f.eks. 100245"></div>
     <div class="d-felt" style="margin-top:10px"><label>Notat</label><textarea class="d-input" id="mCustNote" placeholder="valgfritt"></textarea></div>
+    <div class="d-felt" style="margin-top:10px"><label>Org.nr (valgfritt — kan stå tomt)</label><input class="d-input" id="mCustOrgnr" placeholder="9 siffer eller tomt"></div>
+    <div class="d-felt" style="margin-top:10px"><label>Status</label>
+      <select class="d-select" id="mCustStatus"><option value="Kunde">Kunde</option><option value="Aktiv dialog">Aktiv dialog</option><option value="Lead">Lead</option></select></div>
+    <div class="d-felt" style="margin-top:10px"><label>Leveringsadresse (valgfritt)</label><input class="d-input" id="mCustAdr" placeholder="Gateadresse, postnr sted"></div>
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('custModal')">Avbryt</button>
       <button class="d-knapp primar" onclick="createCust()">Opprett kunde</button>
@@ -943,7 +947,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
 function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null};}
 
 // ============ Motor ============
 function compute(){
@@ -985,6 +989,7 @@ function render(){
                 : '<span style="color:#B45309">'+kf+'% ⚠</span>');
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
       <td><div class="pname">${x.l.navn}</div></td>
+      <td>${x.l.matchkonfidens!=null?(x.l.matchkonfidens+'%'+(x.l.matchkonfidens<60?' ⚠':'')):'—'}</td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
@@ -1000,7 +1005,7 @@ function render(){
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
   });
-  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
 
   document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
   document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
@@ -1129,7 +1134,11 @@ function lineToApi(l){return{
 };}
 const num=v=>v==null?0:(typeof v==='number'?v:parseFloat(v)||0);
 
-function openCustModal(){document.getElementById('mCustNavn').value='';document.getElementById('mCustId').value='';document.getElementById('mCustNote').value='';document.getElementById('custModal').classList.add('open');document.getElementById('mCustNavn').focus();}
+function openCustModal(){
+  document.getElementById('mCustNavn').value='';document.getElementById('mCustId').value='';document.getElementById('mCustNote').value='';
+  document.getElementById('mCustOrgnr').value='';document.getElementById('mCustStatus').value='Kunde';document.getElementById('mCustAdr').value='';
+  document.getElementById('custModal').classList.add('open');document.getElementById('mCustNavn').focus();
+}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
 async function createCust(){
@@ -1138,11 +1147,16 @@ async function createCust(){
   let c;
   try{
     c=await api('/api/kunder',{method:'POST',body:{
-      navn, status:'Kunde', kundeid:document.getElementById('mCustId').value.trim(), notat:document.getElementById('mCustNote').value.trim()
+      navn,
+      orgnr:(document.getElementById('mCustOrgnr').value.trim()||null),
+      status:document.getElementById('mCustStatus').value,
+      leveringsadresse:(document.getElementById('mCustAdr').value.trim()||null),
+      kundeid:document.getElementById('mCustId').value.trim(),
+      notat:document.getElementById('mCustNote').value.trim()
     }});
   }catch(e){toast('Kunne ikke opprette kunde: '+e.message);return;}
-  closeModal('custModal');await refreshCusts();
-  toast('Kunde opprettet');await selectCust(c.id);setView('kunder');
+  closeModal('custModal'); await refreshCusts(); toast('Kunde opprettet');
+  setView('kunder'); setKunderSub('kunder'); await klVelgKunde(c.id);
 }
 
 let _custSearchTimer=null;
@@ -1618,7 +1632,7 @@ function updateLeadsBar(){
   if(ca) ca.checked = leadsCache.length>0 && leadsCache.every(k=>leadsAllFilter||leadsSel.has(k.id));
 }
 
-function openLeadRow(id){ setKunderSub('kunder'); selectCust(id); }
+function openLeadRow(id){ setKunderSub('kunder'); klVelgKunde(id); }
 
 function openTildelModal(){
   const n = leadsAllFilter ? leadsAllIds.length : leadsSel.size;
@@ -1978,6 +1992,7 @@ function leggTilFakturaForslag(){
     const line=lineFromProd(f.match.prod, f.faktura.antall||1);
     line.konkurrentpris=(f.faktura.enhetspris==null?null:num(f.faktura.enhetspris));
     line.konfidens = f.match ? f.match.score : null;
+    line.matchkonfidens = (f.match && f.match.score!=null) ? f.match.score : null;
     state.cart.push(line); n++;
   });
   markDirty(); render();
