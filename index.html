@@ -378,12 +378,13 @@ tbody tr:hover{background:#fafbff}
         <section class="d-panel">
           <h3>Verktøy</h3>
           <div class="toollist">
-            <button onclick="document.getElementById('csvFile').click()">Importer produkter (CSV) <span class="ic">⤓</span></button>
+            <button onclick="document.getElementById('fakturaFile').click()">Importer fra faktura <span class="ic">⤓</span></button>
             <button onclick="exportCSV()">Eksporter til CSV <span class="ic">⤒</span></button>
             <button onclick="copyLines()">Kopier linjer <span class="ic">⧉</span></button>
             <button onclick="duplicateCalc()">Dupliser kalkyle <span class="ic">⎘</span></button>
           </div>
           <input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(event)">
+          <input type="file" id="fakturaFile" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="importFaktura(event)">
         </section>
       </div>
 
@@ -628,6 +629,17 @@ tbody tr:hover{background:#fafbff}
       <button class="d-knapp primar" id="tildelBekreft" onclick="bekreftTildel()">Bekreft tildeling</button>
     </div>
     <div id="tildelStatus" class="d-t-label" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Modal: faktura-import -->
+<div class="modal-bg" id="fakturaModal">
+  <div class="modal" style="max-width:820px">
+    <h2>Importer fra faktura</h2>
+    <div id="fakturaInnhold"></div>
+    <div class="modal-actions">
+      <button class="d-knapp subtil" onclick="document.getElementById('fakturaModal').classList.remove('open')">Lukk</button>
+    </div>
   </div>
 </div>
 
@@ -1796,6 +1808,26 @@ document.addEventListener('keydown',e=>{
 });
 
 boot();
+
+async function importFaktura(ev){
+  const f=ev.target.files[0]; if(!f)return; ev.target.value='';
+  document.getElementById('fakturaInnhold').innerHTML='<p class="sub">Leser faktura med AI… (kan ta 10–30 sek)</p>';
+  document.getElementById('fakturaModal').classList.add('open');
+  try{
+    const fd=new FormData(); fd.append('fil',f);
+    const r=await fetch(API_BASE+'/api/faktura/tolk',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd});
+    if(!r.ok){const t=await r.text(); throw new Error(r.status+': '+t.slice(0,200));}
+    renderFaktura(await r.json());
+  }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+e.message+'</p>'; }
+}
+function renderFaktura(d){
+  const linjer=d.linjer||[];
+  const rows=linjer.map(l=>`<tr><td>${l.art_nr_faktura??'—'}</td><td>${l.beskrivelse??'—'}</td><td style="text-align:right">${l.antall??'—'}</td><td>${l.enhet??'—'}</td><td style="text-align:right">${l.enhetspris??'—'}</td><td style="text-align:right">${l.sum??'—'}</td></tr>`).join('');
+  document.getElementById('fakturaInnhold').innerHTML=
+    `<p class="sub">Leverandør: <b>${d.leverandor??'—'}</b> · Fakturanr: ${d.fakturanummer??'—'} · ${linjer.length} linjer</p>
+     <div class="table-wrap"><table><thead><tr><th>Art.nr (faktura)</th><th>Beskrivelse</th><th>Antall</th><th>Enhet</th><th>Enhetspris</th><th>Sum</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Ingen linjer lest</td></tr>'}</tbody></table></div>
+     <p class="sub" style="margin-top:10px">Fase 1: kun uttrekk for kontroll. Matching mot vår produktbase (24 490 varer) kommer i Fase 2.</p>`;
+}
 
 </script>
 </body>
