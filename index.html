@@ -402,7 +402,7 @@ tbody tr:hover{background:#fafbff}
           <table>
             <thead><tr>
               <th>Art.nr</th><th>Produkt</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
-              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Linjeomsetning</th>
+              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Konfidens</th><th>Linjeomsetning</th>
               <th>Grossist-margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
@@ -943,7 +943,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
 function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null};}
 
 // ============ Motor ============
 function compute(){
@@ -979,6 +979,10 @@ function render(){
     const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
     const kp=x.l.konkurrentpris;
     const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'#2f9e63':'#C0392B'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
+    const kf=x.l.konfidens;
+    const konfCelle = kf==null ? '<span class="d-sub">—</span>'
+      : (kf>=60 ? '<span style="color:#2f9e63">'+kf+'%</span>'
+                : '<span style="color:#B45309">'+kf+'% ⚠</span>');
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
       <td><div class="pname">${x.l.navn}</div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
@@ -988,6 +992,7 @@ function render(){
       <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
       <td class="final">${fmtKr2(x.endelig)}</td>
       <td><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}</td>
+      <td style="text-align:center">${konfCelle}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
@@ -995,7 +1000,7 @@ function render(){
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
   });
-  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
 
   document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
   document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
@@ -1109,7 +1114,8 @@ function lineFromApi(l){return{
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:l.spesialpris==null?null:num(l.spesialpris),
-  konkurrentpris:l.konkurrent_pris==null?null:num(l.konkurrent_pris)
+  konkurrentpris:l.konkurrent_pris==null?null:num(l.konkurrent_pris),
+  konfidens:l.match_konfidens==null?null:num(l.match_konfidens)
 };}
 function lineToApi(l){return{
   artnr:String(l.art), navn:l.navn, enhet:l.enhet??null, listepris:num(l.listepris), kostbase:num(l.kostbase),
@@ -1118,7 +1124,8 @@ function lineToApi(l){return{
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris),
-  konkurrent_pris:(l.konkurrentpris==null||l.konkurrentpris==='')?null:num(l.konkurrentpris)
+  konkurrent_pris:(l.konkurrentpris==null||l.konkurrentpris==='')?null:num(l.konkurrentpris),
+  match_konfidens:(l.konfidens==null||l.konfidens==='')?null:num(l.konfidens)
 };}
 const num=v=>v==null?0:(typeof v==='number'?v:parseFloat(v)||0);
 
@@ -1131,7 +1138,7 @@ async function createCust(){
   let c;
   try{
     c=await api('/api/kunder',{method:'POST',body:{
-      navn, kundeid:document.getElementById('mCustId').value.trim(), notat:document.getElementById('mCustNote').value.trim()
+      navn, status:'Kunde', kundeid:document.getElementById('mCustId').value.trim(), notat:document.getElementById('mCustNote').value.trim()
     }});
   }catch(e){toast('Kunne ikke opprette kunde: '+e.message);return;}
   closeModal('custModal');await refreshCusts();
@@ -1970,6 +1977,7 @@ function leggTilFakturaForslag(){
   _fakturaForslag.forEach(f=>{ if(!f.match)return;
     const line=lineFromProd(f.match.prod, f.faktura.antall||1);
     line.konkurrentpris=(f.faktura.enhetspris==null?null:num(f.faktura.enhetspris));
+    line.konfidens = f.match ? f.match.score : null;
     state.cart.push(line); n++;
   });
   markDirty(); render();
