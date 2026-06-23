@@ -399,7 +399,7 @@ tbody tr:hover{background:#fafbff}
           <table>
             <thead><tr>
               <th>Art.nr</th><th>Produkt</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
-              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Linjeomsetning</th>
+              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Linjeomsetning</th>
               <th>Grossist-margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
@@ -901,7 +901,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
 function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null};}
 
 // ============ Motor ============
 function compute(){
@@ -935,6 +935,8 @@ function render(){
   r.lines.forEach((x,i)=>{
     const tr=document.createElement('tr');
     const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
+    const kp=x.l.konkurrentpris;
+    const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'#2f9e63':'#C0392B'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
       <td><div class="pname">${x.l.navn}</div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
@@ -943,6 +945,7 @@ function render(){
       <td>${fmtKr2(x.prisEtter)}</td>
       <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
       <td class="final">${fmtKr2(x.endelig)}</td>
+      <td><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
@@ -950,7 +953,7 @@ function render(){
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
   });
-  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
 
   document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
   document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
@@ -989,6 +992,7 @@ function upd(i,f,v){
   if(f==='antall')state.cart[i].antall=Math.max(0,parseFloat(v)||0);
   else if(f==='linjerabatt')state.cart[i].linjerabatt=v===''?null:(parseFloat(v)||0)/100;
   else if(f==='spesialpris')state.cart[i].spesialpris=v===''?null:(parseFloat(v)||0);
+  else if(f==='konkurrentpris')state.cart[i].konkurrentpris=v===''?null:(parseFloat(v)||0);
   markDirty();render();
 }
 function delLine(i){state.cart.splice(i,1);markDirty();render();}
@@ -1062,7 +1066,8 @@ function lineFromApi(l){return{
   grossistprisFB:l.grossistpris_fb==null?null:num(l.grossistpris_fb),
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
-  spesialpris:l.spesialpris==null?null:num(l.spesialpris)
+  spesialpris:l.spesialpris==null?null:num(l.spesialpris),
+  konkurrentpris:l.konkurrent_pris==null?null:num(l.konkurrent_pris)
 };}
 function lineToApi(l){return{
   artnr:String(l.art), navn:l.navn, enhet:l.enhet??null, listepris:num(l.listepris), kostbase:num(l.kostbase),
@@ -1070,7 +1075,8 @@ function lineToApi(l){return{
   grossistpris_fb:l.grossistprisFB==null?null:num(l.grossistprisFB),
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
-  spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris)
+  spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris),
+  konkurrent_pris:(l.konkurrentpris==null||l.konkurrentpris==='')?null:num(l.konkurrentpris)
 };}
 const num=v=>v==null?0:(typeof v==='number'?v:parseFloat(v)||0);
 
@@ -1820,13 +1826,59 @@ async function importFaktura(ev){
     renderFaktura(await r.json());
   }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+e.message+'</p>'; }
 }
+// --- Fase 2: enkel fuzzy match faktura→produkt (token-overlap, ingen AI/tokens) ---
+let _dbTokens=null,_fakturaForslag=[];
+function _fnorm(s){return (s||'').toLowerCase().replace(/[^a-z0-9æøå ]+/gi,' ').replace(/\s+/g,' ').trim();}
+function _ftok(s){return _fnorm(s).split(' ').filter(t=>t.length>=2);}
+function buildDbTokens(){ if(_dbTokens)return; _dbTokens=DB.map(p=>new Set(_ftok(p.navn))); }
+function matchFaktura(besk){
+  buildDbTokens();
+  const q=new Set(_ftok(besk)); if(!q.size)return null;
+  let best=null,bestScore=0;
+  for(let i=0;i<DB.length;i++){
+    const pt=_dbTokens[i]; if(!pt.size)continue;
+    let shared=0; q.forEach(t=>{ if(pt.has(t))shared++; });
+    if(!shared)continue;
+    const jac=shared/(q.size+pt.size-shared);
+    if(jac>bestScore){bestScore=jac;best=DB[i];}
+  }
+  return best?{prod:best,score:Math.round(bestScore*100)}:null;
+}
 function renderFaktura(d){
   const linjer=d.linjer||[];
-  const rows=linjer.map(l=>`<tr><td>${l.art_nr_faktura??'—'}</td><td>${l.beskrivelse??'—'}</td><td style="text-align:right">${l.antall??'—'}</td><td>${l.enhet??'—'}</td><td style="text-align:right">${l.enhetspris??'—'}</td><td style="text-align:right">${l.sum??'—'}</td></tr>`).join('');
+  _fakturaForslag=linjer.map(l=>{
+    let m=null;
+    if(l.art_nr_faktura){const p=findProd(l.art_nr_faktura); if(p)m={prod:p,score:100};}
+    if(!m)m=matchFaktura(l.beskrivelse);
+    return {faktura:l,match:m};
+  });
+  const treff=_fakturaForslag.filter(f=>f.match).length;
+  const rows=_fakturaForslag.map(f=>{
+    const m=f.match;
+    const konf=m?(m.score>=60?`<span style="color:#2f9e63">${m.score}%</span>`:`<span style="color:#B45309">${m.score}% ⚠</span>`):'<span style="color:#C0392B">ingen</span>';
+    return `<tr>
+      <td>${f.faktura.beskrivelse??'—'}</td>
+      <td style="text-align:right">${f.faktura.antall??'—'}</td>
+      <td style="text-align:right">${f.faktura.enhetspris??'—'}</td>
+      <td>${m?`<b>${m.prod.navn}</b><br><span class="sub">Art ${m.prod.art}</span>`:'<span class="sub">Søk opp manuelt</span>'}</td>
+      <td style="text-align:center">${konf}</td></tr>`;
+  }).join('');
   document.getElementById('fakturaInnhold').innerHTML=
-    `<p class="sub">Leverandør: <b>${d.leverandor??'—'}</b> · Fakturanr: ${d.fakturanummer??'—'} · ${linjer.length} linjer</p>
-     <div class="table-wrap"><table><thead><tr><th>Art.nr (faktura)</th><th>Beskrivelse</th><th>Antall</th><th>Enhet</th><th>Enhetspris</th><th>Sum</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Ingen linjer lest</td></tr>'}</tbody></table></div>
-     <p class="sub" style="margin-top:10px">Fase 1: kun uttrekk for kontroll. Matching mot vår produktbase (24 490 varer) kommer i Fase 2.</p>`;
+    `<p class="sub">Leverandør: <b>${d.leverandor??'—'}</b> · Fakturanr: ${d.fakturanummer??'—'} · ${linjer.length} linjer, ${treff} matchet</p>
+     <div class="table-wrap"><table><thead><tr><th>Faktura-beskrivelse</th><th>Antall</th><th>Fakturapris</th><th>Matchet produkt (vår base)</th><th>Konfidens</th></tr></thead><tbody>${rows||'<tr><td colspan="5">Ingen linjer</td></tr>'}</tbody></table></div>
+     <p class="sub" style="margin-top:8px">Fakturaprisen legges inn som <b>konkurrentpris</b> på hver matchet linje. ⚠ = lav konfidens. Linjer uten treff søker du opp manuelt etterpå.</p>
+     <div style="margin-top:12px"><button class="d-knapp primar" onclick="leggTilFakturaForslag()">Legg til ${treff} matchede linjer i kalkylen</button></div>`;
+}
+function leggTilFakturaForslag(){
+  let n=0;
+  _fakturaForslag.forEach(f=>{ if(!f.match)return;
+    const line=lineFromProd(f.match.prod, f.faktura.antall||1);
+    line.konkurrentpris=(f.faktura.enhetspris==null?null:num(f.faktura.enhetspris));
+    state.cart.push(line); n++;
+  });
+  markDirty(); render();
+  document.getElementById('fakturaModal').classList.remove('open');
+  if(typeof toast==='function')toast(n+' linjer lagt til fra faktura');
 }
 
 </script>
