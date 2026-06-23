@@ -578,6 +578,19 @@ tbody tr:hover{background:#fafbff}
           <button class="d-knapp primar" onclick="sendInvitasjon()" id="invBtn" style="width:100%">Send invitasjon</button>
         </div>
 
+        <!-- Opprett bruker direkte -->
+        <div class="d-panel" style="min-width:320px;flex:1;max-width:480px">
+          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Opprett bruker direkte</h3>
+          <div class="d-felt" style="margin-bottom:10px"><label>Navn</label><input id="nbNavn" class="d-input" placeholder="Fornavn Etternavn"></div>
+          <div class="d-felt" style="margin-bottom:10px"><label>E-post (= brukernavn)</label><input id="nbEpost" type="email" class="d-input" placeholder="navn@dlvry.no"></div>
+          <div class="d-felt" style="margin-bottom:10px"><label>Rolle</label>
+            <select id="nbRolle" class="d-select"><option value="selger">selger</option><option value="leder">leder</option><option value="admin">admin</option><option value="superadmin">superadmin</option></select></div>
+          <div class="d-felt" style="margin-bottom:10px"><label>Midlertidig passord (min. 8 tegn)</label><input id="nbPassord" class="d-input" type="password"></div>
+          <div id="nbErr" style="font-size:12px;color:var(--d-roed);min-height:16px;margin-bottom:8px"></div>
+          <button class="d-knapp primar" onclick="opprettBrukerDirekte()" style="width:100%">Opprett bruker</button>
+          <p class="sub" style="margin-top:8px">Brukeren må bytte passord ved første innlogging. Del passordet direkte med personen.</p>
+        </div>
+
         <!-- Brukerliste -->
         <div class="d-panel" style="flex:2;min-width:300px">
           <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Aktive brukere</h3>
@@ -596,6 +609,18 @@ tbody tr:hover{background:#fafbff}
     </div>
 
   </main>
+</div>
+
+<!-- Modal: tvungen passordbytte -->
+<div class="modal-bg" id="pwByttModal">
+  <div class="modal">
+    <h2>Sett nytt passord</h2>
+    <p class="sub">Du må velge et nytt passord før du fortsetter.</p>
+    <div class="d-felt" style="margin-bottom:10px"><label>Nytt passord (min. 8 tegn)</label><input id="pwNy1" type="password" class="d-input"></div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Gjenta passord</label><input id="pwNy2" type="password" class="d-input"></div>
+    <div id="pwByttErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
+    <div class="modal-actions"><button class="d-knapp primar" onclick="lagreNyttPassord()">Lagre og fortsett</button></div>
+  </div>
 </div>
 
 <!-- Modal: ny kunde -->
@@ -1650,6 +1675,7 @@ async function lastBrukere(){
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Rolle</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist / Region</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Aktiv</th>'
+      +'<th></th>'
       +'</tr></thead><tbody>'
       + brukere.map(b=>
         '<tr style="border-bottom:1px solid var(--line)">'
@@ -1657,6 +1683,7 @@ async function lastBrukere(){
         +'<td style="padding:7px 8px"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">'+esc(b.rolle)+'</span></td>'
         +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : '<span style="color:var(--muted)">—</span>')+'</td>'
         +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
+        +'<td style="padding:7px 8px">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
         +'</tr>'
       ).join('')
       +'</tbody></table>';
@@ -1729,6 +1756,57 @@ async function kansellerInvitasjon(id){
   }catch(e){ toast('Feil: '+e.message); }
 }
 
+function visPassordbytte(){
+  document.getElementById('pwByttErr').textContent='';
+  document.getElementById('pwNy1').value='';
+  document.getElementById('pwNy2').value='';
+  document.getElementById('pwByttModal').classList.add('open');
+}
+async function lagreNyttPassord(){
+  const a=document.getElementById('pwNy1').value, b=document.getElementById('pwNy2').value, e=document.getElementById('pwByttErr');
+  if(a.length<8){e.textContent='Minst 8 tegn.';return;}
+  if(a!==b){e.textContent='Passordene er ikke like.';return;}
+  try{
+    await api('/api/auth/bytt-passord',{method:'POST',body:{nytt_passord:a}});
+    CURRENT_USER.ma_bytte_passord=false;
+    document.getElementById('pwByttModal').classList.remove('open');
+    showApp();
+  }catch(err){e.textContent=err.message;}
+}
+
+async function opprettBrukerDirekte(){
+  const navn=document.getElementById('nbNavn').value.trim(), epost=document.getElementById('nbEpost').value.trim(),
+        rolle=document.getElementById('nbRolle').value, pw=document.getElementById('nbPassord').value, e=document.getElementById('nbErr');
+  e.textContent='';
+  if(!navn||!epost){e.textContent='Navn og e-post kreves.';return;}
+  if(pw.length<8){e.textContent='Midlertidig passord må være minst 8 tegn.';return;}
+  try{
+    await api('/api/brukere',{method:'POST',body:{navn,epost,rolle,midlertidig_passord:pw}});
+    document.getElementById('nbNavn').value='';document.getElementById('nbEpost').value='';document.getElementById('nbPassord').value='';
+    if(typeof toast==='function')toast('Bruker opprettet'); await lastBrukere();
+  }catch(err){e.textContent=err.message;}
+}
+
+async function slettBruker(id, navn){
+  if(!confirm('Slette bruker «'+navn+'»?'))return;
+  try{
+    await api('/api/brukere/'+id,{method:'DELETE'});
+    if(typeof toast==='function')toast('Bruker slettet'); await lastBrukere();
+  }catch(err){
+    if(/eier|overf/i.test(err.message)){
+      const brukere=(await api('/api/brukere')||[]).filter(b=>b.id!==id);
+      const valg=prompt(err.message+'\n\nSkriv inn navnet på brukeren som skal overta (eksakt):\n'+brukere.map(b=>'• '+b.navn).join('\n'));
+      if(!valg)return;
+      const mott=brukere.find(b=>b.navn.toLowerCase()===valg.trim().toLowerCase());
+      if(!mott){alert('Fant ingen bruker med det navnet.');return;}
+      try{
+        await api('/api/brukere/'+id+'?overfor_til='+encodeURIComponent(mott.id),{method:'DELETE'});
+        if(typeof toast==='function')toast('Bruker slettet, portefølje overført til '+mott.navn); await lastBrukere();
+      }catch(e2){alert('Feil: '+e2.message);}
+    } else { alert('Feil: '+err.message); }
+  }
+}
+
 // ============ Views ============
 function setView(v){
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
@@ -1755,7 +1833,7 @@ async function boot(){
   document.getElementById('loadOverlay').style.display='none';
   // har vi et token fra før? prøv å gjenopprette økten
   if(TOKEN){
-    try{CURRENT_USER=await api('/api/auth/meg');showApp();return;}
+    try{CURRENT_USER=await api('/api/auth/meg');if(CURRENT_USER.ma_bytte_passord){visPassordbytte();return;}showApp();return;}
     catch(e){setToken(null);} // utløpt → fall til login
   }
   showLogin();
@@ -1776,6 +1854,7 @@ async function doLogin(){
     setToken(tok);
     CURRENT_USER=await api('/api/auth/meg');
     document.getElementById('loginPassord').value='';
+    if(CURRENT_USER.ma_bytte_passord){visPassordbytte();return;}
     showApp();
   }catch(e){errEl.textContent=e.message;}
   finally{btn.disabled=false;btn.textContent='Logg inn';}
@@ -1803,7 +1882,7 @@ async function showApp(){
   }
   await refreshCusts();
   // Vis Brukere-fane for alle som kan invitere (leder/admin/superadmin)
-  const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle !== 'selger';
+  const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   setView('dashboard');
 }
