@@ -507,6 +507,9 @@ const Steg4 = (() => {
       '<div class="d-kk-navn">',
       `<span class="d-t-h1">${esc(navn)}</span>`,
       `<span class="d-badge ${badgeFarge}">${esc(status)}</span>`,
+      (kunde.konkurs_flagg ? '<span class="d-badge roed" title="Konkurs registrert i BRREG">⚠ Konkurs</span>' : ''),
+      (kunde.under_avvikling ? '<span class="d-badge roed" title="Under avvikling i BRREG">⚠ Under avvikling</span>' : ''),
+      (kunde.under_tvangsavvikling ? '<span class="d-badge roed" title="Under tvangsavvikling i BRREG">⚠ Tvangsavvikling</span>' : ''),
       "</div>",
       `<div class="d-kk-meta">${metaHtml}</div>`,
       "</div>",
@@ -667,6 +670,34 @@ const Steg4 = (() => {
           r += '<div class="d-kk-rad"><span class="k">Markedskjede</span><span class="v">'+esc(kunde.markedskjede)+'</span></div>';
         if (kunde.innkjopssamarbeid)
           r += '<div class="d-kk-rad"><span class="k">Innkjøpssamarbeid</span><span class="v">'+esc(kunde.innkjopssamarbeid)+'</span></div>';
+        r += '</div></div><div class="d-kk-skille"></div>';
+        return r;
+      })(),
+
+      /* Org-info (BRREG + kundekonto) */
+      (function() {
+        var har = kunde.kundekonto || kunde.kjede || kunde.brreg_navn || kunde.organisasjonsform
+          || kunde.naeringskode_tekst || kunde.stiftelsesdato || kunde.mva_registrert != null
+          || kunde.forretningsadresse;
+        if (!har) return '';
+        var r = '<div><span class="d-kk-sek-tit">Org-info</span>';
+        r += '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:9px">';
+        if (kunde.kundekonto)
+          r += '<div class="d-kk-rad"><span class="k">Kundekonto</span><span class="v d-kk-mono">'+esc(kunde.kundekonto)+'</span></div>';
+        if (kunde.kjede)
+          r += '<div class="d-kk-rad"><span class="k">Kjede</span><span class="v">'+esc(kunde.kjede)+(kunde.underkjede?' / '+esc(kunde.underkjede):'')+'</span></div>';
+        if (kunde.brreg_navn && kunde.brreg_navn !== kunde.navn)
+          r += '<div class="d-kk-rad"><span class="k">BRREG-navn</span><span class="v">'+esc(kunde.brreg_navn)+'</span></div>';
+        if (kunde.organisasjonsform)
+          r += '<div class="d-kk-rad"><span class="k">Org.form</span><span class="v"><span class="d-badge flat graa">'+esc(kunde.organisasjonsform)+'</span></span></div>';
+        if (kunde.naeringskode_tekst)
+          r += '<div class="d-kk-rad"><span class="k">Næringskode</span><span class="v">'+(kunde.naeringskode?esc(kunde.naeringskode)+' — ':'')+esc(kunde.naeringskode_tekst)+'</span></div>';
+        if (kunde.forretningsadresse)
+          r += '<div class="d-kk-rad"><span class="k">Forr.adresse</span><span class="v">'+esc(kunde.forretningsadresse)+'</span></div>';
+        if (kunde.stiftelsesdato)
+          r += '<div class="d-kk-rad"><span class="k">Stiftet</span><span class="v">'+esc(kunde.stiftelsesdato)+'</span></div>';
+        if (kunde.mva_registrert != null)
+          r += '<div class="d-kk-rad"><span class="k">MVA-registrert</span><span class="v">'+(kunde.mva_registrert?'Ja':'Nei')+'</span></div>';
         r += '</div></div><div class="d-kk-skille"></div>';
         return r;
       })(),
