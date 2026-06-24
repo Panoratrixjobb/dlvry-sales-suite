@@ -638,6 +638,39 @@ const Steg4 = (() => {
 
       '<div class="d-kk-skille"></div>',
 
+      /* Leads-info (nye felt fra leads-import) */
+      (function() {
+        var har = kunde.telefon || kunde.epost || kunde.postnr || kunde.bransje || kunde.lead_score != null
+          || kunde.naermeste_grossist || kunde.markedskjede || kunde.innkjopssamarbeid;
+        if (!har) return '';
+        var r = '<div><span class="d-kk-sek-tit">Leads-info</span>';
+        r += '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:9px">';
+        if (kunde.telefon)
+          r += '<div class="d-kk-rad"><span class="k">Telefon</span><span class="v"><a href="tel:'+esc(kunde.telefon)+'">'+esc(kunde.telefon)+'</a></span></div>';
+        if (kunde.epost)
+          r += '<div class="d-kk-rad"><span class="k">E-post</span><span class="v"><a href="mailto:'+esc(kunde.epost)+'">'+esc(kunde.epost)+'</a></span></div>';
+        if (kunde.postnr || kunde.poststed)
+          r += '<div class="d-kk-rad"><span class="k">Poststed</span><span class="v">'+esc((kunde.postnr||'')+' '+(kunde.poststed||'')).trim()+'</span></div>';
+        if (kunde.kommune)
+          r += '<div class="d-kk-rad"><span class="k">Kommune</span><span class="v">'+esc(kunde.kommune)+'</span></div>';
+        if (kunde.fylke)
+          r += '<div class="d-kk-rad"><span class="k">Fylke</span><span class="v">'+esc(kunde.fylke)+'</span></div>';
+        if (kunde.bransje)
+          r += '<div class="d-kk-rad"><span class="k">Bransje</span><span class="v">'+esc(kunde.bransje)+'</span></div>';
+        if (kunde.bransjegruppe)
+          r += '<div class="d-kk-rad"><span class="k">Bransjegruppe</span><span class="v"><span class="d-badge flat graa">'+esc(kunde.bransjegruppe)+'</span></span></div>';
+        if (kunde.lead_score != null)
+          r += '<div class="d-kk-rad"><span class="k">Lead Score</span><span class="v"><span class="d-badge flat '+(kunde.lead_score>=80?'bla':'graa')+'">'+kunde.lead_score+'</span></span></div>';
+        if (kunde.naermeste_grossist)
+          r += '<div class="d-kk-rad"><span class="k">Nærmeste grossist</span><span class="v">'+esc(kunde.naermeste_grossist)+'</span></div>';
+        if (kunde.markedskjede)
+          r += '<div class="d-kk-rad"><span class="k">Markedskjede</span><span class="v">'+esc(kunde.markedskjede)+'</span></div>';
+        if (kunde.innkjopssamarbeid)
+          r += '<div class="d-kk-rad"><span class="k">Innkjøpssamarbeid</span><span class="v">'+esc(kunde.innkjopssamarbeid)+'</span></div>';
+        r += '</div></div><div class="d-kk-skille"></div>';
+        return r;
+      })(),
+
       /* Levering & logistikk (placeholder) */
       "<div>",
       `<span class="d-kk-sek-tit">Levering &amp; logistikk</span> ${KOMMER}`,

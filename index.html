@@ -530,6 +530,16 @@ tbody tr:hover{background:#fafbff}
             <option>Øst</option><option>Vest</option><option>Nord</option><option>Sør</option>
             <option value="__null">Uten region</option>
           </select>
+          <select id="leadsBransjegruppe" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+            <option value="">Alle bransjer</option>
+            <option>HORECA</option><option>KBS</option><option>ØVRIG</option>
+          </select>
+          <select id="leadsScore" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+            <option value="">Alle score</option>
+            <option value="80">Score ≥ 80</option>
+            <option value="60">Score ≥ 60</option>
+            <option value="40">Score ≥ 40</option>
+          </select>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -541,12 +551,13 @@ tbody tr:hover{background:#fafbff}
         </div>
 
         <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
-          <table class="d-tabell" style="min-width:1180px">
+          <table class="d-tabell" style="min-width:1400px">
             <thead><tr id="leadsHead">
               <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
-              <th>Kategori</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
-              <th>Adresse</th><th>Poststed</th><th>Region</th><th>Tlf</th><th>E-post</th>
-              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th>
+              <th>Bransjegruppe</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
+              <th>Poststed</th><th>Region</th><th>Tlf</th>
+              <th style="cursor:pointer" onclick="leadsToggleScoreSort()" title="Sorter etter score">Score ▾</th>
+              <th>Nærmeste grossist</th><th>Tildelt</th>
             </tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
@@ -1555,8 +1566,19 @@ function leadsParams(extra){
   const s=document.getElementById('leadsSegment').value;  if(s) p.set('kjokkensegment',s);
   const sel=document.getElementById('leadsSelger').value; if(sel) p.set('selger_id',sel);
   const reg=document.getElementById('leadsRegion').value; if(reg) p.set('region',reg);
+  const bg=document.getElementById('leadsBransjegruppe').value; if(bg) p.set('bransjegruppe',bg);
+  const sc=document.getElementById('leadsScore').value; if(sc) p.set('lead_score_min',sc);
+  if(_leadsSortScore) p.set('sort','lead_score_desc');
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
+}
+
+var _leadsSortScore=false;
+function leadsToggleScoreSort(){
+  _leadsSortScore=!_leadsSortScore;
+  const th=document.querySelector('#leadsHead th[onclick*="ScoreSort"]');
+  if(th) th.textContent='Score '+(_leadsSortScore?'▲':'▾');
+  leadsResetAndLoad();
 }
 
 // Søk/filter-endring snevrer resultatet → start alltid på side 1 (ellers kan
@@ -1597,7 +1619,7 @@ function renderLeads(){
   const dash='–';
   const showChk = !(CURRENT_USER && CURRENT_USER.rolle==='selger');
   if(!leadsCache.length){
-    body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
+    body.innerHTML='<tr><td colspan="11" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
     document.getElementById('leadsCount').textContent='0 leads';
     renderLeadsPager();
     updateLeadsBar(); return;
@@ -1611,19 +1633,23 @@ function renderLeads(){
     const segCell = k.kjokkensegment
       ? '<span class="d-badge flat graa">'+esc(k.kjokkensegment)+'</span>'
       : dash;
+    const bransjeBadge = k.bransjegruppe
+      ? '<span class="d-badge flat graa">'+esc(k.bransjegruppe)+'</span>'
+      : dash;
+    const scoreCell = k.lead_score != null
+      ? '<span class="d-badge flat '+(k.lead_score>=80?'bla':k.lead_score>=60?'graa':'graa')+'" title="Lead Score">'+k.lead_score+'</span>'
+      : dash;
     return '<tr data-leadrow="'+k.id+'" style="cursor:pointer">'
       + chk
-      + '<td>'+esc(k.kategori_kilde||dash)+'</td>'
+      + '<td>'+bransjeBadge+'</td>'
       + '<td>'+segCell+'</td>'
       + '<td class="d-navn">'+esc(k.navn||dash)+'</td>'
       + '<td class="d-sub">'+esc(k.orgnr||dash)+'</td>'
-      + '<td>'+esc(k.leveringsadresse||dash)+'</td>'
-      + '<td>'+esc(k.poststed||dash)+'</td>'
+      + '<td>'+esc((k.postnr?k.postnr+' ':'')+''+(k.poststed||'')||dash)+'</td>'
       + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
       + '<td>'+esc(k.telefon||dash)+'</td>'
-      + '<td>'+esc(k.epost||dash)+'</td>'
-      + '<td>'+esc(k.est_omsetning||dash)+'</td>'
-      + '<td>'+esc(k.okonomi||dash)+'</td>'
+      + '<td>'+scoreCell+'</td>'
+      + '<td>'+esc(k.naermeste_grossist||dash)+'</td>'
       + '<td>'+tildelt+'</td>'
       + '</tr>';
   }).join('');
