@@ -254,6 +254,7 @@ tbody tr:hover{background:#fafbff}
       <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
       <a class="deaktivert"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
+      <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
     </nav>
     <div class="d-side-sek">
       <div class="d-side-lbl">Kunder</div>
@@ -703,6 +704,63 @@ tbody tr:hover{background:#fafbff}
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('calcModal')">Avbryt</button>
       <button class="d-knapp primar" onclick="createCalc()">Opprett kalkyle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== KONKURRENTER VIEW ===== -->
+<div id="view-konkurrenter" style="display:none">
+  <div class="topbar">
+    <h1 id="konkTitle">Konkurrenter</h1>
+    <button class="d-knapp primar" id="nyKonkBtn" onclick="openNyKonkModal()" style="margin-left:auto">+ Legg til konkurrent</button>
+  </div>
+  <div class="crumb" id="konkCrumb">Vis og sammenlign prislister fra konkurrenter.</div>
+
+  <!-- Liste over konkurrenter -->
+  <div id="konkListe" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
+
+  <!-- Prisliste for valgt konkurrent -->
+  <div id="konkPrisPanel" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <h2 id="konkPrisNavn" style="margin:0;font-size:16px;font-weight:700"></h2>
+      <button class="d-knapp subtil sm" onclick="tilbakeKonk()">← Alle konkurrenter</button>
+      <div class="d-sok" style="margin-left:auto;min-width:220px">
+        <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+        <input id="konkPrisSok" type="search" class="d-input" placeholder="Søk varenavn…" oninput="onKonkSok(this.value)">
+      </div>
+      <select id="konkFlaggFilter" class="d-select" style="width:auto" onchange="lastKonkPriser()">
+        <option value="">Alle varer</option>
+        <option value="usikker-eske">Usikker eske</option>
+        <option value="kun-stk">Kun stk-pris</option>
+      </select>
+    </div>
+    <div id="konkPrisTabell"></div>
+    <div id="konkPrisPager" style="display:flex;gap:8px;align-items:center;margin-top:12px;display:none">
+      <button class="d-knapp subtil sm" id="konkPrev" onclick="konkGaaSide(-1)">← Forrige</button>
+      <span id="konkPagerInfo" style="font-size:12.5px;color:var(--muted)"></span>
+      <button class="d-knapp subtil sm" id="konkNext" onclick="konkGaaSide(1)">Neste →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Ny konkurrent -->
+<div class="modal-bg" id="nyKonkModal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header"><h3>Legg til konkurrent</h3></div>
+    <div class="modal-body">
+      <div class="d-felt" style="margin-bottom:10px">
+        <label>Navn *</label>
+        <input id="nyKonkNavn" class="d-input" placeholder="f.eks. DinDeli">
+      </div>
+      <div class="d-felt" style="margin-bottom:10px">
+        <label>Kategori (valgfritt)</label>
+        <input id="nyKonkKat" class="d-input" placeholder="f.eks. Ost, Kjøtt…">
+      </div>
+      <div id="nyKonkErr" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="d-knapp sekundar" onclick="closeModal('nyKonkModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="lagreNyKonkurrent()">Opprett</button>
     </div>
   </div>
 </div>
@@ -1641,6 +1699,151 @@ function updateLeadsBar(){
 
 function openLeadRow(id){ setKunderSub('kunder'); klVelgKunde(id); }
 
+// ============ Konkurrenter ============
+let _konkCache=[], _konkValgtId=null, _konkValgtNavn='', _konkPrisPage=1, _konkPrisTotal=0;
+const KONK_PER_SIDE=200;
+let _konkSokTimer=null;
+
+async function mountKonkurrenter(){
+  document.getElementById('konkListe').innerHTML='<span style="color:var(--muted);font-size:13px">Laster…</span>';
+  document.getElementById('konkPrisPanel').style.display='none';
+  try{
+    _konkCache=await api('/api/konkurrenter')||[];
+  }catch(e){ document.getElementById('konkListe').innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>'; return; }
+  renderKonkListe();
+}
+
+function renderKonkListe(){
+  const el=document.getElementById('konkListe');
+  if(!_konkCache.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px">Ingen konkurrenter registrert ennå. Klikk «+ Legg til konkurrent».</div>';
+    return;
+  }
+  el.innerHTML=_konkCache.map(k=>{
+    return '<div class="d-panel" style="min-width:200px;max-width:260px;flex:1;cursor:pointer;border:2px solid transparent;transition:.15s" '
+      +'onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')" '
+      +'onmouseover="this.style.borderColor=\'var(--brand)\'" onmouseout="this.style.borderColor=\'transparent\'">'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">'+esc(k.navn)+'</div>'
+      +(k.kategori?'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+esc(k.kategori)+'</div>':'')
+      +'<div style="font-size:12.5px;color:var(--muted)">'+k.antall_produkter.toLocaleString('no')+' produkter</div>'
+      +'<div style="margin-top:10px"><span class="d-badge flat bla" style="font-size:11px">Vis prisliste →</span></div>'
+      +'</div>';
+  }).join('');
+}
+
+async function visKonkurrentPriser(id, navn){
+  _konkValgtId=id; _konkValgtNavn=navn; _konkPrisPage=1;
+  document.getElementById('konkListe').style.display='none';
+  document.getElementById('nyKonkBtn').style.display='none';
+  document.getElementById('konkPrisPanel').style.display='';
+  document.getElementById('konkPrisNavn').textContent=navn;
+  document.getElementById('konkPrisSok').value='';
+  document.getElementById('konkFlaggFilter').value='';
+  await lastKonkPriser();
+}
+
+function tilbakeKonk(){
+  _konkValgtId=null;
+  document.getElementById('konkPrisPanel').style.display='none';
+  document.getElementById('konkListe').style.display='flex';
+  document.getElementById('nyKonkBtn').style.display='';
+}
+
+function onKonkSok(){ clearTimeout(_konkSokTimer); _konkSokTimer=setTimeout(()=>{_konkPrisPage=1;lastKonkPriser();},300); }
+
+function konkGaaSide(delta){
+  const max=Math.max(1,Math.ceil(_konkPrisTotal/KONK_PER_SIDE));
+  const ny=Math.max(1,Math.min(max,_konkPrisPage+delta));
+  if(ny===_konkPrisPage)return;
+  _konkPrisPage=ny; lastKonkPriser();
+}
+
+async function lastKonkPriser(){
+  if(!_konkValgtId)return;
+  const el=document.getElementById('konkPrisTabell');
+  el.innerHTML='<p style="color:var(--muted);font-size:13px">Laster prisliste…</p>';
+  const q=document.getElementById('konkPrisSok').value.trim();
+  const flagg=document.getElementById('konkFlaggFilter').value;
+  const offset=(_konkPrisPage-1)*KONK_PER_SIDE;
+  let p=new URLSearchParams({limit:String(KONK_PER_SIDE),offset:String(offset)});
+  if(q) p.set('q',q);
+  if(flagg) p.set('flagg',flagg);
+  let rader;
+  try{ rader=await api('/api/konkurrenter/'+_konkValgtId+'/priser?'+p.toString())||[]; }
+  catch(e){ el.innerHTML='<p style="color:var(--red)">Feil: '+esc(e.message)+'</p>'; return; }
+  _konkPrisTotal=rader.length<KONK_PER_SIDE?offset+rader.length:offset+rader.length+1;
+
+  if(!rader.length){
+    el.innerHTML='<p style="color:var(--muted);font-size:13px">Ingen varer matcher filteret.</p>';
+    document.getElementById('konkPrisPager').style.display='none'; return;
+  }
+
+  const dash='–';
+  el.innerHTML='<div class="table-wrap"><table>'
+    +'<thead><tr>'
+    +'<th>Varenavn</th><th>Kategori</th><th>Enhet</th>'
+    +'<th style="text-align:right">Rapris</th>'
+    +'<th style="text-align:right">kr/kg</th>'
+    +'<th style="text-align:right">kr/liter</th>'
+    +'<th style="text-align:right">kr/stk</th>'
+    +'<th>Flagg</th><th>Dato</th>'
+    +'</tr></thead><tbody>'
+    +rader.map(r=>{
+      const erUsikker=r.flagg==='usikker-eske';
+      const rad='<tr'+(erUsikker?' style="opacity:.65;font-style:italic"':'')+'>'
+        +'<td>'+esc(r.varenavn||dash)+'</td>'
+        +'<td>'+esc(r.kategori||dash)+'</td>'
+        +'<td>'+(r.pakning?r.pakning+(r.pakning_enhet?' '+r.pakning_enhet:''):esc(r.enhet_kilde||dash))+'</td>'
+        +'<td style="text-align:right">'+(r.rapris!=null?r.rapris.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td style="text-align:right;font-weight:600;color:var(--brand)">'+(r.pris_per_kg!=null?r.pris_per_kg.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td style="text-align:right">'+(r.pris_per_liter!=null?r.pris_per_liter.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td style="text-align:right">'+(r.pris_per_stk!=null?r.pris_per_stk.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td>'+(r.flagg?'<span class="d-badge flat '+(erUsikker?'gul':'graa')+'" style="font-size:11px">'+esc(r.flagg)+'</span>':dash)+'</td>'
+        +'<td style="font-size:11.5px;color:var(--muted)">'+(r.dato||dash)+'</td>'
+        +'</tr>';
+      return rad;
+    }).join('')
+    +'</tbody></table></div>';
+
+  const pager=document.getElementById('konkPrisPager');
+  const max=Math.max(1,Math.ceil(_konkPrisTotal/KONK_PER_SIDE));
+  pager.style.display=(_konkPrisTotal>KONK_PER_SIDE)?'flex':'none';
+  document.getElementById('konkPagerInfo').textContent='Side '+_konkPrisPage+' av '+max;
+  document.getElementById('konkPrev').disabled=_konkPrisPage<=1;
+  document.getElementById('konkNext').disabled=_konkPrisPage>=max;
+}
+
+function openNyKonkModal(){
+  document.getElementById('nyKonkNavn').value='';
+  document.getElementById('nyKonkKat').value='';
+  document.getElementById('nyKonkErr').textContent='';
+  document.getElementById('nyKonkModal').classList.add('open');
+  setTimeout(()=>document.getElementById('nyKonkNavn').focus(),50);
+}
+
+async function lagreNyKonkurrent(){
+  const navn=document.getElementById('nyKonkNavn').value.trim();
+  const kat=document.getElementById('nyKonkKat').value.trim();
+  const errEl=document.getElementById('nyKonkErr');
+  if(!navn){errEl.textContent='Navn er påkrevd.';return;}
+  errEl.textContent='';
+  try{
+    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,kategori:kat||null}});
+    _konkCache.push(k); _konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no'));
+    closeModal('nyKonkModal'); renderKonkListe(); toast('Konkurrent «'+k.navn+'» opprettet');
+  }catch(e){errEl.textContent=e.message;}
+}
+
+async function autoOpprettKonkurrent(leverandorNavn){
+  if(!leverandorNavn||leverandorNavn==='—')return;
+  try{
+    const k=await api('/api/konkurrenter/finn-eller-opprett',{method:'POST',body:{navn:leverandorNavn}});
+    const erNy=k.antall_produkter===0&&!_konkCache.find(c=>c.id===k.id);
+    if(erNy){ _konkCache.push(k); _konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no')); }
+    return k;
+  }catch(e){ console.warn('autoOpprettKonkurrent:',e.message); }
+}
+
 async function lagreRegion(id){
   var v=document.getElementById('kkRegionSel').value||null;
   try{
@@ -1867,14 +2070,15 @@ function setView(v){
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
   document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
+  document.getElementById('view-konkurrenter').style.display=v==='konkurrenter'?'':'none';
   document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
-  // skjul lagre-baren utenfor kalkulator
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
   if(v==='kunder'&&state.custId)renderCalcArea();
   if(v==='dashboard'){renderDash();Steg4.visDashboard(document.getElementById('dashboard-app'),DASH);}
   if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
   if(v==='brukere')mountBrukere();
+  if(v==='konkurrenter')mountKonkurrenter();
 }
 
 // ============ Init ============
@@ -1938,6 +2142,8 @@ async function showApp(){
   // Vis Brukere-fane for alle som kan invitere (leder/admin/superadmin)
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
+  const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
+  document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
   setView('dashboard');
 }
 
@@ -1956,7 +2162,9 @@ async function importFaktura(ev){
     const fd=new FormData(); fd.append('fil',f);
     const r=await fetch(API_BASE+'/api/faktura/tolk',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd});
     if(!r.ok){const t=await r.text(); throw new Error(r.status+': '+t.slice(0,200));}
-    renderFaktura(await r.json());
+    const d=await r.json();
+    renderFaktura(d);
+    if(d.leverandor) autoOpprettKonkurrent(d.leverandor);
   }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+e.message+'</p>'; }
 }
 // --- Fase 2: enkel fuzzy match faktura→produkt (token-overlap, ingen AI/tokens) ---
