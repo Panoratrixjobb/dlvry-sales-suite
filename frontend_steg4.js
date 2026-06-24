@@ -613,6 +613,12 @@ const Steg4 = (() => {
       `<div class="aval">${kunde.leveringsadresse ? esc(kunde.leveringsadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
       '<div class="d-kk-adr"><div><div class="albl">Fakturaadresse</div>',
       `<div class="aval">${kunde.fakturaadresse ? esc(kunde.fakturaadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
+      '<div class="d-kk-rad" style="margin-top:8px"><span class="k">Region</span><span class="v">',
+      kunde.region
+        ? ('<span class="d-badge flat bla">' + esc(kunde.region) + '</span>'
+           + (kunde.region_delt ? ' <span class="d-badge flat gul" title="Postnr delt mellom to regioner — velg grossist for endelig tildeling">Delt</span>' : ''))
+        : '<span class="d-ph">—</span>',
+      '</span></div>',
       "</div>",
       "</div>",
 

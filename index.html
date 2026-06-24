@@ -524,6 +524,11 @@ tbody tr:hover{background:#fafbff}
           <select id="leadsGrossist" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:150px"></select>
           <select id="leadsSegment" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px"></select>
           <select id="leadsSelger" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:140px"></select>
+          <select id="leadsRegion" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+            <option value="">Alle regioner</option>
+            <option>Øst</option><option>Vest</option><option>Nord</option><option>Sør</option>
+            <option value="__null">Uten region</option>
+          </select>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -540,7 +545,7 @@ tbody tr:hover{background:#fafbff}
               <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
               <th>Kategori</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
               <th>Adresse</th><th>Poststed</th><th>Tlf</th><th>E-post</th>
-              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th>
+              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th><th>Region</th>
             </tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
@@ -1480,6 +1485,7 @@ function leadsParams(extra){
   const g=document.getElementById('leadsGrossist').value; if(g) p.set('grossist_id',g);
   const s=document.getElementById('leadsSegment').value;  if(s) p.set('kjokkensegment',s);
   const sel=document.getElementById('leadsSelger').value; if(sel) p.set('selger_id',sel);
+  const reg=document.getElementById('leadsRegion').value; if(reg) p.set('region',reg);
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
 }
@@ -1500,7 +1506,7 @@ function leadsGaaSide(delta){
 
 async function loadLeads(){
   const body=document.getElementById('leadsBody');
-  body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Laster leads…</td></tr>';
+  body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--muted)">Laster leads…</td></tr>';
   // Sidebytte/filterendring nullstiller utvalg + "alle treff"-modus (avkrysninger gjelder gjeldende side)
   leadsSel.clear(); leadsAllFilter=false; leadsAllIds=[];
   const offset=(leadsPage-1)*LEADS_PER_SIDE;
@@ -1509,7 +1515,7 @@ async function loadLeads(){
     rows = await api('/api/kunder?'+leadsParams({limit:String(LEADS_PER_SIDE),offset:String(offset)}).toString(),
       {onResponse:r=>{ const t=r.headers.get('X-Total-Count'); leadsTotalKjent = t!=null; if(t!=null) leadsTotal=parseInt(t,10)||0; }})||[];
   }
-  catch(e){ body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--red)">Feil: '+esc(e.message)+'</td></tr>'; return; }
+  catch(e){ body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--red)">Feil: '+esc(e.message)+'</td></tr>'; return; }
   // Offset endte forbi resultatet (f.eks. etter masse-tildel som krympet treffet) → klem til siste side.
   const maxSide=Math.max(1,Math.ceil(leadsTotal/LEADS_PER_SIDE));
   if(leadsPage>maxSide){ leadsPage=maxSide; return loadLeads(); }
@@ -1522,7 +1528,7 @@ function renderLeads(){
   const dash='–';
   const showChk = !(CURRENT_USER && CURRENT_USER.rolle==='selger');
   if(!leadsCache.length){
-    body.innerHTML='<tr><td colspan="12" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
+    body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
     document.getElementById('leadsCount').textContent='0 leads';
     renderLeadsPager();
     updateLeadsBar(); return;
@@ -1549,6 +1555,7 @@ function renderLeads(){
       + '<td>'+esc(k.est_omsetning||dash)+'</td>'
       + '<td>'+esc(k.okonomi||dash)+'</td>'
       + '<td>'+tildelt+'</td>'
+      + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
       + '</tr>';
   }).join('');
   body.querySelectorAll('[data-leadrow]').forEach(tr=>{
