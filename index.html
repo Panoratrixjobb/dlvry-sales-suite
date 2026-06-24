@@ -768,7 +768,7 @@ tbody tr:hover{background:#fafbff}
 <div class="toast" id="toast"></div>
 <div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#3A2D2A;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
   <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#D65742;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
-  Kobler til server… (kan ta ~50 sek)
+  Backend våkner – prøver igjen automatisk…
 </div>
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 <div id="loadOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:14px">
@@ -949,24 +949,39 @@ let CURRENT_USER=null;
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
 // Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
+const _COLD_DELAYS=[2000,5000,10000,20000]; // ~37s total → dekker Render cold start
+const _RETRY_STATUS=new Set([502,503,504]);
+
 async function api(path,{method='GET',body=null,onResponse=null}={}){
   const headers={'Content-Type':'application/json'};
   if(TOKEN)headers['Authorization']='Bearer '+TOKEN;
-  // vis «vekker server» hvis kallet drøyer (typisk kaldstart på Render Free)
+  const opts={method,headers,body:body!=null?JSON.stringify(body):null};
   const wake=setTimeout(()=>showWake(true),1200);
-  let r;
-  try{
-    r=await fetch(API_BASE+path,{method,headers,body:body!=null?JSON.stringify(body):null});
-  }catch(e){
-    clearTimeout(wake);showWake(false);
-    throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
+  let r=null,lastErr=null;
+  for(let i=0;i<=_COLD_DELAYS.length;i++){
+    try{
+      r=await fetch(API_BASE+path,opts);
+      if(_RETRY_STATUS.has(r.status)&&i<_COLD_DELAYS.length){
+        showWake(true);
+        await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
+        r=null; continue;
+      }
+      break; // OK eller ikke-retry-bar statuskode (4xx etc.)
+    }catch(e){
+      lastErr=e;
+      if(i<_COLD_DELAYS.length){
+        showWake(true);
+        await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
+        continue;
+      }
+      clearTimeout(wake);showWake(false);
+      throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
+    }
   }
   clearTimeout(wake);showWake(false);
-  // Lar kalleren lese rå-respons (f.eks. X-Total-Count-header til paginering).
+  if(!r) throw lastErr||new Error('Får ikke kontakt med server.');
   if(onResponse)try{onResponse(r);}catch(_){}
-  if(r.status===401){ // utløpt/ugyldig token → tilbake til innlogging
-    setToken(null);CURRENT_USER=null;showLogin();throw new Error('Økt utløpt — logg inn på nytt.');
-  }
+  if(r.status===401){setToken(null);CURRENT_USER=null;showLogin();throw new Error('Økt utløpt — logg inn på nytt.');}
   if(r.status===204)return null;
   const txt=await r.text();
   let data=null; try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
