@@ -544,8 +544,8 @@ tbody tr:hover{background:#fafbff}
             <thead><tr id="leadsHead">
               <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
               <th>Kategori</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
-              <th>Adresse</th><th>Poststed</th><th>Tlf</th><th>E-post</th>
-              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th><th>Region</th>
+              <th>Adresse</th><th>Poststed</th><th>Region</th><th>Tlf</th><th>E-post</th>
+              <th>Est. omsetning</th><th>Økonomi</th><th>Tildelt</th>
             </tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
@@ -1550,12 +1550,12 @@ function renderLeads(){
       + '<td class="d-sub">'+esc(k.orgnr||dash)+'</td>'
       + '<td>'+esc(k.leveringsadresse||dash)+'</td>'
       + '<td>'+esc(k.poststed||dash)+'</td>'
+      + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
       + '<td>'+esc(k.telefon||dash)+'</td>'
       + '<td>'+esc(k.epost||dash)+'</td>'
       + '<td>'+esc(k.est_omsetning||dash)+'</td>'
       + '<td>'+esc(k.okonomi||dash)+'</td>'
       + '<td>'+tildelt+'</td>'
-      + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
       + '</tr>';
   }).join('');
   body.querySelectorAll('[data-leadrow]').forEach(tr=>{
@@ -1640,6 +1640,15 @@ function updateLeadsBar(){
 }
 
 function openLeadRow(id){ setKunderSub('kunder'); klVelgKunde(id); }
+
+async function lagreRegion(id){
+  var v=document.getElementById('kkRegionSel').value||null;
+  try{
+    await api('/api/kunder/'+id+'/region',{method:'PATCH',body:{region:v}});
+    toast('Region lagret');
+  }catch(e){toast('Feil: '+e.message);return;}
+  Steg4.monterKundekort(id,document.getElementById('kundekort-steg4'));
+}
 
 function openTildelModal(){
   const n = leadsAllFilter ? leadsAllIds.length : leadsSel.size;

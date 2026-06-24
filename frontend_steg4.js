@@ -613,12 +613,26 @@ const Steg4 = (() => {
       `<div class="aval">${kunde.leveringsadresse ? esc(kunde.leveringsadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
       '<div class="d-kk-adr"><div><div class="albl">Fakturaadresse</div>',
       `<div class="aval">${kunde.fakturaadresse ? esc(kunde.fakturaadresse) : '<span class="d-ph">Ikke registrert</span>'}</div></div></div>`,
-      '<div class="d-kk-rad" style="margin-top:8px"><span class="k">Region</span><span class="v">',
-      kunde.region
-        ? ('<span class="d-badge flat bla">' + esc(kunde.region) + '</span>'
-           + (kunde.region_delt ? ' <span class="d-badge flat gul" title="Postnr delt mellom to regioner — velg grossist for endelig tildeling">Delt</span>' : ''))
-        : '<span class="d-ph">—</span>',
-      '</span></div>',
+      (function() {
+        var cu = window.CURRENT_USER;
+        var erAdmin = cu && (cu.rolle === 'leder' || cu.rolle === 'admin' || cu.rolle === 'superadmin');
+        var regionBadge = kunde.region
+          ? ('<span class="d-badge flat bla">' + esc(kunde.region) + '</span>'
+             + (kunde.region_delt ? ' <span class="d-badge flat gul" title="Postnr delt mellom to regioner">Delt</span>' : ''))
+          : '<span class="d-ph">—</span>';
+        if (!erAdmin) return '<div class="d-kk-rad" style="margin-top:8px"><span class="k">Region</span><span class="v">' + regionBadge + '</span></div>';
+        var delt = kunde.region_delt ? '<div style="margin-bottom:4px"><span class="d-badge flat gul">Delt postnr — velg region</span></div>' : '';
+        var opts = ['Øst','Vest','Nord','Sør'].map(function(r){
+          return '<option value="'+r+'"'+(r===kunde.region?' selected':'')+'>'+r+'</option>';
+        }).join('');
+        return '<div class="d-kk-rad" style="margin-top:8px;flex-wrap:wrap;gap:6px"><span class="k">Region</span><span class="v" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          + delt
+          + '<select id="kkRegionSel" class="d-input" style="width:auto;padding:3px 8px;font-size:12px">'
+          + '<option value="">— ingen —</option>' + opts
+          + '</select>'
+          + '<button class="d-knapp subtil sm" onclick="window.lagreRegion(\''+kunde.id+'\')">Lagre</button>'
+          + '</span></div>';
+      })(),
       "</div>",
       "</div>",
 
