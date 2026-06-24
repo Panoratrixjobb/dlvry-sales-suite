@@ -617,6 +617,37 @@ tbody tr:hover{background:#fafbff}
       </div>
     </div>
 
+    <!-- ===== KONKURRENTER VIEW ===== -->
+    <div id="view-konkurrenter" style="display:none">
+      <div class="topbar">
+        <h1 id="konkTitle">Konkurrenter</h1>
+        <button class="d-knapp primar" id="nyKonkBtn" onclick="openNyKonkModal()" style="margin-left:auto">+ Legg til konkurrent</button>
+      </div>
+      <div class="crumb" id="konkCrumb">Vis og sammenlign prislister fra konkurrenter.</div>
+      <div id="konkListe" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
+      <div id="konkPrisPanel" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <h2 id="konkPrisNavn" style="margin:0;font-size:16px;font-weight:700"></h2>
+          <button class="d-knapp subtil sm" onclick="tilbakeKonk()">← Alle konkurrenter</button>
+          <div class="d-sok" style="margin-left:auto;min-width:220px">
+            <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+            <input id="konkPrisSok" type="search" class="d-input" placeholder="Søk varenavn…" oninput="onKonkSok(this.value)">
+          </div>
+          <select id="konkFlaggFilter" class="d-select" style="width:auto" onchange="lastKonkPriser()">
+            <option value="">Alle varer</option>
+            <option value="usikker-eske">Usikker eske</option>
+            <option value="kun-stk">Kun stk-pris</option>
+          </select>
+        </div>
+        <div id="konkPrisTabell"></div>
+        <div id="konkPrisPager" style="gap:8px;align-items:center;margin-top:12px;display:none">
+          <button class="d-knapp subtil sm" id="konkPrev" onclick="konkGaaSide(-1)">← Forrige</button>
+          <span id="konkPagerInfo" style="font-size:12.5px;color:var(--muted)"></span>
+          <button class="d-knapp subtil sm" id="konkNext" onclick="konkGaaSide(1)">Neste →</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -704,41 +735,6 @@ tbody tr:hover{background:#fafbff}
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('calcModal')">Avbryt</button>
       <button class="d-knapp primar" onclick="createCalc()">Opprett kalkyle</button>
-    </div>
-  </div>
-</div>
-
-<!-- ===== KONKURRENTER VIEW ===== -->
-<div id="view-konkurrenter" style="display:none">
-  <div class="topbar">
-    <h1 id="konkTitle">Konkurrenter</h1>
-    <button class="d-knapp primar" id="nyKonkBtn" onclick="openNyKonkModal()" style="margin-left:auto">+ Legg til konkurrent</button>
-  </div>
-  <div class="crumb" id="konkCrumb">Vis og sammenlign prislister fra konkurrenter.</div>
-
-  <!-- Liste over konkurrenter -->
-  <div id="konkListe" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
-
-  <!-- Prisliste for valgt konkurrent -->
-  <div id="konkPrisPanel" style="display:none">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-      <h2 id="konkPrisNavn" style="margin:0;font-size:16px;font-weight:700"></h2>
-      <button class="d-knapp subtil sm" onclick="tilbakeKonk()">← Alle konkurrenter</button>
-      <div class="d-sok" style="margin-left:auto;min-width:220px">
-        <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
-        <input id="konkPrisSok" type="search" class="d-input" placeholder="Søk varenavn…" oninput="onKonkSok(this.value)">
-      </div>
-      <select id="konkFlaggFilter" class="d-select" style="width:auto" onchange="lastKonkPriser()">
-        <option value="">Alle varer</option>
-        <option value="usikker-eske">Usikker eske</option>
-        <option value="kun-stk">Kun stk-pris</option>
-      </select>
-    </div>
-    <div id="konkPrisTabell"></div>
-    <div id="konkPrisPager" style="display:flex;gap:8px;align-items:center;margin-top:12px;display:none">
-      <button class="d-knapp subtil sm" id="konkPrev" onclick="konkGaaSide(-1)">← Forrige</button>
-      <span id="konkPagerInfo" style="font-size:12.5px;color:var(--muted)"></span>
-      <button class="d-knapp subtil sm" id="konkNext" onclick="konkGaaSide(1)">Neste →</button>
     </div>
   </div>
 </div>
