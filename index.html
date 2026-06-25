@@ -338,6 +338,15 @@ tbody tr:hover{background:#fafbff}
     <!-- ===== KALKULATOR VIEW ===== -->
     <div id="view-kalkulator">
       <div class="topbar"><h1>Tilbudsverktøy</h1></div>
+      <div id="kalk-landing" style="display:none">
+        <div class="tabs d-faner" style="border-bottom:2px solid var(--d-ramme);margin-bottom:16px;display:flex;align-items:center">
+          <button id="fanKalk" class="d-fane aktiv" onclick="visKalkFane('kalkyler')">Kalkyler</button>
+          <button id="fanTilbud" class="d-fane" onclick="visKalkFane('tilbud')">Sendte tilbud</button>
+          <button class="d-knapp primar" style="margin-left:auto" onclick="newCalc()">+ Ny kalkyle</button>
+        </div>
+        <div id="kalkFaneInnhold"></div>
+      </div>
+      <div id="kalk-editor">
       <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
 
       <div class="grid4">
@@ -466,7 +475,8 @@ tbody tr:hover{background:#fafbff}
         <div class="kpi-foot" style="margin:0 0 8px">Blir brødtekst i tilbudet til kunde (tilbudsgenerering kommer).</div>
         <div class="field" style="margin:0"><textarea id="kommentar" oninput="markDirty()" style="min-height:90px"></textarea></div>
       </section>
-    </div>
+      </div><!-- close kalk-editor -->
+    </div><!-- close view-kalkulator -->
 
     <!-- ===== KUNDER VIEW ===== -->
     <div id="view-kunder" style="display:none">
@@ -803,7 +813,7 @@ tbody tr:hover{background:#fafbff}
 <style>
 @keyframes spin{to{transform:rotate(360deg)}}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:5px 10px;font-size:15px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#ccc);border-radius:6px;padding:0 12px;height:40px;min-width:160px;box-sizing:border-box;font-size:15px;cursor:pointer;color:var(--ink);white-space:nowrap;text-align:left;display:inline-flex;align-items:center}
 .mf-btn:hover{border-color:var(--primaer,#D65742)}
 .mf-box{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .mf-box.open{display:block}
@@ -1444,7 +1454,7 @@ async function openCalc(id){
   document.getElementById('scenNavn').value=k.scen_navn||'Standard scenario';
   document.getElementById('scenBesk').value=k.scen_besk||'';
   document.getElementById('crumb').innerHTML=`Kunde: <b>${esc(c?c.navn:'?')}</b> · Kalkyle: <b>${esc(k.navn)}</b>`;
-  state.dirty=false;setSaved(true);setView('kalkulator');render();
+  state.dirty=false;setSaved(true);setView('kalkulator');setKalkSub('editor');render();
 }
 
 async function saveCalc(){
@@ -1470,7 +1480,67 @@ async function saveCalc(){
   state.dirty=false;setSaved(true);toast('Kalkyle lagret');
   const c=custCache.find(x=>x.id===state.custId);
   const visnavn=(k&&k.navn)||navn||'kalkyle';
-  document.getElementById('crumb').innerHTML=`Kunde: <b>${esc(c?c.navn:'?')}</b> · Kalkyle: <b>${esc(visnavn)}</b>`;
+  document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c?c.navn:'?')+'</b> · Kalkyle: <b>'+esc(visnavn)+'</b>';
+  setKalkSub('liste'); lastKalkyleListe();
+}
+
+function setKalkSub(sub){
+  document.getElementById('kalk-landing').style.display=sub==='liste'?'':'none';
+  document.getElementById('kalk-editor').style.display=sub==='editor'?'':'none';
+  var rb=document.querySelector('.recalc-bar');
+  if(rb)rb.style.display=sub==='editor'?'flex':'none';
+}
+async function lastKalkyleListe(){
+  setKalkSub('liste');
+  document.getElementById('kalkFaneInnhold').innerHTML='<p style="color:var(--muted)">Laster…</p>';
+  visKalkFane('kalkyler');
+}
+async function visKalkFane(fane){
+  document.getElementById('fanKalk').classList.toggle('aktiv',fane==='kalkyler');
+  document.getElementById('fanTilbud').classList.toggle('aktiv',fane==='tilbud');
+  var el=document.getElementById('kalkFaneInnhold');
+  el.innerHTML='<p style="color:var(--muted)">Laster…</p>';
+  if(fane==='kalkyler'){
+    var rows=await api('/api/kalkyler')||[]; var r='';
+    for(var i=0;i<rows.length;i++){
+      var k=rows[i];
+      r+='<tr>'
+        +'<td>'+esc(k.kunde_navn||'—')+'</td>'
+        +'<td>'+((k.opprettet||'').slice(0,10))+'</td>'
+        +'<td>'+esc(k.navn||'')+'</td>'
+        +'<td><span class="d-badge flat" style="font-size:11px">'+esc(k.snap_status||'Utkast')+'</span></td>'
+        +'<td><button class="d-knapp subtil sm" onclick="openCalc(\''+k.id+'\')">&#197;pne</button>'
+        +' <button class="d-knapp subtil sm" onclick="slettKalkyle(\''+k.id+'\')">Slett</button></td></tr>';
+    }
+    el.innerHTML='<div class="table-wrap"><table>'
+      +'<thead><tr><th>Kunde</th><th>Dato</th><th>Navn</th><th>Status</th><th></th></tr></thead>'
+      +'<tbody>'+(r||'<tr><td colspan="5" style="color:var(--muted)">Ingen kalkyler enn&#229;.</td></tr>')+'</tbody>'
+      +'</table></div>';
+  } else {
+    var rows=await api('/api/tilbud')||[]; var r='';
+    for(var i=0;i<rows.length;i++){
+      var t=rows[i];
+      r+='<tr>'
+        +'<td>'+esc(t.kunde_navn||'—')+'</td>'
+        +'<td>'+((t.sendt_dato||'').slice(0,10))+'</td>'
+        +'<td>'+esc(t.kanal||'—')+'</td>'
+        +'<td><button class="d-knapp subtil sm" onclick="lastNedTilbud(\''+esc(t.pdf_url||'')+'\',\''+t.kalkyle_id+'\')">Last ned</button></td></tr>';
+    }
+    el.innerHTML='<div class="table-wrap"><table>'
+      +'<thead><tr><th>Kunde</th><th>Sendt</th><th>Kanal</th><th></th></tr></thead>'
+      +'<tbody>'+(r||'<tr><td colspan="4" style="color:var(--muted)">Ingen sendte tilbud enn&#229;.</td></tr>')+'</tbody>'
+      +'</table></div>';
+  }
+}
+async function slettKalkyle(id){
+  if(!confirm('Slette kalkylen?'))return;
+  try{await api('/api/kalkyler/'+id,{method:'DELETE'});}
+  catch(e){toast('Feil: '+e.message);return;}
+  visKalkFane('kalkyler');
+}
+function lastNedTilbud(pdfUrl,kalkyleId){
+  if(pdfUrl)window.open(pdfUrl,'_blank');
+  else if(kalkyleId)openCalc(kalkyleId);
 }
 
 async function duplicateCalc(){
@@ -2292,6 +2362,7 @@ function setView(v){
   if(v==='kunder'&&state.custId)renderCalcArea();
   if(v==='dashboard'){renderDash();Steg4.visDashboard(document.getElementById('dashboard-app'),DASH);}
   if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
+  if(v==='kalkulator'){ if(!state.calcId){setKalkSub('liste');lastKalkyleListe();} else setKalkSub('editor'); }
   if(v==='brukere')mountBrukere();
   if(v==='konkurrenter')mountKonkurrenter();
 }
@@ -2525,6 +2596,10 @@ async function skrivUtTilbud(){
     }catch(e){/* faller tilbake på kalkyle-feltet */}
   }
   byggTilbudPdf(r, kunde);
+  if(state.calcId){
+    try{await api('/api/tilbud',{method:'POST',body:{kalkyle_id:state.calcId,kunde_id:state.custId,kanal:'utskrift'}});}
+    catch(e){/* loggfeil er ikke blokkerende */}
+  }
   visTilbudOppfolging();
 }
 
