@@ -476,13 +476,20 @@ tbody tr:hover{background:#fafbff}
 
         <!-- ── LISTE-PANEL ── -->
         <div id="kunder-liste-panel">
-          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
             <div class="d-sok" style="flex:1;min-width:220px">
               <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
               <input id="klSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="klOnSearch(this.value)">
             </div>
+            <input id="klKundekonto" type="search" class="d-input" placeholder="Kundekonto…" style="width:140px" oninput="klResetLoad()">
             <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
             <span id="klCount" class="d-t-label"></span>
+          </div>
+          <div id="klFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+            <div id="klRegionWrap"></div>
+            <div id="klBransjeWrap"></div>
+            <div id="klKjedeWrap"></div>
+            <select id="klGrossist" class="d-select" onchange="klResetLoad()" style="width:auto;min-width:150px"><option value="">Alle grossister</option></select>
           </div>
           <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
             <table class="d-tabell" style="min-width:600px">
@@ -523,17 +530,10 @@ tbody tr:hover{background:#fafbff}
             <input id="leadsSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)">
           </div>
           <select id="leadsGrossist" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:150px"></select>
-          <select id="leadsSegment" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px"></select>
           <select id="leadsSelger" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:140px"></select>
-          <select id="leadsRegion" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
-            <option value="">Alle regioner</option>
-            <option>Øst</option><option>Vest</option><option>Nord</option><option>Sør</option>
-            <option value="__null">Uten region</option>
-          </select>
-          <select id="leadsBransjegruppe" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
-            <option value="">Alle bransjer</option>
-            <option>HORECA</option><option>KBS</option><option>ØVRIG</option>
-          </select>
+          <div id="leadsRegionWrap"></div>
+          <div id="leadsBransjegruppeWrap"></div>
+          <div id="leadsBransjeWrap"></div>
           <select id="leadsScore" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
             <option value="">Alle score</option>
             <option value="80">Score ≥ 80</option>
@@ -781,7 +781,16 @@ tbody tr:hover{background:#fafbff}
   <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#D65742;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
   Backend våkner – prøver igjen automatisk…
 </div>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+.mf-wrap{position:relative;display:inline-block}
+.mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.mf-btn:hover{border-color:var(--primaer,#D65742)}
+.mf-box{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.mf-box.open{display:block}
+.mf-box label{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:4px;user-select:none}
+.mf-box label:hover{background:var(--d-flate,#f4f6fb)}
+</style>
 <div id="loadOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:14px">
   <div style="font-size:16px;font-weight:600;color:var(--brand)">Laster produktdatabase…</div>
   <div style="font-size:12.5px;color:var(--muted)" id="loadMsg">24 490 produkter</div>
@@ -1448,23 +1457,59 @@ function copyLines(){
 }
 
 // ============ Kundeliste (hoved-panel) ============
-let klPage=0, klQ='', klTotal=0, klSearchTimer=null;
+let klPage=0, klQ='', klTotal=0, klSearchTimer=null, klMounted=false;
 const KL_LIMIT=100;
 
 function klOnSearch(q){
   clearTimeout(klSearchTimer);
   klSearchTimer=setTimeout(()=>{klPage=0;klQ=q.trim();klLastOgVis();},300);
 }
+function klResetLoad(){ klPage=0; klLastOgVis(); }
 function klGaaSide(d){
   const maxPage=Math.max(0,Math.ceil(klTotal/KL_LIMIT)-1);
   klPage=Math.max(0,Math.min(klPage+d,maxPage));
   klLastOgVis();
 }
+function kunderParams(){
+  const p=new URLSearchParams();
+  p.set('status_ikke','Lead');
+  p.set('limit',KL_LIMIT);
+  p.set('offset',klPage*KL_LIMIT);
+  if(klQ) p.set('q',klQ);
+  const kk=document.getElementById('klKundekonto').value.trim(); if(kk) p.set('kundekonto_sok',kk);
+  const g=document.getElementById('klGrossist').value; if(g) p.set('grossist_id',g);
+  const reg=mfValgte('klRegion'); if(reg) p.set('region',reg);
+  const br=mfValgte('klBransje'); if(br) p.set('bransje',br);
+  const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
+  return p;
+}
+async function klMountFiltre(){
+  if(klMounted) return;
+  klMounted=true;
+  // Region
+  document.getElementById('klRegionWrap').innerHTML=mfBygd('klRegion','Region',['Øst','Vest','Nord','Sør'],'klResetLoad()');
+  // Grossist
+  try{
+    const gl=await api('/api/grossister')||[];
+    document.getElementById('klGrossist').innerHTML='<option value="">Alle grossister</option>'
+      +gl.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
+  }catch(e){}
+  // Bransje + kjede — dynamisk
+  try{
+    const bransjer=await api('/api/kunder/bransjer')||[];
+    document.getElementById('klBransjeWrap').innerHTML=mfBygd('klBransje','Bransje',bransjer,'klResetLoad()');
+  }catch(e){}
+  try{
+    const kjeder=await api('/api/kunder/kjeder')||[];
+    document.getElementById('klKjedeWrap').innerHTML=kjeder.length?mfBygd('klKjede','Kjede',kjeder,'klResetLoad()'):'';
+  }catch(e){}
+}
 async function klLastOgVis(){
+  await klMountFiltre();
   const body=document.getElementById('klBody');
   if(!body)return;
   body.innerHTML='<tr><td colspan="4" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
-  const url='/api/kunder?status_ikke=Lead&limit='+KL_LIMIT+'&offset='+(klPage*KL_LIMIT)+(klQ?'&q='+encodeURIComponent(klQ):'');
+  const url='/api/kunder?'+kunderParams().toString();
   let data=[], total=0;
   try{
     const resp=await fetch(Steg4.API+url,{headers:{'Authorization':'Bearer '+Steg4.token}});
@@ -1538,10 +1583,7 @@ async function mountLeads(){
     try{ leadsGrossister = await api('/api/grossister')||[]; }catch(e){ leadsGrossister=[]; }
     const gOpt = leadsGrossister.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
     document.getElementById('leadsGrossist').innerHTML='<option value="">Alle grossister</option>'+gOpt;
-    document.getElementById('leadsSegment').innerHTML='<option value="">Alle segment</option>'+
-      SEGMENTER.map(s=>'<option value="'+esc(s)+'">'+esc(s)+'</option>').join('');
-    // Selger-filter + tildel-selger (steg 7): hent full brukerliste fra /api/brukere.
-    // Endepunktet krever leder/admin/superadmin — selger ser uansett ikke disse kontrollene.
+    // Selger-filter
     let brukerOpts='';
     if(!erSelger){
       try{ leadsBrukere = await api('/api/brukere')||[]; }catch(e){ leadsBrukere=[]; }
@@ -1550,9 +1592,17 @@ async function mountLeads(){
         .join('');
     }
     document.getElementById('leadsSelger').innerHTML='<option value="">Alle selgere</option>'+brukerOpts;
-    // Tildel-modal: grossist (full liste) + selger (full brukerliste)
+    // Tildel-modal
     document.getElementById('tildelGrossist').innerHTML='<option value="">— ikke endre —</option>'+gOpt;
     document.getElementById('tildelSelger').innerHTML='<option value="">— ikke endre —</option>'+brukerOpts;
+    // Multi-filter dropdowns
+    document.getElementById('leadsRegionWrap').innerHTML=mfBygd('leadsRegion','Region',['Øst','Vest','Nord','Sør','Uten region'],'leadsResetAndLoad()');
+    document.getElementById('leadsBransjegruppeWrap').innerHTML=mfBygd('leadsBransjegruppe','Bransjegruppe',['HORECA','KBS','ØVRIG'],'leadsResetAndLoad()');
+    // Bransje — dynamisk fra DB
+    try{
+      const bransjer=await api('/api/kunder/bransjer')||[];
+      document.getElementById('leadsBransjeWrap').innerHTML=mfBygd('leadsBransje','Bransje',bransjer,'leadsResetAndLoad()');
+    }catch(e){ document.getElementById('leadsBransjeWrap').innerHTML=''; }
   }
   leadsResetAndLoad();
 }
@@ -1563,14 +1613,45 @@ function leadsParams(extra){
   const q=document.getElementById('leadsSearch').value.trim();
   if(q) p.set('q',q);
   const g=document.getElementById('leadsGrossist').value; if(g) p.set('grossist_id',g);
-  const s=document.getElementById('leadsSegment').value;  if(s) p.set('kjokkensegment',s);
   const sel=document.getElementById('leadsSelger').value; if(sel) p.set('selger_id',sel);
-  const reg=document.getElementById('leadsRegion').value; if(reg) p.set('region',reg);
-  const bg=document.getElementById('leadsBransjegruppe').value; if(bg) p.set('bransjegruppe',bg);
+  const reg=mfValgte('leadsRegion'); if(reg) p.set('region',reg);
+  const bg=mfValgte('leadsBransjegruppe'); if(bg) p.set('bransjegruppe',bg);
+  const br=mfValgte('leadsBransje'); if(br) p.set('bransje',br);
   const sc=document.getElementById('leadsScore').value; if(sc) p.set('lead_score_min',sc);
   if(_leadsSortScore) p.set('sort','lead_score_desc');
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
+}
+
+/* ── Multi-filter helpers ── */
+function mfValgte(id){
+  return [...document.querySelectorAll('#'+id+' input:checked')].map(c=>c.value).join(',');
+}
+function mfOppdaterBtn(id){
+  var valgte=[...document.querySelectorAll('#'+id+' input:checked')].map(c=>c.value);
+  var btn=document.getElementById(id+'_btn');
+  if(!btn)return;
+  var base=btn.dataset.label||'';
+  btn.textContent=valgte.length?base+' ('+valgte.length+') ▾':base+' ▾';
+}
+function mfToggle(id){
+  var box=document.getElementById(id);
+  if(!box)return;
+  // lukk alle andre
+  document.querySelectorAll('.mf-box.open').forEach(function(b){if(b.id!==id)b.classList.remove('open');});
+  box.classList.toggle('open');
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.mf-wrap')) document.querySelectorAll('.mf-box.open').forEach(function(b){b.classList.remove('open');});
+});
+function mfBygd(id, label, valg, onchange){
+  var opts=valg.map(function(v){
+    return '<label><input type="checkbox" value="'+esc(v)+'" onchange="mfOppdaterBtn(\''+id+'\');'+onchange+'"> '+esc(v)+'</label>';
+  }).join('');
+  return '<div class="mf-wrap">'
+    +'<button type="button" class="mf-btn" id="'+id+'_btn" data-label="'+esc(label)+'" onclick="mfToggle(\''+id+'\')">'+esc(label)+' ▾</button>'
+    +'<div class="mf-box" id="'+id+'">'+opts+'</div>'
+    +'</div>';
 }
 
 var _leadsSortScore=false;
