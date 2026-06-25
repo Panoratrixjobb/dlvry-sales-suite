@@ -348,6 +348,12 @@ tbody tr:hover{background:#fafbff}
       </div>
       <div id="kalk-editor">
       <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
+      <div id="velgKundeBanner" style="display:none;background:var(--gul-lys,#fff8e1);border:1px solid var(--gul,#f5c518);border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:13px;color:var(--ink)">Ingen kunde tilknyttet — tilknytt for å sende tilbud:</span>
+        <input id="velgKundeInput" list="velgKundeListe" placeholder="Søk kundnavn…" style="flex:1;max-width:260px;height:32px;padding:0 8px;border:1px solid var(--d-ramme,#ccc);border-radius:5px;font-size:13px" oninput="filtrerVelgKunde(this.value)">
+        <datalist id="velgKundeListe"></datalist>
+        <button class="d-knapp primar sm" onclick="bekreftVelgKunde()">Tilknytt</button>
+      </div>
 
       <div class="grid4">
         <section class="d-panel">
@@ -1417,9 +1423,8 @@ async function renderCalcArea(){
 }
 
 function newCalc(){
-  if(!state.custId){toast('Velg en kunde først');return;}
   const c=custCache.find(x=>x.id===state.custId);
-  document.getElementById('calcModalSub').textContent='For kunde: '+(c?c.navn:'');
+  document.getElementById('calcModalSub').textContent=c?('For kunde: '+c.navn):'(Ingen kunde — kan tilknyttes etter opprettelse)';
   document.getElementById('mCalcNavn').value='';document.getElementById('calcModal').classList.add('open');document.getElementById('mCalcNavn').focus();
 }
 
@@ -1429,7 +1434,7 @@ async function createCalc(){
   let k;
   try{
     k=await api('/api/kalkyler',{method:'POST',body:{
-      kunde_id:state.custId, navn, status:'Utkast',
+      kunde_id:state.custId||null, navn, status:'Utkast',
       genrabatt:0, kjedebonus:0, kommentar:'',
       scen_navn:'Standard scenario', scen_besk:'Hovedscenario for standard pris og rabattstruktur',
       snap_oms:0, snap_pct:0, snap_status:'Ingen', linjer:[]
@@ -1453,7 +1458,8 @@ async function openCalc(id){
   document.getElementById('kommentar').value=k.kommentar||'';
   document.getElementById('scenNavn').value=k.scen_navn||'Standard scenario';
   document.getElementById('scenBesk').value=k.scen_besk||'';
-  document.getElementById('crumb').innerHTML=`Kunde: <b>${esc(c?c.navn:'?')}</b> · Kalkyle: <b>${esc(k.navn)}</b>`;
+  document.getElementById('crumb').innerHTML=(k.kunde_id?('Kunde: <b>'+esc(c?c.navn:'?')+'</b> · '):'')+'Kalkyle: <b>'+esc(k.navn)+'</b>';
+  oppdaterVelgKundeBanner();
   state.dirty=false;setSaved(true);setView('kalkulator');setKalkSub('editor');render();
 }
 
@@ -1541,6 +1547,40 @@ async function slettKalkyle(id){
 function lastNedTilbud(pdfUrl,kalkyleId){
   if(pdfUrl)window.open(pdfUrl,'_blank');
   else if(kalkyleId)openCalc(kalkyleId);
+}
+
+function oppdaterVelgKundeBanner(){
+  var banner=document.getElementById('velgKundeBanner');
+  if(!banner)return;
+  banner.style.display=(!state.custId&&state.calcId)?'flex':'none';
+  if(!state.custId){
+    var dl=document.getElementById('velgKundeListe');
+    if(dl)dl.innerHTML=custCache.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
+  }
+}
+function filtrerVelgKunde(q){
+  var dl=document.getElementById('velgKundeListe');
+  if(!dl)return;
+  var low=q.toLowerCase();
+  var treff=custCache.filter(function(c){return(c.navn||'').toLowerCase().indexOf(low)>=0;}).slice(0,40);
+  dl.innerHTML=treff.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
+}
+async function bekreftVelgKunde(){
+  var inp=document.getElementById('velgKundeInput');
+  var val=(inp?inp.value:'').trim();
+  if(!val){toast('Skriv inn kundenavn');return;}
+  var c=custCache.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();});
+  if(!c){toast('Fant ikke kunde — velg fra listen');return;}
+  if(!state.calcId){toast('Ingen kalkyle åpen');return;}
+  try{
+    await api('/api/kalkyler/'+state.calcId,{method:'PATCH',body:{kunde_id:c.id}});
+    state.custId=c.id;
+    inp.value='';
+    document.getElementById('kundenavn').value=c.navn;
+    document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn)+'</b> · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
+    oppdaterVelgKundeBanner();
+    toast('Kunde tilknyttet');
+  }catch(e){toast('Feil: '+e.message);}
 }
 
 async function duplicateCalc(){
@@ -2584,6 +2624,7 @@ async function skrivUtTilbud(){
   const r=compute();
   if(!r.lines.length){toast('Legg til produkter før du lager tilbud.');return;}
   if(!state.calcId){toast('Lagre kalkylen først.');return;}
+  if(!state.custId){toast('Tilknytt en kunde før tilbudet kan skrives ut.');return;}
   let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', adresse:'', kontakt:''};
   kunde.navn=kunde.navn.replace('Kunde','').trim()||'Kunde';
   if(state.custId){
@@ -2661,6 +2702,7 @@ async function registrerTilbudSendt(){
 function sendTilbudEpost(){
   var _vfi=document.getElementById('visFakturaInfo');
   if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan sendes.');return;}
+  if(!state.custId){toast('Tilknytt en kunde før tilbudet kan sendes.');return;}
   toast('Direkte e-postutsending kommer når M365 er på plass.');
 }
 
