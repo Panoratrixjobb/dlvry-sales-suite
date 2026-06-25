@@ -1073,12 +1073,58 @@ function compute(){
 }
 const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
 
+function byttRad(i){
+  var ex=document.getElementById('bytte-rad-'+i);
+  if(ex){ex.remove();return;}
+  var mainTr=document.querySelector('[data-cart-idx="'+i+'"]');
+  if(!mainTr)return;
+  var tr2=document.createElement('tr');
+  tr2.id='bytte-rad-'+i;
+  tr2.innerHTML='<td colspan="16" style="padding:4px 8px 8px 32px;background:var(--surface2,#f9f9f9)">'
+    +'<input id="bytte-input-'+i+'" style="width:260px;font-size:12px" placeholder="Søk produkt (navn eller art.nr)…" list="bytte-list-'+i+'">'
+    +'<datalist id="bytte-list-'+i+'"></datalist>'
+    +'<button style="margin-left:8px;font-size:11px" onclick="velgBytteProd('+i+',document.getElementById(\'bytte-input-'+i+'\').value)">OK</button>'
+    +'<button style="margin-left:4px;font-size:11px" onclick="document.getElementById(\'bytte-rad-'+i+'\').remove()">Avbryt</button>'
+    +'</td>';
+  mainTr.insertAdjacentElement('afterend',tr2);
+  var inp=document.getElementById('bytte-input-'+i);
+  inp.focus();
+  inp.addEventListener('input',function(){
+    var q=(this.value||'').trim();
+    if(q.length<2)return;
+    var hits=DB.filter(p=>p.navn.toLowerCase().includes(q.toLowerCase())||String(p.art)===q).slice(0,20);
+    document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+'</option>').join('');
+  });
+}
+
+function velgBytteProd(i,q){
+  q=(q||'').trim();
+  if(!q)return;
+  var p=DB.find(x=>x.navn===q)||DB.find(x=>x.navn.toLowerCase()===q.toLowerCase())||DB.find(x=>String(x.art)===q);
+  if(!p){toast('Fant ikke produkt: '+q);return;}
+  var l=state.cart[i];
+  var fon=l.faktura_original_navn,fme=l.faktura_mengde,fpr=l.faktura_pris,fra=l.faktura_rabatt;
+  state.cart[i]=lineFromProd(p,l.antall);
+  state.cart[i].linjerabatt=l.linjerabatt;
+  state.cart[i].spesialpris=l.spesialpris;
+  state.cart[i].konkurrentpris=l.konkurrentpris;
+  state.cart[i].konfidens=l.konfidens;
+  state.cart[i].matchkonfidens=l.matchkonfidens;
+  state.cart[i].faktura_original_navn=fon;
+  state.cart[i].faktura_mengde=fme;
+  state.cart[i].faktura_pris=fpr;
+  state.cart[i].faktura_rabatt=fra;
+  markDirty(); render();
+  toast('Byttet til: '+p.navn);
+}
+
 // ============ Render ============
 function render(){
   const r=compute();
   const tb=document.getElementById('cartBody');tb.innerHTML='';
   r.lines.forEach((x,i)=>{
     const tr=document.createElement('tr');
+    tr.setAttribute('data-cart-idx',i);
     const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
     const kp=x.l.konkurrentpris;
     const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'#2f9e63':'#C0392B'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
@@ -1087,7 +1133,7 @@ function render(){
       : (kf>=60 ? '<span style="color:#2f9e63">'+kf+'%</span>'
                 : '<span style="color:#B45309">'+kf+'% ⚠</span>');
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
-      <td><div class="pname">${x.l.navn}</div></td>
+      <td><div class="pname">${x.l.navn}</div><button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;margin-top:2px;opacity:0.6">⇄ Bytt</button></td>
       <td>${x.l.matchkonfidens!=null?(x.l.matchkonfidens+'%'+(x.l.matchkonfidens<60?' ⚠':'')):'—'}</td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
