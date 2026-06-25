@@ -808,6 +808,7 @@ tbody tr:hover{background:#fafbff}
 </div>
 
 <div class="recalc-bar">
+  <button class="d-knapp subtil" onclick="avsluttKalkyle()" title="Tilbake til kalkyleliste">← Tilbake</button>
   <div class="saved-pill" id="savedPill"><span class="dot"></span><span id="savedTxt">Lagret</span></div>
   <button class="d-knapp primar" onclick="saveCalc()">💾 Lagre kalkyle</button>
 </div>
@@ -1490,6 +1491,11 @@ async function saveCalc(){
   setKalkSub('liste'); lastKalkyleListe();
 }
 
+function avsluttKalkyle(){
+  if(state.dirty&&!confirm('Du har ulagrede endringer. Avslutt uten å lagre?'))return;
+  state.dirty=false;
+  setKalkSub('liste');lastKalkyleListe();
+}
 function setKalkSub(sub){
   document.getElementById('kalk-landing').style.display=sub==='liste'?'':'none';
   document.getElementById('kalk-editor').style.display=sub==='editor'?'':'none';
