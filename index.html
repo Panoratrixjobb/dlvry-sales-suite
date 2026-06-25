@@ -399,6 +399,11 @@ tbody tr:hover{background:#fafbff}
             <button class="d-knapp sekundar" onclick="skrivUtTilbud()">📄 Skriv ut tilbud (PDF)</button>
           </div>
         </div>
+        <div style="padding:6px 0 4px">
+          <label style="font-size:12.5px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="visFakturaInfo" onchange="render()"> Vis originalprodukter fra faktura
+          </label>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr>
@@ -1041,7 +1046,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
 function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
 // ============ Motor ============
 function compute(){
@@ -1098,6 +1103,18 @@ function render(){
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
+    var vfi=document.getElementById('visFakturaInfo');
+    if(vfi&&vfi.checked&&x.l.faktura_original_navn){
+      var tr2=document.createElement('tr');
+      tr2.className='faktura-info';
+      tr2.innerHTML='<td colspan="16" style="font-size:11px;color:var(--muted);padding:2px 8px 6px 32px;font-style:italic">Faktura: '
+        +esc(x.l.faktura_original_navn)
+        +(x.l.faktura_mengde!=null?' · '+x.l.faktura_mengde:'')
+        +(x.l.faktura_pris!=null?' · '+fmtKr2(x.l.faktura_pris):'')
+        +(x.l.faktura_rabatt!=null?' (rabatt '+x.l.faktura_rabatt+'%)':'')
+        +'</td>';
+      tb.appendChild(tr2);
+    }
   });
   if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
 
@@ -1214,7 +1231,11 @@ function lineFromApi(l){return{
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:l.spesialpris==null?null:num(l.spesialpris),
   konkurrentpris:l.konkurrent_pris==null?null:num(l.konkurrent_pris),
-  konfidens:l.match_konfidens==null?null:num(l.match_konfidens)
+  konfidens:l.match_konfidens==null?null:num(l.match_konfidens),
+  faktura_original_navn:l.faktura_original_navn??null,
+  faktura_mengde:l.faktura_mengde==null?null:num(l.faktura_mengde),
+  faktura_pris:l.faktura_pris==null?null:num(l.faktura_pris),
+  faktura_rabatt:l.faktura_rabatt==null?null:num(l.faktura_rabatt)
 };}
 function lineToApi(l){return{
   artnr:String(l.art), navn:l.navn, enhet:l.enhet??null, listepris:num(l.listepris), kostbase:num(l.kostbase),
@@ -1224,7 +1245,11 @@ function lineToApi(l){return{
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris),
   konkurrent_pris:(l.konkurrentpris==null||l.konkurrentpris==='')?null:num(l.konkurrentpris),
-  match_konfidens:(l.konfidens==null||l.konfidens==='')?null:num(l.konfidens)
+  match_konfidens:(l.konfidens==null||l.konfidens==='')?null:num(l.konfidens),
+  faktura_original_navn:l.faktura_original_navn??null,
+  faktura_mengde:l.faktura_mengde==null?null:num(l.faktura_mengde),
+  faktura_pris:l.faktura_pris==null?null:num(l.faktura_pris),
+  faktura_rabatt:l.faktura_rabatt==null?null:num(l.faktura_rabatt)
 };}
 const num=v=>v==null?0:(typeof v==='number'?v:parseFloat(v)||0);
 
@@ -2303,38 +2328,54 @@ function matchFaktura(besk){
   }
   return best?{prod:best,score:Math.round(bestScore*100)}:null;
 }
+let _fakturaData=null;
 function renderFaktura(d){
+  _fakturaData=d;
   const linjer=d.linjer||[];
   _fakturaForslag=linjer.map(l=>{
     let m=null;
     if(l.art_nr_faktura){const p=findProd(l.art_nr_faktura); if(p)m={prod:p,score:100};}
     if(!m)m=matchFaktura(l.beskrivelse);
-    return {faktura:l,match:m};
+    return {faktura:l,match:m,byttetTil:null};
   });
   const treff=_fakturaForslag.filter(f=>f.match).length;
-  const rows=_fakturaForslag.map(f=>{
+  const rows=_fakturaForslag.map((f,i)=>{
     const m=f.match;
-    const konf=m?(m.score>=60?`<span style="color:#2f9e63">${m.score}%</span>`:`<span style="color:#B45309">${m.score}% ⚠</span>`):'<span style="color:#C0392B">ingen</span>';
-    return `<tr>
-      <td>${f.faktura.beskrivelse??'—'}</td>
-      <td style="text-align:right">${f.faktura.antall??'—'}</td>
-      <td style="text-align:right">${f.faktura.enhetspris??'—'}</td>
-      <td>${m?`<b>${m.prod.navn}</b><br><span class="sub">Art ${m.prod.art}</span>`:'<span class="sub">Søk opp manuelt</span>'}</td>
-      <td style="text-align:center">${konf}</td></tr>`;
+    const konf=m?(m.score>=60?'<span style="color:#2f9e63">'+m.score+'%</span>':'<span style="color:#B45309">'+m.score+'% ⚠</span>'):'<span style="color:#C0392B">ingen</span>';
+    const matchVis=m?('<b>'+(f.byttetTil?esc(f.byttetTil.navn):esc(m.prod.navn))+'</b><br><span class="sub">Art '+(f.byttetTil?f.byttetTil.art:m.prod.art)+'</span>'+'<br><input style="font-size:11px;width:120px;margin-top:3px" placeholder="Bytt produkt…" oninput="byttProdukt('+i+',this.value)" list="byttProdList'+i+'">'+'<datalist id="byttProdList'+i+'">'+DB.slice(0,5).map(p=>'<option value="'+esc(p.navn)+'">').join('')+'</datalist>'):'<span class="sub">Søk opp manuelt</span>';
+    return '<tr>'
+      +'<td>'+esc(f.faktura.beskrivelse??'—')+'</td>'
+      +'<td style="text-align:right">'+(f.faktura.antall??'—')+'</td>'
+      +'<td style="text-align:right">'+(f.faktura.enhetspris??'—')+'</td>'
+      +'<td>'+matchVis+'</td>'
+      +'<td style="text-align:center">'+konf+'</td></tr>';
   }).join('');
   document.getElementById('fakturaInnhold').innerHTML=
-    `<p class="sub">Leverandør: <b>${d.leverandor??'—'}</b> · Fakturanr: ${d.fakturanummer??'—'} · ${linjer.length} linjer, ${treff} matchet</p>
-     <div class="table-wrap"><table><thead><tr><th>Faktura-beskrivelse</th><th>Antall</th><th>Fakturapris</th><th>Matchet produkt (vår base)</th><th>Konfidens</th></tr></thead><tbody>${rows||'<tr><td colspan="5">Ingen linjer</td></tr>'}</tbody></table></div>
-     <p class="sub" style="margin-top:8px">Fakturaprisen legges inn som <b>konkurrentpris</b> på hver matchet linje. ⚠ = lav konfidens. Linjer uten treff søker du opp manuelt etterpå.</p>
-     <div style="margin-top:12px"><button class="d-knapp primar" onclick="leggTilFakturaForslag()">Legg til ${treff} matchede linjer i kalkylen</button></div>`;
+    '<p class="sub">Leverandør: <b>'+esc(d.leverandor??'—')+'</b> · Fakturanr: '+esc(d.fakturanummer??'—')+' · '+linjer.length+' linjer, '+treff+' matchet</p>'
+    +'<div class="table-wrap"><table><thead><tr><th>Faktura-beskrivelse</th><th>Antall</th><th>Fakturapris</th><th>Matchet produkt (vår base)</th><th>Konfidens</th></tr></thead><tbody>'+(rows||'<tr><td colspan="5">Ingen linjer</td></tr>')+'</tbody></table></div>'
+    +'<p class="sub" style="margin-top:8px">Fakturaprisen legges inn som <b>konkurrentpris</b> på hver matchet linje. ⚠ = lav konfidens. Linjer uten treff søker du opp manuelt etterpå.</p>'
+    +'<div style="margin-top:12px;display:flex;gap:8px">'
+    +'<button class="d-knapp primar" onclick="leggTilFakturaForslag()">Legg til '+treff+' matchede linjer i kalkylen</button>'
+    +'<button class="d-knapp subtil" onclick="lagrePrislisteFraFaktura()">Lagre som konkurrentprisliste</button>'
+    +'</div>';
+}
+function byttProdukt(i,q){
+  if(!q||q.length<2)return;
+  const p=DB.find(x=>x.navn.toLowerCase()===q.toLowerCase())||DB.find(x=>x.navn.toLowerCase().includes(q.toLowerCase()));
+  if(p){_fakturaForslag[i].byttetTil=p; renderFaktura(_fakturaData);}
 }
 function leggTilFakturaForslag(){
   let n=0;
-  _fakturaForslag.forEach(f=>{ if(!f.match)return;
-    const line=lineFromProd(f.match.prod, f.faktura.antall||1);
+  _fakturaForslag.forEach((f,i)=>{ if(!f.match)return;
+    const prod=f.byttetTil||f.match.prod;
+    const line=lineFromProd(prod, f.faktura.antall||1);
     line.konkurrentpris=(f.faktura.enhetspris==null?null:num(f.faktura.enhetspris));
     line.konfidens = f.match ? f.match.score : null;
     line.matchkonfidens = (f.match && f.match.score!=null) ? f.match.score : null;
+    line.faktura_original_navn = f.faktura.beskrivelse||null;
+    line.faktura_mengde = f.faktura.antall!=null?num(f.faktura.antall):null;
+    line.faktura_pris = f.faktura.enhetspris!=null?num(f.faktura.enhetspris):null;
+    line.faktura_rabatt = f.faktura.rabatt!=null?num(f.faktura.rabatt):null;
     state.cart.push(line); n++;
   });
   markDirty(); render();
@@ -2342,11 +2383,61 @@ function leggTilFakturaForslag(){
   if(typeof toast==='function')toast(n+' linjer lagt til fra faktura');
 }
 
+// ===== Konkurrentprisliste fra faktura =====
+function lagrePrislisteFraFaktura(){
+  const opts=(_konkCache||[]).map(k=>'<option value="'+k.id+'">'+esc(k.navn)+'</option>').join('');
+  const el=document.getElementById('fakturaInnhold');
+  el.insertAdjacentHTML('beforeend',
+    '<div id="kfPopup" style="margin-top:16px;padding:12px;background:var(--surface2,#f5f5f5);border-radius:8px;border:1px solid var(--line)">'
+    +'<h4 style="margin:0 0 10px">Lagre fakturapriser på konkurrent</h4>'
+    +'<label style="display:block;margin-bottom:8px">Eksisterende konkurrent:'
+    +'<select id="kfKonk" style="margin-left:6px"><option value="">— velg —</option>'+opts+'</select></label>'
+    +'<div style="color:var(--muted);font-size:12px;margin-bottom:8px">eller opprett ny:</div>'
+    +'<label style="display:block;margin-bottom:6px">Navn: <input id="kfNyNavn" placeholder="Leverandørnavn" style="margin-left:6px;width:180px"></label>'
+    +'<label style="display:block;margin-bottom:10px">Kategori: <input id="kfNyKat" placeholder="Valgfritt" style="margin-left:6px;width:140px"></label>'
+    +'<div id="kfErr" style="color:#C0392B;font-size:12px;margin-bottom:6px"></div>'
+    +'<button class="d-knapp primar" onclick="bekreftPrisliste()">Lagre</button>'
+    +'<button class="d-knapp subtil" style="margin-left:8px" onclick="document.getElementById(\'kfPopup\').remove()">Avbryt</button>'
+    +'</div>'
+  );
+}
+async function bekreftPrisliste(){
+  const valgtId=document.getElementById('kfKonk').value;
+  const nyNavn=(document.getElementById('kfNyNavn').value||'').trim();
+  const nyKat=(document.getElementById('kfNyKat').value||'').trim();
+  const errEl=document.getElementById('kfErr');
+  errEl.textContent='';
+  let konkId=valgtId;
+  if(!konkId){
+    if(!nyNavn){errEl.textContent='Velg eksisterende konkurrent eller skriv inn nytt navn.';return;}
+    try{
+      const k=await api('/api/konkurrenter/finn-eller-opprett',{method:'POST',body:{navn:nyNavn,kategori:nyKat||null}});
+      konkId=k.id;
+      if(!_konkCache.find(c=>c.id===k.id)){_konkCache.push(k);_konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no'));}
+    }catch(e){errEl.textContent='Feil: '+e.message;return;}
+  }
+  const linjer=(_fakturaData&&_fakturaData.linjer||[]).filter(l=>l.beskrivelse&&l.enhetspris!=null).map(l=>({
+    produktnavn:l.beskrivelse,
+    enhet:l.enhet||null,
+    pris:num(l.enhetspris),
+    mengde:l.antall!=null?num(l.antall):null,
+    rabatt:l.rabatt!=null?num(l.rabatt):null
+  }));
+  if(!linjer.length){errEl.textContent='Ingen linjer med pris å lagre.';return;}
+  try{
+    const res=await api('/api/konkurrenter/'+konkId+'/priser-fra-faktura',{method:'POST',body:{linjer}});
+    document.getElementById('kfPopup').remove();
+    toast('Lagret '+(res.lagret||0)+' produktpriser på konkurrent');
+  }catch(e){errEl.textContent='Feil: '+e.message;}
+}
+
 // ===== Tilbud: PDF-utskrift + registrering =====
 // TODO (senere): hent grossist-logo + -adresse fra backend pr. selgers grossist.
 const GROSSIST_PLACEHOLDER = { logoTekst:'DLVRY', adresse:'[Grossistadresse — settes i senere utvikling]' };
 
 async function skrivUtTilbud(){
+  var _vfi=document.getElementById('visFakturaInfo');
+  if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan skrives ut.');return;}
   const r=compute();
   if(!r.lines.length){toast('Legg til produkter før du lager tilbud.');return;}
   if(!state.calcId){toast('Lagre kalkylen først.');return;}
@@ -2366,6 +2457,8 @@ async function skrivUtTilbud(){
 }
 
 function byggTilbudPdf(r, kunde){
+  var _vfi=document.getElementById('visFakturaInfo');
+  if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan skrives ut.');return;}
   const { jsPDF }=window.jspdf; const doc=new jsPDF();
   const idag=new Date().toLocaleDateString('nb-NO');
   doc.setFontSize(18); doc.text(GROSSIST_PLACEHOLDER.logoTekst, 14, 18);
@@ -2418,7 +2511,11 @@ async function registrerTilbudSendt(){
 }
 
 // TODO (senere, når e-post er aktivert via M365): send tilbud-PDF direkte fra selgerens e-post.
-function sendTilbudEpost(){ toast('Direkte e-postutsending kommer når M365 er på plass.'); }
+function sendTilbudEpost(){
+  var _vfi=document.getElementById('visFakturaInfo');
+  if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan sendes.');return;}
+  toast('Direkte e-postutsending kommer når M365 er på plass.');
+}
 
 </script>
 </body>
