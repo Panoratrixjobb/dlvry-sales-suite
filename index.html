@@ -18,7 +18,8 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  background:var(--bg);color:var(--ink);font-size:13px;line-height:1.4;-webkit-font-smoothing:antialiased}
+  background:var(--bg);color:var(--ink);font-size:15px;line-height:1.4;-webkit-font-smoothing:antialiased}
+table,input,button,.d-select,.tabs button,.nav a{font-size:15px}
 .app{display:flex;min-height:100vh}
 .sidebar{width:218px;background:var(--sidebar);color:var(--sidebar-ink);flex-shrink:0;
   display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
@@ -655,6 +656,7 @@ tbody tr:hover{background:#fafbff}
             <option value="kun-stk">Kun stk-pris</option>
           </select>
         </div>
+        <div id="konkInfoKort" style="margin-bottom:12px"></div>
         <div id="konkPrisTabell"></div>
         <div id="konkPrisPager" style="gap:8px;align-items:center;margin-top:12px;display:none">
           <button class="d-knapp subtil sm" id="konkPrev" onclick="konkGaaSide(-1)">← Forrige</button>
@@ -765,8 +767,20 @@ tbody tr:hover{background:#fafbff}
         <input id="nyKonkNavn" class="d-input" placeholder="f.eks. DinDeli">
       </div>
       <div class="d-felt" style="margin-bottom:10px">
-        <label>Kategori (valgfritt)</label>
-        <input id="nyKonkKat" class="d-input" placeholder="f.eks. Ost, Kjøtt…">
+        <label>Adresse (valgfritt)</label>
+        <input id="nyKonkAdr" class="d-input" placeholder="f.eks. Storgata 1, 0010 Oslo">
+      </div>
+      <div class="d-felt" style="margin-bottom:10px">
+        <label>Konsept/segmenter (fler-valg)</label>
+        <div id="nyKonkKategorier" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+          <label style="font-size:13px"><input type="checkbox" value="Fullsortiment"> Fullsortiment</label>
+          <label style="font-size:13px"><input type="checkbox" value="Kjøtt"> Kjøtt</label>
+          <label style="font-size:13px"><input type="checkbox" value="Frukt &amp; grønt"> Frukt &amp; grønt</label>
+          <label style="font-size:13px"><input type="checkbox" value="Italiensk"> Italiensk</label>
+          <label style="font-size:13px"><input type="checkbox" value="Asiatisk"> Asiatisk</label>
+          <label style="font-size:13px"><input type="checkbox" value="Spansk"> Spansk</label>
+          <label style="font-size:13px"><input type="checkbox" value="Norsk/Lokalt"> Norsk/Lokalt</label>
+        </div>
       </div>
       <div id="nyKonkErr" style="font-size:12px;color:var(--red);min-height:16px"></div>
     </div>
@@ -789,7 +803,7 @@ tbody tr:hover{background:#fafbff}
 <style>
 @keyframes spin{to{transform:rotate(360deg)}}
 .mf-wrap{position:relative;display:inline-block}
-.mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--ink);white-space:nowrap}
+.mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:5px 10px;font-size:15px;cursor:pointer;color:var(--ink);white-space:nowrap}
 .mf-btn:hover{border-color:var(--primaer,#D65742)}
 .mf-box{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .mf-box.open{display:block}
@@ -1141,7 +1155,7 @@ function render(){
       <td>${fmtKr2(x.prisEtter)}</td>
       <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
       <td class="final">${fmtKr2(x.endelig)}</td>
-      <td><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}</td>
+      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}</td>
       <td style="text-align:center">${konfCelle}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
@@ -1909,11 +1923,13 @@ function renderKonkListe(){
     return;
   }
   el.innerHTML=_konkCache.map(k=>{
+    const kats=(k.kategorier||'').split(',').filter(Boolean);
     return '<div class="d-panel" style="min-width:200px;max-width:260px;flex:1;cursor:pointer;border:2px solid transparent;transition:.15s" '
       +'onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')" '
       +'onmouseover="this.style.borderColor=\'var(--brand)\'" onmouseout="this.style.borderColor=\'transparent\'">'
       +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">'+esc(k.navn)+'</div>'
-      +(k.kategori?'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">'+esc(k.kategori)+'</div>':'')
+      +(k.adresse?'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">'+esc(k.adresse)+'</div>':'')
+      +(kats.length?'<div style="margin-bottom:6px">'+kats.map(t=>'<span class="d-badge flat" style="font-size:11px;margin-right:3px">'+esc(t)+'</span>').join('')+'</div>':'')
       +'<div style="font-size:12.5px;color:var(--muted)">'+k.antall_produkter.toLocaleString('no')+' produkter</div>'
       +'<div style="margin-top:10px"><span class="d-badge flat bla" style="font-size:11px">Vis prisliste →</span></div>'
       +'</div>';
@@ -1928,6 +1944,15 @@ async function visKonkurrentPriser(id, navn){
   document.getElementById('konkPrisNavn').textContent=navn;
   document.getElementById('konkPrisSok').value='';
   document.getElementById('konkFlaggFilter').value='';
+  const k=_konkCache.find(x=>x.id===id)||{};
+  const kats=(k.kategorier||'').split(',').filter(Boolean);
+  const kortEl=document.getElementById('konkInfoKort');
+  if(k.adresse||kats.length){
+    kortEl.innerHTML='<div class="d-panel" style="padding:10px 14px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'
+      +(k.adresse?'<div style="font-size:13px;color:var(--muted)">📍 '+esc(k.adresse)+'</div>':'')
+      +(kats.length?'<div>'+kats.map(t=>'<span class="d-badge flat" style="margin-right:4px">'+esc(t)+'</span>').join('')+'</div>':'')
+      +'</div>';
+  } else { kortEl.innerHTML=''; }
   await lastKonkPriser();
 }
 
@@ -2012,12 +2037,13 @@ function openNyKonkModal(){
 
 async function lagreNyKonkurrent(){
   const navn=document.getElementById('nyKonkNavn').value.trim();
-  const kat=document.getElementById('nyKonkKat').value.trim();
+  const adr=(document.getElementById('nyKonkAdr').value||'').trim();
+  const valgte=[...document.querySelectorAll('#nyKonkKategorier input:checked')].map(c=>c.value);
   const errEl=document.getElementById('nyKonkErr');
   if(!navn){errEl.textContent='Navn er påkrevd.';return;}
   errEl.textContent='';
   try{
-    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,kategori:kat||null}});
+    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,adresse:adr||null,kategorier:valgte.join(',')||null}});
     _konkCache.push(k); _konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no'));
     closeModal('nyKonkModal'); renderKonkListe(); toast('Konkurrent «'+k.navn+'» opprettet');
   }catch(e){errEl.textContent=e.message;}

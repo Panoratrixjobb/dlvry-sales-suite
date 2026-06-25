@@ -976,13 +976,14 @@ const Steg4 = (() => {
 
     // --- KPI-rad (APP-tall) ---
     const kpiKort = [
-      { label: "Aktive kunder",        tall: statusMap["Kunde"] ? statusMap["Kunde"].antall : (app.totalt_kunder || 0), vs: "Registrert som Kunde i CRM" },
-      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,                                                         vs: "Tilbud/gjenbes\xF8k krever handling" },
-      { label: "\xC5pne tilbud",         tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0,                          vs: "Status: Sendt" },
-      { label: "M\xF8ter denne uken",    tall: moter.length,                                                                vs: "I dag → s\xF8ndag" },
+      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Status: Kunde i CRM",             nav: "setView('kunder');setKunderSub('kunder')" },
+      { label: "Leads",                   tall: app.totalt_leads || 0,   vs: "Status: Lead i CRM",              nav: "setView('kunder');setKunderSub('leads')" },
+      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,       vs: "Tilbud/gjenbes\xF8k krever handling", nav: "" },
+      { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "" },
+      { label: "M\xF8ter denne uken",     tall: moter.length,            vs: "I dag → s\xF8ndag",          nav: "" },
     ];
     const kpiHtml = kpiKort.map(function(k) {
-      return '<div class="d-kpi">' +
+      return '<div class="d-kpi"' + (k.nav ? ' onclick="' + k.nav + '" style="cursor:pointer"' : '') + '>' +
         '<div class="d-label">' + esc(k.label) + "</div>" +
         '<div class="d-rad"><span class="d-tall">' + k.tall + "</span></div>" +
         '<div class="d-vs">' + esc(k.vs) + "</div>" +
@@ -1015,9 +1016,10 @@ const Steg4 = (() => {
             '<td style="white-space:nowrap">' + norskDato(m.dato) + "</td>" +
             '<td><a href="#" data-kunde-id="' + esc(m.kunde_id) + '" style="color:var(--primaer);text-decoration:none;font-weight:600">' + esc(m.kunde_navn) + "</a></td>" +
             '<td style="color:var(--d-tekst-3)">' + esc(m.notat || "—") + "</td>" +
+            '<td><button onclick="Steg4.slettMote(\'' + m.aktivitet_id + '\',this)" style="background:none;border:none;color:var(--d-tekst-3);cursor:pointer;font-size:14px;padding:2px 6px" title="Slett møte">✕</button></td>' +
             "</tr>";
         }).join("")
-      : '<tr><td colspan="3" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen m\xF8ter denne uken.</td></tr>';
+      : '<tr><td colspan="4" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen m\xF8ter denne uken.</td></tr>';
 
     // --- Oppfølging-rader ---
     const oppfRader = oppfolging.length
@@ -1061,7 +1063,7 @@ const Steg4 = (() => {
         '<div class="d-panel">' +
           '<div class="d-panel-hode"><span class="d-t-h2">Ukens m\xF8ter</span></div>' +
           '<table class="d-tabell"><thead><tr>' +
-          '<th>Dato</th><th>Kunde</th><th>Notat</th>' +
+          '<th>Dato</th><th>Kunde</th><th>Notat</th><th></th>' +
           "</tr></thead><tbody>" + moterRader + "</tbody></table>" +
         "</div>" +
         '<div class="d-panel">' +
@@ -1100,9 +1102,22 @@ const Steg4 = (() => {
     });
   }
 
+  async function slettMote(aktivitetId, btn) {
+    if (!confirm("Slett dette møtet?")) return;
+    btn.disabled = true;
+    try {
+      await api("/api/moter/" + aktivitetId, { method: "DELETE" });
+      const tr = btn.closest("tr");
+      if (tr) tr.remove();
+    } catch(e) {
+      alert("Feil: " + e.message);
+      btn.disabled = false;
+    }
+  }
+
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter,
+    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, slettMote,
   };
 })();
