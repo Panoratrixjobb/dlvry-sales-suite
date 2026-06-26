@@ -979,28 +979,36 @@ const Steg4 = (() => {
     const totVunnet = (app.per_status || []).reduce(function(s, r) { return r.status === "Vunnet" ? s + r.antall : s; }, 0);
     const konvRate = totLead > 0 ? Math.round(totVunnet / totLead * 1000) / 10 : null;
     const kpiKort = [
-      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Status: Kunde i CRM",                nav: "setView('kunder');setKunderSub('kunder')" },
-      { label: "Leads",                   tall: totLead,                  vs: "Status: Lead i CRM",                 nav: "setView('kunder');setKunderSub('leads')" },
-      { label: "Konverteringsrate",       tall: konvRate !== null ? konvRate.toLocaleString("nb-NO", {maximumFractionDigits:1}) + "%" : "—", vs: "Lead → Vunnet", nav: "" },
-      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,        vs: "Tilbud/gjenbes\xF8k krever handling", nav: "" },
-      { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "" },
-      { label: "M\xF8ter denne uken",     tall: moter.length,             vs: "Man → s\xF8ndag",               nav: "" },
+      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Status: Kunde i CRM",                 nav: "setView('kunder');setKunderSub('kunder')", color:"#3b82f6", icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' },
+      { label: "Leads",                   tall: totLead,                  vs: "Status: Lead i CRM",                  nav: "setView('kunder');setKunderSub('leads')",  color:"#8b5cf6", icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>' },
+      { label: "Konverteringsrate",       tall: konvRate !== null ? konvRate.toLocaleString("nb-NO", {maximumFractionDigits:1}) + "%" : "—", vs: "Lead → Vunnet", nav: "", color:"#6366f1", icon:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
+      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,        vs: "Tilbud/gjenbes\xF8k krever handling", nav: "", color:"#f59e0b", icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' },
+      { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "", color:"#ef4444", icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
+      { label: "M\xF8ter denne uken",     tall: moter.length,             vs: "Man → s\xF8ndag",                nav: "", color:"#10b981", icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
     ];
     const kpiHtml = kpiKort.map(function(k) {
-      return '<div class="d-kpi"' + (k.nav ? ' onclick="' + k.nav + '" style="cursor:pointer"' : '') + '>' +
-        '<div class="d-label">' + esc(k.label) + "</div>" +
-        '<div class="d-rad"><span class="d-tall">' + k.tall + "</span></div>" +
-        '<div class="d-vs">' + esc(k.vs) + "</div>" +
+      var c = k.color, rr = parseInt(c.slice(1,3),16), gg = parseInt(c.slice(3,5),16), bb = parseInt(c.slice(5,7),16);
+      var ibg = "rgba("+rr+","+gg+","+bb+",0.12)";
+      return '<div class="d-kpi" style="position:relative;overflow:hidden' + (k.nav ? ';cursor:pointer' : '') + '"' + (k.nav ? ' onclick="' + k.nav + '"' : '') + '>' +
+        '<div style="position:absolute;top:0;left:0;right:0;height:2.5px;background:' + c + '"></div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
+          '<p class="d-label" style="margin:0;max-width:72px;line-height:1.4">' + esc(k.label) + '</p>' +
+          '<div style="width:24px;height:24px;background:' + ibg + ';border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' + k.icon + '</svg>' +
+          '</div>' +
+        '</div>' +
+        '<p style="font-size:23px;font-weight:800;color:var(--d-tekst,#111827);letter-spacing:-1px;line-height:1;margin:0">' + k.tall + '</p>' +
+        '<p style="font-size:9px;color:' + c + ';margin-top:5px;font-weight:500;margin-bottom:0">' + esc(k.vs) + '</p>' +
         "</div>";
     }).join("");
 
     // --- Pipeline-bånd (APP-tall, kundestatuser) ---
     const pipelineSteg = [
-      { navn: "Lead",         farge: "var(--d-bla)",   status: "Lead" },
-      { navn: "Aktiv dialog", farge: "var(--teal)",    status: "Aktiv dialog" },
-      { navn: "Tilbud sendt", farge: "var(--d-gul)",  status: "Sendt" },
-      { navn: "Forhandling",  farge: "var(--d-lilla)",status: "Forhandling" },
-      { navn: "Vunnet",       farge: "var(--d-gronn)",status: "Vunnet" },
+      { navn: "Lead",         farge: "#3b82f6", status: "Lead" },
+      { navn: "Aktiv dialog", farge: "#14b8a6", status: "Aktiv dialog" },
+      { navn: "Tilbud sendt", farge: "#f59e0b", status: "Sendt" },
+      { navn: "Forhandling",  farge: "#8b5cf6", status: "Forhandling" },
+      { navn: "Vunnet",       farge: "#10b981", status: "Vunnet" },
     ];
     const pipelineHtml = pipelineSteg.map(function(steg) {
       const d = statusMap[steg.status] || { antall: 0, sum_potensiell: 0 };
@@ -1097,11 +1105,11 @@ const Steg4 = (() => {
   async function visDashboardPipeline(el, appData) {
     if (!el) return;
     const pipelineSteg = [
-      { navn: "Lead",         farge: "var(--d-bla)",    status: "Lead" },
-      { navn: "Aktiv dialog", farge: "var(--teal)",     status: "Aktiv dialog" },
-      { navn: "Tilbud sendt", farge: "var(--d-gul)",    status: "Sendt" },
-      { navn: "Forhandling",  farge: "var(--d-lilla)",  status: "Forhandling" },
-      { navn: "Vunnet",       farge: "var(--d-gronn)",  status: "Vunnet" },
+      { navn: "Lead",         farge: "#3b82f6", hdr: "rgba(59,130,246,0.08)",  status: "Lead" },
+      { navn: "Aktiv dialog", farge: "#14b8a6", hdr: "rgba(20,184,166,0.08)",  status: "Aktiv dialog" },
+      { navn: "Tilbud sendt", farge: "#f59e0b", hdr: "rgba(245,158,11,0.08)", status: "Sendt" },
+      { navn: "Forhandling",  farge: "#8b5cf6", hdr: "rgba(139,92,246,0.08)", status: "Forhandling" },
+      { navn: "Vunnet",       farge: "#10b981", hdr: "rgba(16,185,129,0.08)", status: "Vunnet" },
     ];
     let statusMap = {};
     if (appData && appData.per_status) {
@@ -1115,7 +1123,7 @@ const Steg4 = (() => {
     const kolHtml = pipelineSteg.map(function(steg) {
       const d = statusMap[steg.status] || { antall: 0, sum_potensiell: 0 };
       return '<div style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">' +
-        '<div style="padding:12px 14px;border-bottom:1px solid var(--line)">' +
+        '<div style="padding:12px 14px;border-bottom:1px solid var(--line);background:' + steg.hdr + '">' +
           '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
             '<div style="width:8px;height:8px;border-radius:50%;background:' + steg.farge + ';flex-shrink:0"></div>' +
             '<span style="font-size:12px;font-weight:700;color:var(--ink)">' + esc(steg.navn) + '</span>' +
