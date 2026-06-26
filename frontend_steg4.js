@@ -975,12 +975,16 @@ const Steg4 = (() => {
     const iDagStr = new Date().toISOString().slice(0, 10);
 
     // --- KPI-rad (APP-tall) ---
+    const totLead = app.totalt_leads || 0;
+    const totVunnet = (app.per_status || []).reduce(function(s, r) { return r.status === "Vunnet" ? s + r.antall : s; }, 0);
+    const konvRate = totLead > 0 ? Math.round(totVunnet / totLead * 1000) / 10 : null;
     const kpiKort = [
-      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Status: Kunde i CRM",             nav: "setView('kunder');setKunderSub('kunder')" },
-      { label: "Leads",                   tall: app.totalt_leads || 0,   vs: "Status: Lead i CRM",              nav: "setView('kunder');setKunderSub('leads')" },
-      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,       vs: "Tilbud/gjenbes\xF8k krever handling", nav: "" },
+      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Status: Kunde i CRM",                nav: "setView('kunder');setKunderSub('kunder')" },
+      { label: "Leads",                   tall: totLead,                  vs: "Status: Lead i CRM",                 nav: "setView('kunder');setKunderSub('leads')" },
+      { label: "Konverteringsrate",       tall: konvRate !== null ? konvRate.toLocaleString("nb-NO", {maximumFractionDigits:1}) + "%" : "—", vs: "Lead → Vunnet", nav: "" },
+      { label: "Leads til oppf\xF8lging", tall: oppfolging.length,        vs: "Tilbud/gjenbes\xF8k krever handling", nav: "" },
       { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "" },
-      { label: "M\xF8ter denne uken",     tall: moter.length,            vs: "I dag → s\xF8ndag",          nav: "" },
+      { label: "M\xF8ter denne uken",     tall: moter.length,             vs: "Man → s\xF8ndag",               nav: "" },
     ];
     const kpiHtml = kpiKort.map(function(k) {
       return '<div class="d-kpi"' + (k.nav ? ' onclick="' + k.nav + '" style="cursor:pointer"' : '') + '>' +
@@ -1035,57 +1039,44 @@ const Steg4 = (() => {
         }).join("")
       : '<tr><td colspan="3" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen oppf\xF8lginger n\xE5.</td></tr>';
 
-    // --- Per-selger-rader ---
-    const selgerRader = (app.per_selger || []).map(function(s) {
-      return "<tr>" +
-        '<td class="d-navn">' + esc(s.selger_navn || "—") + "</td>" +
-        '<td style="text-align:right">' + s.antall_kunder + "</td>" +
-        '<td style="text-align:right">' + s.antall_kalkyler + "</td>" +
-        '<td style="text-align:right;font-weight:600">' + kr(s.sum_potensiell) + "</td>" +
-        "</tr>";
-    }).join("") || '<tr><td colspan="4" style="color:var(--d-tekst-3)">Ingen data.</td></tr>';
+    // Per-selger-data sendes til visDashboardSelger via setView
 
     el.innerHTML =
-      // KPI-rad
-      '<div class="d-grid d-g4" style="margin-bottom:var(--s5)">' + kpiHtml + "</div>" +
+      // KPI-rad (6 kort)
+      '<div class="d-grid d-g6" style="margin-bottom:var(--s5)">' + kpiHtml + "</div>" +
 
-      // Salgspipeline
+      // Salgspipeline med footer
       '<div class="d-panel" style="margin-bottom:var(--s5)">' +
         '<div class="d-panel-hode">' +
           '<span class="d-t-h2">Salgspipeline</span>' +
           '<span class="d-t-hint">APP — potensiell omsetning fra kalkyler</span>' +
         "</div>" +
         '<div class="d-pipeline">' + pipelineHtml + "</div>" +
+        '<div style="display:flex;gap:24px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)">' +
+          '<span>Win rate: <strong style="color:var(--ink)">—</strong></span>' +
+          '<span>Avg. deal size: <strong style="color:var(--ink)">—</strong></span>' +
+          '<span>Salgssyklus: <strong style="color:var(--ink)">—</strong></span>' +
+        "</div>" +
       "</div>" +
 
       // Møter + Oppfølging side om side
       '<div class="d-grid d-g2" style="margin-bottom:var(--s5)">' +
         '<div class="d-panel">' +
-          '<div class="d-panel-hode"><span class="d-t-h2">Ukens m\xF8ter</span></div>' +
+          '<div class="d-panel-hode"><span class="d-t-h2">Ukens m\xF8ter</span>' +
+          '<button onclick="openNyttMote && openNyttMote()" style="font-size:11.5px;font-weight:600;color:#fff;background:var(--brand);border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-family:inherit">+ Nytt m\xF8te</button>' +
+          "</div>" +
           '<table class="d-tabell"><thead><tr>' +
           '<th>Dato</th><th>Kunde</th><th>Notat</th><th></th>' +
           "</tr></thead><tbody>" + moterRader + "</tbody></table>" +
         "</div>" +
         '<div class="d-panel">' +
-          '<div class="d-panel-hode"><span class="d-t-h2">Oppf\xF8lging</span></div>' +
+          '<div class="d-panel-hode"><span class="d-t-h2">Oppf\xF8lging</span>' +
+          '<span style="font-size:11px;font-weight:600;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:10px;border:1px solid var(--line)">' + oppfolging.length + " aktive</span>" +
+          "</div>" +
           '<table class="d-tabell"><thead><tr>' +
           "<th>Type</th><th>Kunde</th><th>Dato</th>" +
           "</tr></thead><tbody>" + oppfRader + "</tbody></table>" +
         "</div>" +
-      "</div>" +
-
-      // Per selger
-      '<div class="d-panel" style="margin-bottom:var(--s4)">' +
-        '<div class="d-panel-hode">' +
-          '<span class="d-t-h2">Per selger</span>' +
-          '<span class="d-t-hint">Potensiell omsetning · ikke fakturert</span>' +
-        "</div>" +
-        '<table class="d-tabell"><thead><tr>' +
-        "<th>Selger</th>" +
-        '<th style="text-align:right">Kunder</th>' +
-        '<th style="text-align:right">Kalkyler</th>' +
-        '<th style="text-align:right">Potensiell omsetning</th>' +
-        "</tr></thead><tbody>" + selgerRader + "</tbody></table>" +
       "</div>" +
 
       // Advarselslinje
@@ -1100,6 +1091,105 @@ const Steg4 = (() => {
         if (id && window.velgKunde) window.velgKunde(id);
       });
     });
+  }
+
+  // --- Pipeline Kanban-fane ---
+  async function visDashboardPipeline(el, appData) {
+    if (!el) return;
+    const pipelineSteg = [
+      { navn: "Lead",         farge: "var(--d-bla)",    status: "Lead" },
+      { navn: "Aktiv dialog", farge: "var(--teal)",     status: "Aktiv dialog" },
+      { navn: "Tilbud sendt", farge: "var(--d-gul)",    status: "Sendt" },
+      { navn: "Forhandling",  farge: "var(--d-lilla)",  status: "Forhandling" },
+      { navn: "Vunnet",       farge: "var(--d-gronn)",  status: "Vunnet" },
+    ];
+    let statusMap = {};
+    if (appData && appData.per_status) {
+      appData.per_status.forEach(function(s) { statusMap[s.status] = s; });
+    }
+    const mnok = function(n) {
+      return isFinite(n) && n
+        ? (n / 1000000).toLocaleString("nb-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " MNOK"
+        : "0,0 MNOK";
+    };
+    const kolHtml = pipelineSteg.map(function(steg) {
+      const d = statusMap[steg.status] || { antall: 0, sum_potensiell: 0 };
+      return '<div style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">' +
+        '<div style="padding:12px 14px;border-bottom:1px solid var(--line)">' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
+            '<div style="width:8px;height:8px;border-radius:50%;background:' + steg.farge + ';flex-shrink:0"></div>' +
+            '<span style="font-size:12px;font-weight:700;color:var(--ink)">' + esc(steg.navn) + '</span>' +
+            '<span style="margin-left:auto;background:' + steg.farge + ';color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">' + d.antall + '</span>' +
+          '</div>' +
+          '<p style="font-size:10.5px;color:var(--muted);margin:0">' + mnok(d.sum_potensiell) + ' potensiell</p>' +
+        '</div>' +
+        '<div style="padding:12px;flex:1;display:flex;flex-direction:column;gap:8px">' +
+          '<div style="border:1.5px dashed var(--line);border-radius:7px;padding:14px;text-align:center;cursor:pointer">' +
+            '<p style="font-size:11px;color:var(--muted);margin:0">+ Legg til deal</p>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Pipeline — Kanban</h2>' +
+        '<button style="font-size:12px;font-weight:600;color:#fff;background:var(--brand);border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-family:inherit">+ Legg til deal</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:10px;min-height:420px">' + kolHtml + '</div>';
+  }
+
+  // --- Per selger-fane med Aktivitetsscore ---
+  async function visDashboardSelger(el, appData) {
+    if (!el) return;
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px">Laster selger-data…</p>';
+    let app = appData;
+    if (!app) {
+      try { app = await api("/api/dashboard"); } catch(e) {
+        el.innerHTML = '<p style="color:var(--d-roed)">Feil: ' + esc(e.message) + "</p>";
+        return;
+      }
+    }
+    const kr = function(n) {
+      return (n || 0).toLocaleString("nb-NO", { maximumFractionDigits: 0 }) + " kr";
+    };
+    const actScore = function(s) {
+      if (!s.antall_kalkyler) return 0;
+      return Math.min(100, Math.round(s.antall_kalkyler * 13));
+    };
+    const selgerRader = (app.per_selger || []).map(function(s) {
+      const pct = actScore(s);
+      const clr = pct > 0 ? "var(--green)" : "var(--muted)";
+      return "<tr>" +
+        '<td class="d-navn">' + esc(s.selger_navn || "—") + "</td>" +
+        '<td style="text-align:right">' + s.antall_kunder + "</td>" +
+        '<td style="text-align:right">' + s.antall_kalkyler + "</td>" +
+        '<td><div style="display:flex;align-items:center;gap:8px">' +
+          '<div style="flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden">' +
+            '<div style="height:5px;background:' + clr + ';width:' + pct + '%;border-radius:3px"></div>' +
+          '</div>' +
+          '<span style="font-size:10.5px;font-weight:600;color:' + clr + ';flex-shrink:0;width:34px;text-align:right">' + pct + '%</span>' +
+        '</div></td>' +
+        '<td style="text-align:right;font-weight:600">' + kr(s.sum_potensiell) + "</td>" +
+        "</tr>";
+    }).join("") || '<tr><td colspan="5" style="color:var(--muted)">Ingen data.</td></tr>';
+
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
+        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Per selger</h2>' +
+        '<span style="font-size:10.5px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:4px;border:1px solid var(--line)">Potensiell omsetning — ikke fakturert</span>' +
+      '</div>' +
+      '<div class="d-panel" style="overflow:hidden;margin-bottom:var(--s4)">' +
+        '<table class="d-tabell"><thead><tr>' +
+        "<th>Selger</th>" +
+        '<th style="text-align:right">Kunder</th>' +
+        '<th style="text-align:right">Kalkyler</th>' +
+        '<th>Aktivitetsscore</th>' +
+        '<th style="text-align:right">Pot. omsetning</th>' +
+        "</tr></thead><tbody>" + selgerRader + "</tbody></table>" +
+      "</div>" +
+      '<p style="font-size:12px;color:var(--d-roed);font-weight:600;background:var(--d-roed-bg);border:1px solid #E6B5AE;border-radius:var(--d-radius-sm);padding:var(--s3) var(--s4);margin:0">' +
+      "⚠ APP-tall (potensiell omsetning fra kalkyler i Postgres) og EXCEL-tall (fakturert omsetning fra data.json) er bevisst adskilt og summeres aldri." +
+      "</p>";
   }
 
   async function slettMote(aktivitetId, btn) {
@@ -1118,6 +1208,6 @@ const Steg4 = (() => {
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, slettMote,
+    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, slettMote,
   };
 })();
