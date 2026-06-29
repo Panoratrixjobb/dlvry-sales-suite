@@ -417,6 +417,81 @@ const Steg4 = (() => {
       });
   }
 
+  // ---------- GROSSISTER PER KUNDE ----------
+  async function monterKundeGrossister(kundeId, el, brukerRolle) {
+    el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--d-tekst-3)">Laster grossister…</p>';
+    let liste, allGrossister = [];
+    try {
+      liste = await api(`/api/kunder/${kundeId}/grossister`);
+    } catch (e) {
+      el.innerHTML = `<p style="margin:0;color:var(--d-roed);font-size:12px">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+    const kanRedigere = brukerRolle === "leder" || brukerRolle === "admin" || brukerRolle === "superadmin";
+    if (kanRedigere) {
+      try { allGrossister = await api("/api/grossister"); } catch (_) {}
+    }
+
+    const koblet = new Set(liste.map((g) => g.grossist_id));
+    const tags = liste
+      .map(
+        (g) =>
+          `<span class="d-badge gronn flat" style="gap:6px">` +
+          esc(g.grossist_navn) +
+          (kanRedigere
+            ? `<button data-slett-gr="${g.grossist_id}" title="Fjern" style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;font-size:14px;line-height:1;color:currentColor;opacity:.7">×</button>`
+            : "") +
+          `</span>`
+      )
+      .join("");
+
+    let addCtrl = "";
+    if (kanRedigere) {
+      const ledige = allGrossister.filter((g) => !koblet.has(g.id));
+      addCtrl = ledige.length
+        ? `<select id="gr-velg" class="d-select" style="width:auto;min-width:180px">` +
+          ledige.map((g) => `<option value="${esc(g.id)}">${esc(g.navn)}</option>`).join("") +
+          `</select><button id="gr-legg" class="d-knapp sekundar sm">+ Legg til</button>`
+        : `<span style="font-size:12px;color:var(--d-tekst-3)">Alle grossister koblet</span>`;
+    }
+
+    el.innerHTML = [
+      `<div style="display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin-bottom:var(--s3)">`,
+      tags || `<span style="font-size:12px;color:var(--d-tekst-3)">Ingen grossister koblet</span>`,
+      `</div>`,
+      kanRedigere
+        ? `<div style="display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap">${addCtrl}<span id="gr-status" style="font-size:12px;color:var(--d-tekst-3)"></span></div>`
+        : "",
+    ].join("");
+
+    el.querySelectorAll("[data-slett-gr]").forEach((b) =>
+      b.addEventListener("click", async () => {
+        try {
+          await api(`/api/kunder/${kundeId}/grossist/${b.dataset.slettGr}`, { method: "DELETE" });
+          monterKundeGrossister(kundeId, el, brukerRolle);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+    const leggBtn = el.querySelector("#gr-legg");
+    if (leggBtn)
+      leggBtn.addEventListener("click", async () => {
+        const st = el.querySelector("#gr-status");
+        st.textContent = "Lagrer…";
+        try {
+          await api(`/api/kunder/${kundeId}/grossist`, {
+            method: "POST",
+            body: JSON.stringify({ grossist_id: el.querySelector("#gr-velg").value }),
+          });
+          monterKundeGrossister(kundeId, el, brukerRolle);
+        } catch (e) {
+          st.textContent = "Feil: " + e.message;
+          st.style.color = "var(--d-roed)";
+        }
+      });
+  }
+
   // ---------- KUNDEKORT (kundeinfo + faner) — Variant A "Oversikt" ----------
   function initialer(navn) {
     return (
@@ -608,6 +683,16 @@ const Steg4 = (() => {
 
       '<div class="d-kk-skille"></div>',
 
+      /* Grossister */
+      "<div>",
+      '<div style="display:flex;align-items:center;justify-content:space-between">',
+      '<span class="d-kk-sek-tit">Grossister</span>',
+      "</div>",
+      '<div id="ks-grossister" style="margin-top:var(--s3)"></div>',
+      "</div>",
+
+      '<div class="d-kk-skille"></div>',
+
       /* Adresser (lese) */
       "<div>",
       '<span class="d-kk-sek-tit">Adresser</span>',
@@ -767,6 +852,15 @@ const Steg4 = (() => {
       else
         konseptEl.innerHTML =
           '<span class="d-ph" style="font-size:12px">Tilgjengelig når kunden ikke lenger er Lead.</span>';
+    }
+
+    /* Grossister */
+    const grossistEl = el.querySelector("#ks-grossister");
+    if (grossistEl) {
+      const rolle = (typeof window._brukerRolle !== "undefined") ? window._brukerRolle : "";
+      monterKundeGrossister(kundeId, grossistEl, rolle).catch((e) =>
+        console.warn("monterKundeGrossister feil:", e)
+      );
     }
 
     /* Handlingsknapper i header */
@@ -1257,6 +1351,6 @@ const Steg4 = (() => {
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, slettMote,
+    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, slettMote,
   };
 })();
