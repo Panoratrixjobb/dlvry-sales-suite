@@ -184,6 +184,23 @@ tbody tr:hover{background:#fafbff}
 
 @media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
+@media(max-width:768px){
+  .d-sidemeny{position:fixed!important;left:-220px;top:0;bottom:0;z-index:200;transition:.2s;box-shadow:none}
+  .d-sidemeny.mobil-open{left:0!important;box-shadow:6px 0 24px rgba(0,0,0,.35)}
+  .mobil-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
+  .mobil-overlay.vis{display:block}
+  .d-skall{flex-direction:column}
+  .main{padding:10px;width:100%;box-sizing:border-box}
+  .d-grid.d-g6{grid-template-columns:1fr 1fr!important}
+  .dash-row2,.dash-row3{grid-template-columns:1fr!important}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dash-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .d-pipeline{flex-direction:column!important}
+  .d-kpi{min-width:0!important}
+  .modal{max-width:98vw!important;margin:4px}
+  .topbar{flex-wrap:wrap;gap:8px}
+  input,select,textarea{font-size:16px!important}
+}
 /* ===== Dashboard ===== */
 .dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
 .dash-card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
@@ -300,6 +317,7 @@ tbody tr:hover{background:#fafbff}
   </div>
 </div>
 
+<div id="mobilOverlay" class="mobil-overlay" onclick="toggleSidebar()"></div>
 <div class="app d-skall" id="appRoot" style="display:none">
   <aside class="d-sidemeny" id="appSidebar">
     <div class="d-logo"><img src="dlvry-lasso.png" alt="DLVRY" class="d-logo-ikon"><span class="sidebar-tekst"> DLVRY</span></div>
@@ -314,12 +332,6 @@ tbody tr:hover{background:#fafbff}
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
     </nav>
-    <div class="d-side-sek">
-      <div class="d-side-lbl">Kunder</div>
-      <input id="custSearch" class="d-side-sok" type="search" placeholder="Søk navn / orgnr…" oninput="searchCusts(this.value)">
-      <div class="cust-list" id="custList"></div>
-      <button class="side-btn" onclick="openCustModal()">+ Ny kunde</button>
-    </div>
     <div class="d-side-bruker">
       <div class="avatar" id="userAvatar">MF</div>
       <div class="meta" id="userNavn">Bruker<br><span id="userRolle" style="font-size:11px;opacity:0.7;font-weight:400"></span></div>
@@ -504,7 +516,7 @@ tbody tr:hover{background:#fafbff}
             <thead><tr>
               <th>Art.nr</th><th>Produkt</th><th>Match</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
               <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Konfidens</th><th>Linjeomsetning</th>
-              <th>Grossist-margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
+              <th>Margin kr</th><th>Margin %</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
           </table>
@@ -584,6 +596,7 @@ tbody tr:hover{background:#fafbff}
             </div>
             <input id="klKundekonto" type="search" class="d-input" placeholder="Kundekonto…" style="width:140px" oninput="klResetLoad()">
             <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
+            <button id="kunderExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/kunder.xlsx','kunder.xlsx')">⤓ Eksporter</button>
             <span id="klCount" class="d-t-label"></span>
           </div>
           <div id="klFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -658,6 +671,7 @@ tbody tr:hover{background:#fafbff}
           <button id="leadsSelAll" class="d-knapp subtil sm" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
           <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
           <button id="leadsTildel" class="d-knapp primar" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
+          <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/leads.xlsx','leads.xlsx')">⤓ Eksporter</button>
         </div>
 
         <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
@@ -1069,7 +1083,14 @@ function setDashTab(tab){
 // ===== Sidebar collapse =====
 function toggleSidebar(){
   const sb=document.getElementById('appSidebar');
-  if(sb)sb.classList.toggle('sidebar-collapsed');
+  if(!sb)return;
+  if(window.innerWidth<=768){
+    const open=sb.classList.toggle('mobil-open');
+    const ov=document.getElementById('mobilOverlay');
+    if(ov)ov.classList.toggle('vis',open);
+    return;
+  }
+  sb.classList.toggle('sidebar-collapsed');
 }
 
 // ===== Dark mode =====
@@ -1140,6 +1161,7 @@ const MIN_GRONN_MARGIN=0.30, MIN_GRONN_OMS=3000, MIN_ROD_MARGIN=0.20, MAKS_LINJE
 // Backend på Render. Free-plan sover etter 15 min → første kall kan ta ~50 sek.
 const API_BASE='https://konseptsuite-backend.onrender.com';
 let TOKEN=sessionStorage.getItem('ks_token')||null;
+let _brukerRolle='';
 let CURRENT_USER=null;
 
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
@@ -1316,6 +1338,7 @@ function render(){
       <td style="text-align:center">${konfCelle}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
+      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}" style="font-size:11.5px">${x.oms>0?fmtPct((x.dlvryMargin-x.bonusKr)/x.oms):'—'}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
@@ -1670,17 +1693,22 @@ async function visKalkFane(fane){
       +'</table></div>';
   } else {
     var rows=await api('/api/tilbud')||[]; var r='';
+    var erAdmin=(_brukerRolle==='admin'||_brukerRolle==='superadmin');
     for(var i=0;i<rows.length;i++){
       var t=rows[i];
       r+='<tr>'
         +'<td>'+esc(t.kunde_navn||'—')+'</td>'
         +'<td>'+((t.sendt_dato||'').slice(0,10))+'</td>'
         +'<td>'+esc(t.kanal||'—')+'</td>'
-        +'<td><button class="d-knapp subtil sm" onclick="lastNedTilbud(\''+esc(t.pdf_url||'')+'\',\''+t.kalkyle_id+'\')">Last ned</button></td></tr>';
+        +'<td style="display:flex;gap:6px">'
+        +'<button class="d-knapp subtil sm" onclick="lastNedTilbud(\''+esc(t.pdf_url||'')+'\',\''+t.kalkyle_id+'\')">Last ned</button>'
+        +(erAdmin?'<button class="d-knapp fare sm" onclick="slettTilbud(\''+t.id+'\',this)">Slett</button>':'')
+        +'</td></tr>';
     }
+    var cols=erAdmin?5:4;
     el.innerHTML='<div class="table-wrap"><table>'
       +'<thead><tr><th>Kunde</th><th>Sendt</th><th>Kanal</th><th></th></tr></thead>'
-      +'<tbody>'+(r||'<tr><td colspan="4" style="color:var(--muted)">Ingen sendte tilbud enn&#229;.</td></tr>')+'</tbody>'
+      +'<tbody>'+(r||'<tr><td colspan="'+cols+'" style="color:var(--muted)">Ingen sendte tilbud enn&#229;.</td></tr>')+'</tbody>'
       +'</table></div>';
   }
 }
@@ -1693,6 +1721,26 @@ async function slettKalkyle(id){
 function lastNedTilbud(pdfUrl,kalkyleId){
   if(pdfUrl)window.open(pdfUrl,'_blank');
   else if(kalkyleId)openCalc(kalkyleId);
+}
+
+async function eksporterFil(path, filnavn){
+  try{
+    const resp=await fetch(API_BASE+path,{headers:{Authorization:'Bearer '+TOKEN}});
+    if(!resp.ok)throw new Error(await resp.text());
+    const blob=await resp.blob();
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=filnavn; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }catch(e){toast('Eksport feilet: '+e.message);}
+}
+
+async function slettTilbud(id,btn){
+  if(!confirm('Slette dette tilbudet permanent? Dette kan ikke angres.'))return;
+  try{
+    await api('/api/tilbud/'+id,{method:'DELETE'});
+    btn.closest('tr').remove();
+    toast('Tilbud slettet');
+  }catch(e){toast('Feil: '+e.message);}
 }
 
 function oppdaterVelgKundeBanner(){
@@ -1775,8 +1823,8 @@ window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.
 // ============ CSV ============
 function exportCSV(){
   const r=compute();
-  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris','Endelig salgspris','Linjeomsetning','Grossist-margin','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.oms.toFixed(0),(x.dlvryMargin-x.bonusKr).toFixed(0),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]));
+  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris','Endelig salgspris','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]);});
   rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
@@ -2192,16 +2240,19 @@ function renderKonkListe(){
     el.innerHTML='<div style="color:var(--muted);font-size:13px">Ingen konkurrenter registrert ennå. Klikk «+ Legg til konkurrent».</div>';
     return;
   }
+  const erLeder=(['leder','admin','superadmin'].includes(_brukerRolle));
   el.innerHTML=_konkCache.map(k=>{
     const kats=(k.kategorier||'').split(',').filter(Boolean);
     return '<div class="d-panel" style="min-width:200px;max-width:260px;flex:1;cursor:pointer;border:2px solid transparent;transition:.15s" '
-      +'onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')" '
       +'onmouseover="this.style.borderColor=\'var(--brand)\'" onmouseout="this.style.borderColor=\'transparent\'">'
-      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">'+esc(k.navn)+'</div>'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px" onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')">'+esc(k.navn)+'</div>'
       +(k.adresse?'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">'+esc(k.adresse)+'</div>':'')
       +(kats.length?'<div style="margin-bottom:6px">'+kats.map(t=>'<span class="d-badge flat" style="font-size:11px;margin-right:3px">'+esc(t)+'</span>').join('')+'</div>':'')
       +'<div style="font-size:12.5px;color:var(--muted)">'+k.antall_produkter.toLocaleString('no')+' produkter</div>'
-      +'<div style="margin-top:10px"><span class="d-badge flat bla" style="font-size:11px">Vis prisliste →</span></div>'
+      +'<div style="margin-top:10px;display:flex;gap:6px">'
+      +'<span class="d-badge flat bla" style="font-size:11px;cursor:pointer" onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')">Vis prisliste →</span>'
+      +(erLeder?'<span class="d-badge flat roed" style="font-size:11px;cursor:pointer" onclick="slettKonkurrent(\''+k.id+'\',\''+esc(k.navn)+'\')">Slett</span>':'')
+      +'</div>'
       +'</div>';
   }).join('');
 }
@@ -2263,6 +2314,15 @@ async function lastKonkPriser(){
   }
 
   const dash='–';
+  const erRed=(['leder','admin','superadmin'].includes(_brukerRolle));
+  const leggTilRad=erRed?
+    '<tr style="background:var(--panel)">'
+    +'<td><input id="nyKonkProdNavn" class="d-input" placeholder="Varenavn *" style="font-size:12px;padding:4px 8px"></td>'
+    +'<td></td><td></td>'
+    +'<td style="text-align:right"><input id="nyKonkProdPris" type="number" class="d-input" placeholder="Pris" style="font-size:12px;padding:4px 8px;width:80px"></td>'
+    +'<td colspan="4"></td>'
+    +'<td><button class="d-knapp primar sm" onclick="leggTilKonkProdukt()">+ Legg til</button></td>'
+    +'</tr>':'';
   el.innerHTML='<div class="table-wrap"><table>'
     +'<thead><tr>'
     +'<th>Varenavn</th><th>Kategori</th><th>Enhet</th>'
@@ -2271,22 +2331,26 @@ async function lastKonkPriser(){
     +'<th style="text-align:right">kr/liter</th>'
     +'<th style="text-align:right">kr/stk</th>'
     +'<th>Flagg</th><th>Dato</th>'
+    +(erRed?'<th></th>':'')
     +'</tr></thead><tbody>'
     +rader.map(r=>{
       const erUsikker=r.flagg==='usikker-eske';
+      const pid=esc(r.produkt_id||r.id);
       const rad='<tr'+(erUsikker?' style="opacity:.65;font-style:italic"':'')+'>'
-        +'<td>'+esc(r.varenavn||dash)+'</td>'
+        +'<td contenteditable="'+(erRed?'true':'false')+'" onblur="'+(erRed?'oppdaterKonkProdukt(\''+pid+'\',\'varenavn\',this.textContent.trim(),this)':'')+'" style="outline:none">'+esc(r.varenavn||dash)+'</td>'
         +'<td>'+esc(r.kategori||dash)+'</td>'
         +'<td>'+(r.pakning?r.pakning+(r.pakning_enhet?' '+r.pakning_enhet:''):esc(r.enhet_kilde||dash))+'</td>'
-        +'<td style="text-align:right">'+(r.rapris!=null?r.rapris.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td style="text-align:right" contenteditable="'+(erRed?'true':'false')+'" onblur="'+(erRed?'oppdaterKonkProdukt(\''+pid+'\',\'pris\',this.textContent.trim(),this)':'')+'" style="outline:none;text-align:right">'+(r.rapris!=null?r.rapris.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td style="text-align:right;font-weight:600;color:var(--brand)">'+(r.pris_per_kg!=null?r.pris_per_kg.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td style="text-align:right">'+(r.pris_per_liter!=null?r.pris_per_liter.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td style="text-align:right">'+(r.pris_per_stk!=null?r.pris_per_stk.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td>'+(r.flagg?'<span class="d-badge flat '+(erUsikker?'gul':'graa')+'" style="font-size:11px">'+esc(r.flagg)+'</span>':dash)+'</td>'
         +'<td style="font-size:11.5px;color:var(--muted)">'+(r.dato||dash)+'</td>'
+        +(erRed?'<td><button class="d-knapp fare sm" onclick="slettKonkProdukt(\''+pid+'\',this.closest(\'tr\'))">✕</button></td>':'')
         +'</tr>';
       return rad;
     }).join('')
+    +leggTilRad
     +'</tbody></table></div>';
 
   const pager=document.getElementById('konkPrisPager');
@@ -2303,6 +2367,47 @@ function openNyKonkModal(){
   document.getElementById('nyKonkErr').textContent='';
   document.getElementById('nyKonkModal').classList.add('open');
   setTimeout(()=>document.getElementById('nyKonkNavn').focus(),50);
+}
+
+async function slettKonkurrent(id, navn){
+  if(!confirm('Slette «'+navn+'» og hele prislista? Kan ikke angres.'))return;
+  try{
+    await api('/api/konkurrenter/'+id,{method:'DELETE'});
+    _konkCache=_konkCache.filter(k=>k.id!==id);
+    renderKonkListe();
+    toast('Konkurrent slettet');
+  }catch(e){toast('Feil: '+e.message);}
+}
+
+async function slettKonkProdukt(produktId, tr){
+  if(!confirm('Fjerne denne varelinjen?'))return;
+  try{
+    await api('/api/konkurrenter/produkt/'+produktId,{method:'DELETE'});
+    tr.remove();
+    toast('Varelinje fjernet');
+  }catch(e){toast('Feil: '+e.message);}
+}
+
+async function leggTilKonkProdukt(){
+  const varenavn=(document.getElementById('nyKonkProdNavn').value||'').trim();
+  const pris=parseFloat(document.getElementById('nyKonkProdPris').value)||null;
+  if(!varenavn){toast('Varenavn er påkrevd');return;}
+  try{
+    const p=await api('/api/konkurrenter/'+_konkValgtId+'/produkt',{method:'POST',body:{varenavn,pris}});
+    toast('Produkt lagt til');
+    document.getElementById('nyKonkProdNavn').value='';
+    document.getElementById('nyKonkProdPris').value='';
+    await lastKonkPriser();
+  }catch(e){toast('Feil: '+e.message);}
+}
+
+async function oppdaterKonkProdukt(produktId, felt, verdi, celle){
+  try{
+    const body={};
+    body[felt]=verdi===''?null:(felt==='pris'?parseFloat(verdi):verdi);
+    await api('/api/konkurrenter/produkt/'+produktId,{method:'PATCH',body});
+    toast('Lagret');
+  }catch(e){toast('Feil: '+e.message);}
 }
 
 async function lagreNyKonkurrent(){
@@ -2635,6 +2740,10 @@ async function showApp(){
   }
   await refreshCusts();
   // Vis Brukere-fane for alle som kan invitere (leder/admin/superadmin)
+  _brukerRolle = CURRENT_USER ? (CURRENT_USER.rolle || '') : '';
+  const erAdmin = ['admin','superadmin'].includes(_brukerRolle);
+  const exportKnapper = ['kunderExportBtn','leadsExportBtn'];
+  exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);

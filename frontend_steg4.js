@@ -1100,27 +1100,32 @@ const Steg4 = (() => {
     });
   }
 
-  // --- Pipeline Kanban-fane ---
-  async function visDashboardPipeline(el, appData) {
+  // --- Pipeline Kanban-fane (datadrevet fra /api/pipeline) ---
+  async function visDashboardPipeline(el) {
     if (!el) return;
-    const pipelineSteg = [
-      { navn: "Lead",         farge: "#3b82f6", hdr: "rgba(59,130,246,0.08)",  status: "Lead" },
-      { navn: "Aktiv dialog", farge: "#14b8a6", hdr: "rgba(20,184,166,0.08)",  status: "Aktiv dialog" },
-      { navn: "Tilbud sendt", farge: "#f59e0b", hdr: "rgba(245,158,11,0.08)", status: "Sendt" },
-      { navn: "Forhandling",  farge: "#8b5cf6", hdr: "rgba(139,92,246,0.08)", status: "Forhandling" },
-      { navn: "Vunnet",       farge: "#10b981", hdr: "rgba(16,185,129,0.08)", status: "Vunnet" },
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px">Laster pipeline…</p>';
+    var pipelineData;
+    try { pipelineData = await api("/api/pipeline"); }
+    catch(e) { el.innerHTML = '<p style="color:var(--d-roed)">Feil: ' + esc(e.message) + "</p>"; return; }
+
+    const stegKonfig = [
+      { navn: "Lead",         farge: "#3b82f6", hdr: "rgba(59,130,246,0.08)" },
+      { navn: "Aktiv dialog", farge: "#14b8a6", hdr: "rgba(20,184,166,0.08)" },
+      { navn: "Tilbud sendt", farge: "#f59e0b", hdr: "rgba(245,158,11,0.08)" },
+      { navn: "Forhandling",  farge: "#8b5cf6", hdr: "rgba(139,92,246,0.08)" },
+      { navn: "Vunnet",       farge: "#10b981", hdr: "rgba(16,185,129,0.08)" },
     ];
-    let statusMap = {};
-    if (appData && appData.per_status) {
-      appData.per_status.forEach(function(s) { statusMap[s.status] = s; });
+    const stegMap = {};
+    if (pipelineData && pipelineData.steg) {
+      pipelineData.steg.forEach(function(s) { stegMap[s.steg] = s; });
     }
     const mnok = function(n) {
       return isFinite(n) && n
         ? (n / 1000000).toLocaleString("nb-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " MNOK"
         : "0,0 MNOK";
     };
-    const kolHtml = pipelineSteg.map(function(steg) {
-      const d = statusMap[steg.status] || { antall: 0, sum_potensiell: 0 };
+    const kolHtml = stegKonfig.map(function(steg) {
+      const d = stegMap[steg.navn] || { antall: 0, sum_potensiell: 0 };
       return '<div style="flex:1;min-width:160px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">' +
         '<div style="padding:12px 14px;border-bottom:1px solid var(--line);background:' + steg.hdr + '">' +
           '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
@@ -1130,19 +1135,17 @@ const Steg4 = (() => {
           '</div>' +
           '<p style="font-size:10.5px;color:var(--muted);margin:0">' + mnok(d.sum_potensiell) + ' potensiell</p>' +
         '</div>' +
-        '<div style="padding:12px;flex:1;display:flex;flex-direction:column;gap:8px">' +
-          '<div style="border:1.5px dashed var(--line);border-radius:7px;padding:14px;text-align:center;cursor:pointer">' +
-            '<p style="font-size:11px;color:var(--muted);margin:0">+ Legg til deal</p>' +
-          '</div>' +
-        '</div>' +
+        '<div style="padding:12px;flex:1;min-height:80px"></div>' +
       '</div>';
     }).join("");
+    const total = pipelineData ? pipelineData.totalt_deals : 0;
     el.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Pipeline — Kanban</h2>' +
-        '<button style="font-size:12px;font-weight:600;color:#fff;background:var(--brand);border:none;padding:7px 14px;border-radius:6px;cursor:pointer;font-family:inherit">+ Legg til deal</button>' +
+        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Pipeline</h2>' +
+        '<span style="font-size:12px;color:var(--muted)">' + total + ' deals totalt · ' + mnok(pipelineData ? pipelineData.sum_potensiell_total : 0) + ' potensiell</span>' +
       '</div>' +
-      '<div style="display:flex;gap:10px;min-height:420px">' + kolHtml + '</div>';
+      '<div style="display:flex;gap:10px;min-height:300px;flex-wrap:wrap">' + kolHtml + '</div>' +
+      '<p style="font-size:11px;color:var(--muted);font-style:italic;margin-top:10px">APP-tall: potensiell omsetning fra kalkyler. «Forhandling» er ikke implementert i datamodellen ennå.</p>';
   }
 
   // --- Per selger-fane med Aktivitetsscore fra /api/scoreboard ---
