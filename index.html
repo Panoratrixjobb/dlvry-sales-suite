@@ -1161,7 +1161,7 @@ const MIN_GRONN_MARGIN=0.30, MIN_GRONN_OMS=3000, MIN_ROD_MARGIN=0.20, MAKS_LINJE
 // Backend på Render. Free-plan sover etter 15 min → første kall kan ta ~50 sek.
 const API_BASE='https://konseptsuite-backend.onrender.com';
 let TOKEN=sessionStorage.getItem('ks_token')||null;
-let _brukerRolle='';
+var _brukerRolle='';
 let CURRENT_USER=null;
 
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
