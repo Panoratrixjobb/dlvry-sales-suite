@@ -989,16 +989,15 @@ const Steg4 = (() => {
     const kpiHtml = kpiKort.map(function(k) {
       var c = k.color, rr = parseInt(c.slice(1,3),16), gg = parseInt(c.slice(3,5),16), bb = parseInt(c.slice(5,7),16);
       var ibg = "rgba("+rr+","+gg+","+bb+",0.12)";
-      return '<div class="d-kpi" style="position:relative;overflow:hidden' + (k.nav ? ';cursor:pointer' : '') + '"' + (k.nav ? ' onclick="' + k.nav + '"' : '') + '>' +
-        '<div style="position:absolute;top:0;left:0;right:0;height:2.5px;background:' + c + '"></div>' +
+      return '<div class="d-kpi" style="position:relative' + (k.nav ? ';cursor:pointer' : '') + ';padding-top:18px!important;border-top:4px solid ' + c + '"' + (k.nav ? ' onclick="' + k.nav + '"' : '') + '>' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
-          '<p class="d-label" style="margin:0;max-width:72px;line-height:1.4">' + esc(k.label) + '</p>' +
-          '<div style="width:24px;height:24px;background:' + ibg + ';border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
-            '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' + k.icon + '</svg>' +
+          '<p class="d-label" style="margin:0;line-height:1.4">' + esc(k.label) + '</p>' +
+          '<div style="width:28px;height:28px;background:' + ibg + ';border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' + k.icon + '</svg>' +
           '</div>' +
         '</div>' +
-        '<p style="font-size:23px;font-weight:800;color:var(--d-tekst,#111827);letter-spacing:-1px;line-height:1;margin:0">' + k.tall + '</p>' +
-        '<p style="font-size:9px;color:' + c + ';margin-top:5px;font-weight:500;margin-bottom:0">' + esc(k.vs) + '</p>' +
+        '<p style="font-size:26px;font-weight:800;color:var(--d-tekst,#111827);letter-spacing:-1px;line-height:1;margin:0">' + k.tall + '</p>' +
+        '<p style="font-size:9px;color:' + c + ';margin-top:6px;font-weight:600;margin-bottom:0;text-transform:uppercase;letter-spacing:.4px">' + esc(k.vs) + '</p>' +
         "</div>";
     }).join("");
 
