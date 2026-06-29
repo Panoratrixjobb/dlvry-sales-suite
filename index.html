@@ -1525,15 +1525,15 @@ async function searchCusts(q){
 }
 
 async function refreshCusts(q=''){
-  const list=document.getElementById('custList');
-  // Sidemeny = ekte kunder (leads ligger i egen Leads-underfane).
+  const list=document.getElementById('custList'); // kan være null (sidemenylisten er fjernet)
   const url='/api/kunder?status_ikke=Lead&limit=200'+(q?'&q='+encodeURIComponent(q):'');
   try{
     custCache=(await api(url)||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
   }catch(e){
-    list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+e.message+'</span></div>';
+    if(list)list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+e.message+'</span></div>';
     return;
   }
+  if(!list)return;
   if(!custCache.length){
     list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:#6b7488">'+(q?'Ingen treff':'Ingen kunder ennå')+'</div>';
     return;
