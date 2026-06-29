@@ -1724,13 +1724,23 @@ function lastNedTilbud(pdfUrl,kalkyleId){
 }
 
 async function eksporterFil(path, filnavn){
+  toast('Laster eksport…');
   try{
     const resp=await fetch(API_BASE+path,{headers:{Authorization:'Bearer '+TOKEN}});
-    if(!resp.ok)throw new Error(await resp.text());
+    if(!resp.ok){
+      let msg=resp.status;
+      try{const j=await resp.json();msg=j.detail||msg;}catch(_){}
+      throw new Error(msg);
+    }
     const blob=await resp.blob();
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download=filnavn; a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),2000);
+    const a=document.createElement('a');
+    a.href=url; a.download=filnavn;
+    document.body.appendChild(a); // må ligge i DOM for Chrome-nedlasting
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    toast('Eksport klar ✓');
   }catch(e){toast('Eksport feilet: '+e.message);}
 }
 
