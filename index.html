@@ -641,6 +641,15 @@ tbody tr:hover{background:#fafbff}
             <option value="60">Score ≥ 60</option>
             <option value="40">Score ≥ 40</option>
           </select>
+          <select id="leadsTemperatur" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+            <option value="">Alle temp.</option>
+            <option value="Hot">🔴 Hot</option>
+            <option value="Warm">🟡 Warm</option>
+            <option value="Cold">🔵 Cold</option>
+          </select>
+          <select id="leadsKilde" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+            <option value="">Alle kilder</option>
+          </select>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -658,6 +667,7 @@ tbody tr:hover{background:#fafbff}
               <th>Bransjegruppe</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
               <th>Poststed</th><th>Region</th><th>Tlf</th>
               <th style="cursor:pointer" onclick="leadsToggleScoreSort()" title="Sorter etter score">Score ▾</th>
+              <th>Kilde</th><th>Temp</th>
               <th>Nærmeste grossist</th><th>Tildelt</th>
             </tr></thead>
             <tbody id="leadsBody"></tbody>
@@ -819,6 +829,26 @@ tbody tr:hover{background:#fafbff}
     </div>
     <div class="d-felt" style="margin-bottom:14px"><label>Selger</label>
       <select id="tildelSelger" class="d-select"></select>
+    </div>
+    <div class="d-felt" style="margin-bottom:14px"><label>Kilde</label>
+      <select id="tildelKilde" class="d-select">
+        <option value="">— ikke endre —</option>
+        <option value="web">web</option>
+        <option value="messe">messe</option>
+        <option value="ambassadør">ambassadør</option>
+        <option value="henvisning">henvisning</option>
+        <option value="kjøpt liste">kjøpt liste</option>
+        <option value="manuell">manuell</option>
+        <option value="import">import</option>
+      </select>
+    </div>
+    <div class="d-felt" style="margin-bottom:14px"><label>Temperatur</label>
+      <select id="tildelTemperatur" class="d-select">
+        <option value="">— ikke endre —</option>
+        <option value="Hot">🔴 Hot</option>
+        <option value="Warm">🟡 Warm</option>
+        <option value="Cold">🔵 Cold</option>
+      </select>
     </div>
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('tildelModal')">Avbryt</button>
@@ -1914,6 +1944,13 @@ async function mountLeads(){
       const bransjer=await api('/api/kunder/bransjer')||[];
       document.getElementById('leadsBransjeWrap').innerHTML=mfBygd('leadsBransje','Bransje',bransjer,'leadsResetAndLoad()');
     }catch(e){ document.getElementById('leadsBransjeWrap').innerHTML=''; }
+    // Kilde — fra konfig-tabell i backend
+    try{
+      const kilder=await api('/api/rapport/lead-kilder')||[];
+      const kildeEl=document.getElementById('leadsKilde');
+      kildeEl.innerHTML='<option value="">Alle kilder</option>'+
+        kilder.map(k=>'<option value="'+esc(k)+'">'+esc(k)+'</option>').join('');
+    }catch(e){}
   }
   leadsResetAndLoad();
 }
@@ -1929,6 +1966,8 @@ function leadsParams(extra){
   const bg=mfValgte('leadsBransjegruppe'); if(bg) p.set('bransjegruppe',bg);
   const br=mfValgte('leadsBransje'); if(br) p.set('bransje',br);
   const sc=document.getElementById('leadsScore').value; if(sc) p.set('lead_score_min',sc);
+  const tmp=document.getElementById('leadsTemperatur').value; if(tmp) p.set('lead_temperatur',tmp);
+  const kld=document.getElementById('leadsKilde').value; if(kld) p.set('lead_kilde',kld);
   if(_leadsSortScore) p.set('sort','lead_score_desc');
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
@@ -2011,7 +2050,7 @@ function renderLeads(){
   const dash='–';
   const showChk = !(CURRENT_USER && CURRENT_USER.rolle==='selger');
   if(!leadsCache.length){
-    body.innerHTML='<tr><td colspan="11" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
+    body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
     document.getElementById('leadsCount').textContent='0 leads';
     renderLeadsPager();
     updateLeadsBar(); return;
@@ -2041,6 +2080,11 @@ function renderLeads(){
       + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
       + '<td>'+esc(k.telefon||dash)+'</td>'
       + '<td>'+scoreCell+'</td>'
+      + '<td>'+(k.lead_kilde ? '<span class="d-badge flat graa">'+esc(k.lead_kilde)+'</span>' : dash)+'</td>'
+      + '<td>'+(k.lead_temperatur === 'Hot' ? '<span class="d-badge flat roed" title="Hot">🔴</span>'
+               : k.lead_temperatur === 'Warm' ? '<span class="d-badge flat gul" title="Warm">🟡</span>'
+               : k.lead_temperatur === 'Cold' ? '<span class="d-badge flat bla" title="Cold">🔵</span>'
+               : dash)+'</td>'
       + '<td>'+esc(k.naermeste_grossist||dash)+'</td>'
       + '<td>'+tildelt+'</td>'
       + '</tr>';
@@ -2300,6 +2344,8 @@ function openTildelModal(){
   document.getElementById('tildelSub').textContent='Tildeler '+n+' lead'+(n===1?'':'s')+'. Bare felt du setter blir endret.';
   document.getElementById('tildelGrossist').value='';
   document.getElementById('tildelSelger').value='';
+  document.getElementById('tildelKilde').value='';
+  document.getElementById('tildelTemperatur').value='';
   document.getElementById('tildelStatus').textContent='';
   document.getElementById('tildelModal').classList.add('open');
 }
@@ -2308,12 +2354,15 @@ async function bekreftTildel(){
   const g=document.getElementById('tildelGrossist').value;
   const s=document.getElementById('tildelSelger').value;
   const st=document.getElementById('tildelStatus');
-  if(!g && !s){ st.textContent='Velg grossist eller selger.'; st.style.color='var(--red)'; return; }
   const ids = leadsAllFilter ? leadsAllIds.slice() : Array.from(leadsSel);
   if(!ids.length) return;
   const btn=document.getElementById('tildelBekreft'); btn.disabled=true;
   st.style.color='var(--muted)'; st.textContent='Tildeler…';
+  const kld=document.getElementById('tildelKilde').value;
+  const tmp=document.getElementById('tildelTemperatur').value;
   const base={}; if(g) base.grossist_id=g; if(s) base.selger_id=s;
+  if(kld) base.lead_kilde=kld; if(tmp) base.lead_temperatur=tmp;
+  if(!Object.keys(base).length){ st.textContent='Velg minst ett felt å sette.'; st.style.color='var(--red)'; return; }
   try{
     let total=0; const CH=500;
     for(let i=0;i<ids.length;i+=CH){

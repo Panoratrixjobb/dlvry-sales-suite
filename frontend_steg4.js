@@ -1146,52 +1146,91 @@ const Steg4 = (() => {
       '<div style="display:flex;gap:10px;min-height:420px">' + kolHtml + '</div>';
   }
 
-  // --- Per selger-fane med Aktivitetsscore ---
+  // --- Per selger-fane med Aktivitetsscore fra /api/scoreboard ---
   async function visDashboardSelger(el, appData) {
     if (!el) return;
     el.innerHTML = '<p style="color:var(--muted);font-size:13px">Laster selger-data…</p>';
-    let app = appData;
-    if (!app) {
-      try { app = await api("/api/dashboard"); } catch(e) {
-        el.innerHTML = '<p style="color:var(--d-roed)">Feil: ' + esc(e.message) + "</p>";
-        return;
-      }
+
+    var scoreboard, dashApp;
+    try {
+      [scoreboard, dashApp] = await Promise.all([
+        api("/api/scoreboard"),
+        appData ? Promise.resolve(appData) : api("/api/dashboard"),
+      ]);
+    } catch(e) {
+      el.innerHTML = '<p style="color:var(--d-roed)">Feil: ' + esc(e.message) + "</p>";
+      return;
     }
+
     const kr = function(n) {
       return (n || 0).toLocaleString("nb-NO", { maximumFractionDigits: 0 }) + " kr";
     };
-    const actScore = function(s) {
-      if (!s.antall_kalkyler) return 0;
-      return Math.min(100, Math.round(s.antall_kalkyler * 13));
+
+    // Bygg oppslagsmap: selger_id → dashboard-tall (pot. omsetning)
+    var dashMap = {};
+    (dashApp.per_selger || []).forEach(function(s) { dashMap[s.selger_id] = s; });
+
+    var selgere = scoreboard.selgere || [];
+    // Inkluder selgere i dashboard som ikke er i scoreboard
+    (dashApp.per_selger || []).forEach(function(s) {
+      if (s.selger_id && !selgere.find(function(x) { return x.selger_id === s.selger_id; })) {
+        selgere.push({
+          selger_id: s.selger_id, selger_navn: s.selger_navn,
+          besok:0, sambesok:0, mote:0, kalkyle:0, telefon:0, epost:0,
+          total:0, score:0, ukescore:0, siste_aktivitet_dager:null,
+          antall_kunder: s.antall_kunder,
+        });
+      }
+    });
+
+    const scoreClr = function(pct) {
+      if (pct >= 70) return "#10b981";
+      if (pct >= 40) return "#f59e0b";
+      return "var(--muted)";
     };
-    const selgerRader = (app.per_selger || []).map(function(s) {
-      const pct = actScore(s);
-      const clr = pct > 0 ? "var(--green)" : "var(--muted)";
+
+    const selgerRader = selgere.map(function(s) {
+      const pct = s.score || 0;
+      const clr = scoreClr(pct);
+      const dash = dashMap[s.selger_id] || {};
+      const pot = dash.sum_potensiell || 0;
+      const sisteDager = s.siste_aktivitet_dager != null ? s.siste_aktivitet_dager + "d" : "—";
       return "<tr>" +
         '<td class="d-navn">' + esc(s.selger_navn || "—") + "</td>" +
-        '<td style="text-align:right">' + s.antall_kunder + "</td>" +
-        '<td style="text-align:right">' + s.antall_kalkyler + "</td>" +
-        '<td><div style="display:flex;align-items:center;gap:8px">' +
+        '<td style="text-align:right">' + (s.antall_kunder || 0) + "</td>" +
+        '<td style="text-align:right">' + s.besok + "</td>" +
+        '<td style="text-align:right">' + s.sambesok + "</td>" +
+        '<td style="text-align:right">' + s.telefon + "</td>" +
+        '<td style="text-align:right">' + s.kalkyle + "</td>" +
+        '<td><div style="display:flex;align-items:center;gap:6px">' +
           '<div style="flex:1;height:5px;background:var(--line);border-radius:3px;overflow:hidden">' +
             '<div style="height:5px;background:' + clr + ';width:' + pct + '%;border-radius:3px"></div>' +
           '</div>' +
-          '<span style="font-size:10.5px;font-weight:600;color:' + clr + ';flex-shrink:0;width:34px;text-align:right">' + pct + '%</span>' +
+          '<span style="font-size:10.5px;font-weight:700;color:' + clr + ';flex-shrink:0;width:34px;text-align:right">' + pct + '%</span>' +
         '</div></td>' +
-        '<td style="text-align:right;font-weight:600">' + kr(s.sum_potensiell) + "</td>" +
+        '<td style="text-align:right;color:var(--muted)">' + sisteDager + "</td>" +
+        '<td style="text-align:right;font-weight:600">' + kr(pot) + "</td>" +
         "</tr>";
-    }).join("") || '<tr><td colspan="5" style="color:var(--muted)">Ingen data.</td></tr>';
+    }).join("") || '<tr><td colspan="9" style="color:var(--muted)">Ingen data.</td></tr>';
 
     el.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">' +
-        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Per selger</h2>' +
-        '<span style="font-size:10.5px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:4px;border:1px solid var(--line)">Potensiell omsetning — ikke fakturert</span>' +
+        '<h2 style="font-size:15px;font-weight:700;color:var(--ink);margin:0">Per selger · Activity Scoreboard</h2>' +
+        '<div style="display:flex;gap:6px;align-items:center">' +
+          '<span style="font-size:10px;color:var(--muted)">Periode: ' + esc(scoreboard.fra || "") + ' – ' + esc(scoreboard.til || "") + '</span>' +
+          '<span style="font-size:10.5px;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:4px;border:1px solid var(--line)">Pot. oms. — ikke fakturert</span>' +
+        '</div>' +
       '</div>' +
-      '<div class="d-panel" style="overflow:hidden;margin-bottom:var(--s4)">' +
+      '<div class="d-panel" style="overflow:auto;margin-bottom:var(--s4)">' +
         '<table class="d-tabell"><thead><tr>' +
         "<th>Selger</th>" +
         '<th style="text-align:right">Kunder</th>' +
-        '<th style="text-align:right">Kalkyler</th>' +
+        '<th style="text-align:right">Besøk</th>' +
+        '<th style="text-align:right">Sambesøk</th>' +
+        '<th style="text-align:right">Tlf</th>' +
+        '<th style="text-align:right">Kalkyle</th>' +
         '<th>Aktivitetsscore</th>' +
+        '<th style="text-align:right">Siste akt.</th>' +
         '<th style="text-align:right">Pot. omsetning</th>' +
         "</tr></thead><tbody>" + selgerRader + "</tbody></table>" +
       "</div>" +
