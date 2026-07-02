@@ -195,7 +195,7 @@ tbody tr:hover{background:#fafbff}
   .mobil-hamburger{display:flex;align-items:center;justify-content:center;position:fixed;top:10px;left:10px;z-index:201;width:42px;height:42px;border-radius:9px;border:none;background:var(--panel,#fff);box-shadow:0 2px 10px rgba(0,0,0,.22);font-size:19px;cursor:pointer;color:var(--ink,#1a1a1a)}
   .d-skall{flex-direction:column}
   .main{padding:10px;width:100%;box-sizing:border-box}
-  .d-grid.d-g6{grid-template-columns:1fr 1fr!important}
+  .d-grid.d-g6,.d-grid.d-g7{grid-template-columns:1fr 1fr!important}
   .dash-row2,.dash-row3{grid-template-columns:1fr!important}
   .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .dash-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -609,11 +609,12 @@ tbody tr:hover{background:#fafbff}
             <div id="klBransjeWrap"></div>
             <div id="klKjedeWrap"></div>
             <select id="klGrossist" class="d-select" onchange="klResetLoad()" style="width:auto;min-width:150px"><option value="">Alle grossister</option></select>
+            <span id="klRisikoChip" style="display:none"></span>
           </div>
           <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
             <table class="d-tabell" style="min-width:600px">
               <thead><tr>
-                <th>Kundenavn</th><th>Org.nr</th><th>Kalkyler</th><th>Status</th>
+                <th style="width:28px"></th><th>Kundenavn</th><th>Org.nr</th><th>Kalkyler</th><th>Status</th>
               </tr></thead>
               <tbody id="klBody"></tbody>
             </table>
@@ -1905,8 +1906,30 @@ function copyLines(){
 }
 
 // ============ Kundeliste (hoved-panel) ============
-let klPage=0, klQ='', klTotal=0, klSearchTimer=null, klMounted=false;
+let klPage=0, klQ='', klTotal=0, klSearchTimer=null, klMounted=false, klRisikoFiltr=false;
 const KL_LIMIT=100;
+
+function setKunderRisikoFilter(){
+  klRisikoFiltr=true; klPage=0;
+  renderKlRisikoChip();
+  klLastOgVis();
+}
+function klFjernRisikoFilter(){
+  klRisikoFiltr=false; klPage=0;
+  renderKlRisikoChip();
+  klLastOgVis();
+}
+function renderKlRisikoChip(){
+  const el=document.getElementById('klRisikoChip');
+  if(!el)return;
+  if(klRisikoFiltr){
+    el.style.display='';
+    el.innerHTML='<span class="d-badge roed" style="cursor:pointer" onclick="klFjernRisikoFilter()" title="Fjern filter">⚠ Kun risiko (konkurs/avvikling) ✕</span>';
+  }else{
+    el.style.display='none';
+    el.innerHTML='';
+  }
+}
 
 function klOnSearch(q){
   clearTimeout(klSearchTimer);
@@ -1929,6 +1952,7 @@ function kunderParams(){
   const reg=mfValgte('klRegion'); if(reg) p.set('region',reg);
   const br=mfValgte('klBransje'); if(br) p.set('bransje',br);
   const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
+  if(klRisikoFiltr) p.set('risiko','true');
   return p;
 }
 async function klMountFiltre(){
@@ -1970,17 +1994,24 @@ async function klLastOgVis(){
   klTotal=total;
   document.getElementById('klCount').textContent=total.toLocaleString('nb-NO')+' kunder';
   if(!data.length){
-    body.innerHTML='<tr><td colspan="4" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
+    body.innerHTML='<tr><td colspan="5" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
     document.getElementById('klPager').style.display='none';
     return;
   }
-  body.innerHTML=data.map(c=>`
+  body.innerHTML=data.map(c=>{
+    const risikoDeler=[];
+    if(c.konkurs_flagg) risikoDeler.push('Konkurs registrert i BRREG');
+    if(c.under_avvikling) risikoDeler.push('Under avvikling i BRREG');
+    if(c.under_tvangsavvikling) risikoDeler.push('Under tvangsavvikling i BRREG');
+    const risikoIkon=risikoDeler.length?'<span class="d-badge roed flat" title="'+esc(risikoDeler.join(' · '))+'">⚠</span>':'';
+    return `
     <tr style="cursor:pointer" onclick="klVelgKunde('${c.id}')">
+      <td>${risikoIkon}</td>
       <td class="d-navn">${esc(c.navn||'—')}</td>
       <td style="color:var(--d-tekst-3)">${esc(c.orgnr||'—')}</td>
       <td style="text-align:right">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
       <td><span class="d-badge ${statusFarge(c.status||'')} flat">${esc(c.status||'Kunde')}</span></td>
-    </tr>`).join('');
+    </tr>`;}).join('');
   const totPages=Math.ceil(klTotal/KL_LIMIT)||1;
   const pager=document.getElementById('klPager');
   pager.style.display=totPages>1?'flex':'none';

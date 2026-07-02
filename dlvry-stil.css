@@ -283,11 +283,12 @@
 
 /* ---------- Grid-hjelpere ---------- */
 .d-grid{display:grid; gap:var(--s4);}
+.d-g7{grid-template-columns:repeat(7,1fr);}
 .d-g6{grid-template-columns:repeat(6,1fr);}
 .d-g4{grid-template-columns:repeat(4,1fr);}
 .d-g3{grid-template-columns:repeat(3,1fr);}
 .d-g2{grid-template-columns:repeat(2,1fr);}
 @media(max-width:1000px){
-  .d-g6,.d-g4{grid-template-columns:repeat(2,1fr)}
+  .d-g7,.d-g6,.d-g4{grid-template-columns:repeat(2,1fr)}
   .d-g3,.d-g2{grid-template-columns:1fr}
 }
