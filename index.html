@@ -766,6 +766,16 @@ tbody tr:hover{background:#fafbff}
         </div>
         <div id="feedbackListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
       </div>
+
+      <!-- BRREG-oppdatering -->
+      <div class="d-panel" style="margin-top:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">BRREG-oppdatering</h3>
+          <button id="brregRefreshBtn" class="d-knapp primar sm" onclick="sjekkBrregNa()">Sjekk BRREG nå</button>
+        </div>
+        <p class="sub" style="margin:0">Oppdaterer manglende firmainfo og konkurs-/avviklingsstatus for alle kunder mot Brønnøysundregistrene. Kjøres automatisk ved innlogging (maks hver 7. dag / ny kalendermåned) — bruk knappen for å tvinge en oppdatering nå. Kan ta noen minutter for mange kunder.</p>
+        <div id="brregRefreshStatus" style="font-size:13px;margin-top:10px"></div>
+      </div>
     </div>
 
     <!-- ===== KONKURRENTER VIEW ===== -->
@@ -2739,6 +2749,25 @@ async function settFeedbackStatus(id,status){
     await lastFeedback();
     toast('Oppdatert');
   }catch(e){toast('Feil: '+e.message);}
+}
+
+async function sjekkBrregNa(){
+  const btn=document.getElementById('brregRefreshBtn');
+  const st=document.getElementById('brregRefreshStatus');
+  btn.disabled=true; btn.textContent='Starter…';
+  st.style.color='var(--d-tekst-3)';
+  st.textContent='';
+  try{
+    await api('/api/brreg/refresh-na',{method:'POST'});
+    st.style.color='var(--d-gronn)';
+    st.textContent='Startet — jobben kjører i bakgrunnen på serveren og kan ta noen minutter for mange kunder. Oppdaterte tall vises i Dashboard («Kunder i risiko») og Kundeliste når den er ferdig. Detaljert logg (inkl. konkurs/avvikling-endringer) føres i Render-loggen.';
+    toast('BRREG-oppdatering startet i bakgrunnen');
+  }catch(e){
+    st.style.color='var(--d-roed)';
+    st.textContent='Feil: '+e.message;
+  }finally{
+    btn.disabled=false; btn.textContent='Sjekk BRREG nå';
+  }
 }
 
 function oppdaterInvGrossistFelt(){
