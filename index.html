@@ -185,6 +185,8 @@ tbody tr:hover{background:#fafbff}
 @media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
 .mobil-hamburger{display:none}
+.feedback-fab{position:fixed;bottom:20px;right:20px;z-index:150;width:50px;height:50px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:21px;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.feedback-fab:hover{background:var(--brand2)}
 @media(max-width:900px){
   .d-sidemeny{position:fixed!important;left:-220px;top:0;bottom:0;z-index:200;transition:.2s;box-shadow:none}
   .d-sidemeny.mobil-open{left:0!important;box-shadow:6px 0 24px rgba(0,0,0,.35)}
@@ -754,6 +756,15 @@ tbody tr:hover{background:#fafbff}
         </div>
         <div id="invitasjonListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
       </div>
+
+      <!-- Feedback -->
+      <div class="d-panel" style="margin-top:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Feedback fra brukere</h3>
+          <button class="d-knapp subtil sm" onclick="lastFeedback()">↻ Oppdater</button>
+        </div>
+        <div id="feedbackListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
+      </div>
     </div>
 
     <!-- ===== KONKURRENTER VIEW ===== -->
@@ -940,6 +951,26 @@ tbody tr:hover{background:#fafbff}
     </div>
   </div>
 </div>
+
+<!-- Modal: Feedback -->
+<div class="modal-bg" id="feedbackModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header"><h3>Send feedback</h3></div>
+    <div class="modal-body">
+      <div class="d-felt" style="margin-bottom:10px">
+        <label>Din tilbakemelding *</label>
+        <textarea id="fbTekst" class="d-input" rows="5" placeholder="Hva fungerer bra, hva bør forbedres?" style="width:100%;resize:vertical;font-family:inherit"></textarea>
+      </div>
+      <div id="fbErr" style="font-size:12px;color:var(--red);min-height:16px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="d-knapp sekundar" onclick="closeModal('feedbackModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="sendFeedback()">Send</button>
+    </div>
+  </div>
+</div>
+
+<button id="feedbackFab" class="feedback-fab" onclick="openFeedbackModal()" title="Send feedback" style="display:none">💬</button>
 
 <div class="recalc-bar">
   <button class="d-knapp subtil" onclick="avsluttKalkyle()" title="Tilbake til kalkyleliste">← Tilbake</button>
@@ -2480,6 +2511,26 @@ async function lagreNyKonkurrent(){
   }catch(e){errEl.textContent=e.message;}
 }
 
+function openFeedbackModal(){
+  document.getElementById('fbTekst').value='';
+  document.getElementById('fbErr').textContent='';
+  document.getElementById('feedbackModal').classList.add('open');
+  setTimeout(()=>document.getElementById('fbTekst').focus(),50);
+}
+
+async function sendFeedback(){
+  const tekst=document.getElementById('fbTekst').value.trim();
+  const errEl=document.getElementById('fbErr');
+  if(!tekst){errEl.textContent='Skriv en tilbakemelding før du sender.';return;}
+  errEl.textContent='';
+  const side=document.querySelector('.d-meny a[data-view].aktiv')?.dataset.view||null;
+  try{
+    await api('/api/feedback',{method:'POST',body:{tekst,side}});
+    closeModal('feedbackModal');
+    toast('Takk for tilbakemeldingen!');
+  }catch(e){errEl.textContent=e.message;}
+}
+
 async function autoOpprettKonkurrent(leverandorNavn){
   if(!leverandorNavn||leverandorNavn==='—')return;
   try{
@@ -2564,7 +2615,43 @@ async function mountBrukere(){
     : '<option value="">— ingen tilgjengelig —</option>';
   oppdaterInvGrossistFelt();
 
-  await Promise.all([lastBrukere(), lastInvitasjoner()]);
+  await Promise.all([lastBrukere(), lastInvitasjoner(), lastFeedback()]);
+}
+
+async function lastFeedback(){
+  const el=document.getElementById('feedbackListe');
+  if(!el)return;
+  try{
+    const liste=await api('/api/feedback')||[];
+    if(!liste.length){el.innerHTML='<em>Ingen feedback innsendt.</em>';return;}
+    el.innerHTML=liste.map(f=>{
+      const dato=new Date(f.opprettet_tid).toLocaleString('no-NO',{dateStyle:'short',timeStyle:'short'});
+      const badge = f.status==='godkjent'
+        ? '<span style="background:var(--d-gronn-bg);color:var(--d-gronn);border-radius:6px;padding:2px 8px;font-size:11px">Godkjent</span>'
+        : f.status==='avvist'
+        ? '<span style="background:var(--d-roed-bg);color:var(--d-roed);border-radius:6px;padding:2px 8px;font-size:11px">Avvist</span>'
+        : '<span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">Ny</span>';
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px">'
+        +'<span style="font-size:12px;color:var(--muted)">'+esc(f.bruker_navn||'Ukjent')+' · '+dato+(f.side?' · '+esc(f.side):'')+'</span>'
+        + badge
+        +'</div>'
+        +'<div style="font-size:13px;color:var(--ink);margin-bottom:6px;white-space:pre-wrap">'+esc(f.tekst)+'</div>'
+        + (f.status==='ny'
+          ? '<button class="d-knapp subtil sm" onclick="settFeedbackStatus(\''+f.id+'\',\'godkjent\')">Godkjenn</button> '
+            +'<button class="d-knapp subtil sm" onclick="settFeedbackStatus(\''+f.id+'\',\'avvist\')">Avvis</button>'
+          : '')
+        +'</div>';
+    }).join('');
+  }catch(e){el.innerHTML='<em>Feil: '+esc(e.message)+'</em>';}
+}
+
+async function settFeedbackStatus(id,status){
+  try{
+    await api('/api/feedback/'+id,{method:'PATCH',body:{status}});
+    await lastFeedback();
+    toast('Oppdatert');
+  }catch(e){toast('Feil: '+e.message);}
 }
 
 function oppdaterInvGrossistFelt(){
@@ -2780,6 +2867,7 @@ function logout(){setToken(null);CURRENT_USER=null;state={custId:null,calcId:nul
 function showLogin(){
   document.getElementById('appRoot').style.display='none';
   document.getElementById('mobilHamburger').style.display='none';
+  document.getElementById('feedbackFab').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   setTimeout(()=>document.getElementById('loginEpost').focus(),50);
 }
@@ -2788,6 +2876,7 @@ async function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appRoot').style.display='flex';
   document.getElementById('mobilHamburger').style.display='';
+  document.getElementById('feedbackFab').style.display='flex';
   // vis innlogget bruker i sidemenyen
   if(CURRENT_USER){
     const navn=CURRENT_USER.navn||CURRENT_USER.epost||'Bruker';
