@@ -601,7 +601,7 @@ tbody tr:hover{background:#fafbff}
             </div>
             <input id="klKundekonto" type="search" class="d-input" placeholder="Kundekonto…" style="width:140px" oninput="klResetLoad()">
             <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
-            <button id="kunderExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/kunder.xlsx','kunder.xlsx')">⤓ Eksporter</button>
+            <button id="kunderExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/kunder.xlsx','kunder.csv')">⤓ Eksporter</button>
             <span id="klCount" class="d-t-label"></span>
           </div>
           <div id="klFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -677,7 +677,7 @@ tbody tr:hover{background:#fafbff}
           <button id="leadsSelAll" class="d-knapp subtil sm" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
           <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
           <button id="leadsTildel" class="d-knapp primar" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
-          <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/leads.xlsx','leads.xlsx')">⤓ Eksporter</button>
+          <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/leads.xlsx','leads.csv')">⤓ Eksporter</button>
         </div>
 
         <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
