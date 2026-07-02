@@ -2304,8 +2304,10 @@ function renderKonkListe(){
     const kats=(k.kategorier||'').split(',').filter(Boolean);
     return '<div class="d-panel" style="min-width:200px;max-width:260px;flex:1;cursor:pointer;border:2px solid transparent;transition:.15s" '
       +'onmouseover="this.style.borderColor=\'var(--brand)\'" onmouseout="this.style.borderColor=\'transparent\'">'
-      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px" onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')">'+esc(k.navn)+'</div>'
-      +(k.adresse?'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">'+esc(k.adresse)+'</div>':'')
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:4px" onclick="visKonkurrentPriser(\''+k.id+'\',\''+esc(k.navn)+'\')">'+esc(k.navn)
+      +(k.konkurs?' <span title="Konkurs registrert i BRREG" style="color:var(--d-roed);font-size:12px">⚠ Konkurs</span>':'')+'</div>'
+      +(k.adresse?'<div style="font-size:12px;color:var(--muted);margin-bottom:3px">📍 '+esc(k.adresse)+'</div>':'')
+      +(k.bransje?'<div style="font-size:11.5px;color:var(--muted);margin-bottom:3px">'+esc(k.bransje)+'</div>':'')
       +(kats.length?'<div style="margin-bottom:6px">'+kats.map(t=>'<span class="d-badge flat" style="font-size:11px;margin-right:3px">'+esc(t)+'</span>').join('')+'</div>':'')
       +'<div style="font-size:12.5px;color:var(--muted)">'+k.antall_produkter.toLocaleString('no')+' produkter</div>'
       +'<div style="margin-top:10px;display:flex;gap:6px">'
@@ -2325,15 +2327,60 @@ async function visKonkurrentPriser(id, navn){
   document.getElementById('konkPrisSok').value='';
   document.getElementById('konkFlaggFilter').value='';
   const k=_konkCache.find(x=>x.id===id)||{};
-  const kats=(k.kategorier||'').split(',').filter(Boolean);
-  const kortEl=document.getElementById('konkInfoKort');
-  if(k.adresse||kats.length){
-    kortEl.innerHTML='<div class="d-panel" style="padding:10px 14px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">'
-      +(k.adresse?'<div style="font-size:13px;color:var(--muted)">📍 '+esc(k.adresse)+'</div>':'')
-      +(kats.length?'<div>'+kats.map(t=>'<span class="d-badge flat" style="margin-right:4px">'+esc(t)+'</span>').join('')+'</div>':'')
-      +'</div>';
-  } else { kortEl.innerHTML=''; }
+  renderKonkInfoKort(k);
   await lastKonkPriser();
+}
+
+function renderKonkInfoKort(k){
+  const kats=(k.kategorier||'').split(',').filter(Boolean);
+  const rader=[];
+  if(k.adresse) rader.push('<div style="font-size:13px;color:var(--muted)">📍 '+esc(k.adresse)+'</div>');
+  if(k.bransje) rader.push('<div style="font-size:13px;color:var(--muted)">🏷 '+esc(k.bransje)+'</div>');
+  if(k.antall_ansatte!=null) rader.push('<div style="font-size:13px;color:var(--muted)">👥 '+k.antall_ansatte+' ansatte</div>');
+  if(k.konkurs) rader.push('<span class="d-badge flat roed">⚠ Konkurs registrert i BRREG</span>');
+  if(kats.length) rader.push('<div>'+kats.map(t=>'<span class="d-badge flat" style="margin-right:4px">'+esc(t)+'</span>').join('')+'</div>');
+  document.getElementById('konkInfoKort').innerHTML=
+    '<div class="d-panel" style="padding:12px 14px">'
+    +'<div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap'+(rader.length?';margin-bottom:10px':'')+'">'
+    +'<div class="d-felt" style="flex:0 0 auto;margin:0"><label style="font-size:11px">Org.nr</label>'
+    +'<input id="konkInfoOrgnr" class="d-input" value="'+esc(k.orgnr||'')+'" placeholder="9 siffer" style="width:120px">'
+    +'</div>'
+    +'<button id="konkInfoBrregBtn" class="d-knapp subtil sm" onclick="hentKonkInfoBrreg()">'+(k.orgnr?'Oppdater fra BRREG':'Hent fra BRREG')+'</button>'
+    +'<span id="konkInfoBrregStatus" style="font-size:12px;color:var(--muted)"></span>'
+    +'</div>'
+    +(rader.length?'<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">'+rader.join('')+'</div>':'')
+    +'</div>';
+}
+
+async function hentKonkInfoBrreg(){
+  const orgnr=document.getElementById('konkInfoOrgnr').value.trim();
+  const st=document.getElementById('konkInfoBrregStatus');
+  const btn=document.getElementById('konkInfoBrregBtn');
+  btn.disabled=true; btn.textContent='Henter…';
+  st.style.color='var(--muted)'; st.textContent='';
+  try{
+    const d=await api(`/api/brreg/${encodeURIComponent(orgnr)}`);
+    const bransje=d.naeringsbeskrivelse?((d.naeringskode?d.naeringskode+' — ':'')+d.naeringsbeskrivelse):null;
+    const oppdatert=await api('/api/konkurrenter/'+_konkValgtId,{method:'PATCH',body:{
+      orgnr, adresse:d.forretningsadresse||null, bransje:bransje||null,
+      antall_ansatte:d.antall_ansatte??null, konkurs:!!d.konkurs
+    }});
+    const idx=_konkCache.findIndex(x=>x.id===_konkValgtId);
+    if(idx>-1)_konkCache[idx]=oppdatert;
+    renderKonkListe();
+    renderKonkInfoKort(oppdatert);
+    document.getElementById('konkInfoBrregStatus').textContent='Oppdatert: '+(d.navn||'OK');
+    document.getElementById('konkInfoBrregStatus').style.color='var(--d-gronn)';
+  }catch(e){
+    const kod=e.message.match(/^(\d+)/)?.[1];
+    let msg;
+    if(kod==='400') msg='Org.nr må være 9 siffer';
+    else if(kod==='404') msg='Fant ikke org.nr i BRREG';
+    else if(kod==='502') msg='BRREG utilgjengelig, prøv igjen';
+    else msg='Feil: '+e.message;
+    st.textContent=msg; st.style.color='var(--d-roed)';
+    btn.disabled=false; btn.textContent=orgnr?'Oppdater fra BRREG':'Hent fra BRREG';
+  }
 }
 
 function tilbakeKonk(){
@@ -2420,11 +2467,14 @@ async function lastKonkPriser(){
   document.getElementById('konkNext').disabled=_konkPrisPage>=max;
 }
 
+let _nyKonkBrregData=null;
+
 function openNyKonkModal(){
   document.getElementById('nyKonkNavn').value='';
   document.getElementById('nyKonkOrgnr').value='';
   document.getElementById('nyKonkAdr').value='';
   document.getElementById('nyKonkBrregStatus').textContent='';
+  _nyKonkBrregData=null;
   document.querySelectorAll('#nyKonkKategorier input:checked').forEach(c=>c.checked=false);
   document.getElementById('nyKonkErr').textContent='';
   document.getElementById('nyKonkModal').classList.add('open');
@@ -2441,6 +2491,7 @@ async function hentNyKonkBrreg(){
     const d=await api(`/api/brreg/${encodeURIComponent(orgnr)}`);
     if(d.navn) document.getElementById('nyKonkNavn').value=d.navn;
     if(d.forretningsadresse) document.getElementById('nyKonkAdr').value=d.forretningsadresse;
+    _nyKonkBrregData=d;
     st.textContent=d.navn?'Hentet: '+d.navn:'Hentet fra BRREG';
     st.style.color='var(--d-gronn)';
   }catch(e){
@@ -2504,8 +2555,13 @@ async function lagreNyKonkurrent(){
   const errEl=document.getElementById('nyKonkErr');
   if(!navn){errEl.textContent='Navn er påkrevd.';return;}
   errEl.textContent='';
+  const bd=(_nyKonkBrregData&&_nyKonkBrregData.orgnr===orgnr)?_nyKonkBrregData:null;
+  const bransje=bd&&bd.naeringsbeskrivelse?((bd.naeringskode?bd.naeringskode+' — ':'')+bd.naeringsbeskrivelse):null;
   try{
-    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,adresse:adr||null,kategorier:valgte.join(',')||null,orgnr:orgnr||null}});
+    const k=await api('/api/konkurrenter',{method:'POST',body:{
+      navn,adresse:adr||null,kategorier:valgte.join(',')||null,orgnr:orgnr||null,
+      bransje,antall_ansatte:bd?(bd.antall_ansatte??null):null,konkurs:bd?!!bd.konkurs:null
+    }});
     _konkCache.push(k); _konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no'));
     closeModal('nyKonkModal'); renderKonkListe(); toast('Konkurrent «'+k.navn+'» opprettet');
   }catch(e){errEl.textContent=e.message;}
