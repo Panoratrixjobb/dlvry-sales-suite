@@ -184,11 +184,13 @@ tbody tr:hover{background:#fafbff}
 
 @media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
-@media(max-width:768px){
+.mobil-hamburger{display:none}
+@media(max-width:900px){
   .d-sidemeny{position:fixed!important;left:-220px;top:0;bottom:0;z-index:200;transition:.2s;box-shadow:none}
   .d-sidemeny.mobil-open{left:0!important;box-shadow:6px 0 24px rgba(0,0,0,.35)}
   .mobil-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
   .mobil-overlay.vis{display:block}
+  .mobil-hamburger{display:flex;align-items:center;justify-content:center;position:fixed;top:10px;left:10px;z-index:201;width:42px;height:42px;border-radius:9px;border:none;background:var(--panel,#fff);box-shadow:0 2px 10px rgba(0,0,0,.22);font-size:19px;cursor:pointer;color:var(--ink,#1a1a1a)}
   .d-skall{flex-direction:column}
   .main{padding:10px;width:100%;box-sizing:border-box}
   .d-grid.d-g6{grid-template-columns:1fr 1fr!important}
@@ -318,6 +320,7 @@ tbody tr:hover{background:#fafbff}
 </div>
 
 <div id="mobilOverlay" class="mobil-overlay" onclick="toggleSidebar()"></div>
+<button id="mobilHamburger" class="mobil-hamburger" onclick="toggleSidebar()" title="Meny">☰</button>
 <div class="app d-skall" id="appRoot" style="display:none">
   <aside class="d-sidemeny" id="appSidebar">
     <div class="d-logo"><img src="dlvry-lasso.png" alt="DLVRY" class="d-logo-ikon"><span class="sidebar-tekst"> DLVRY</span></div>
@@ -901,6 +904,14 @@ tbody tr:hover{background:#fafbff}
   <div class="modal" style="max-width:400px">
     <div class="modal-header"><h3>Legg til konkurrent</h3></div>
     <div class="modal-body">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="d-felt" style="flex:0 0 auto">
+          <label>Org.nr (valgfritt)</label>
+          <input id="nyKonkOrgnr" class="d-input" value="" placeholder="9 siffer" style="width:130px">
+        </div>
+        <button id="nyKonkBrregBtn" class="d-knapp subtil" onclick="hentNyKonkBrreg()">Hent fra BRREG</button>
+        <span id="nyKonkBrregStatus" style="font-size:12px;color:var(--d-tekst-3)"></span>
+      </div>
       <div class="d-felt" style="margin-bottom:10px">
         <label>Navn *</label>
         <input id="nyKonkNavn" class="d-input" placeholder="f.eks. DinDeli">
@@ -1084,13 +1095,20 @@ function setDashTab(tab){
 function toggleSidebar(){
   const sb=document.getElementById('appSidebar');
   if(!sb)return;
-  if(window.innerWidth<=768){
+  if(window.innerWidth<=900){
     const open=sb.classList.toggle('mobil-open');
     const ov=document.getElementById('mobilOverlay');
     if(ov)ov.classList.toggle('vis',open);
     return;
   }
   sb.classList.toggle('sidebar-collapsed');
+}
+
+function lukkMobilmeny(){
+  const sb=document.getElementById('appSidebar');
+  if(sb)sb.classList.remove('mobil-open');
+  const ov=document.getElementById('mobilOverlay');
+  if(ov)ov.classList.remove('vis');
 }
 
 // ===== Dark mode =====
@@ -2373,10 +2391,37 @@ async function lastKonkPriser(){
 
 function openNyKonkModal(){
   document.getElementById('nyKonkNavn').value='';
-  document.getElementById('nyKonkKat').value='';
+  document.getElementById('nyKonkOrgnr').value='';
+  document.getElementById('nyKonkAdr').value='';
+  document.getElementById('nyKonkBrregStatus').textContent='';
+  document.querySelectorAll('#nyKonkKategorier input:checked').forEach(c=>c.checked=false);
   document.getElementById('nyKonkErr').textContent='';
   document.getElementById('nyKonkModal').classList.add('open');
   setTimeout(()=>document.getElementById('nyKonkNavn').focus(),50);
+}
+
+async function hentNyKonkBrreg(){
+  const orgnr=document.getElementById('nyKonkOrgnr').value.trim();
+  const st=document.getElementById('nyKonkBrregStatus');
+  const btn=document.getElementById('nyKonkBrregBtn');
+  btn.disabled=true; btn.textContent='Henter…';
+  st.style.color='var(--d-tekst-3)'; st.textContent='';
+  try{
+    const d=await api(`/api/brreg/${encodeURIComponent(orgnr)}`);
+    if(d.navn) document.getElementById('nyKonkNavn').value=d.navn;
+    if(d.forretningsadresse) document.getElementById('nyKonkAdr').value=d.forretningsadresse;
+    st.textContent=d.navn?'Hentet: '+d.navn:'Hentet fra BRREG';
+    st.style.color='var(--d-gronn)';
+  }catch(e){
+    const kod=e.message.match(/^(\d+)/)?.[1];
+    if(kod==='400') st.textContent='Org.nr må være 9 siffer';
+    else if(kod==='404') st.textContent='Fant ikke org.nr i BRREG';
+    else if(kod==='502') st.textContent='BRREG utilgjengelig, prøv igjen';
+    else st.textContent='Feil: '+e.message;
+    st.style.color='var(--d-roed)';
+  }finally{
+    btn.disabled=false; btn.textContent='Hent fra BRREG';
+  }
 }
 
 async function slettKonkurrent(id, navn){
@@ -2423,12 +2468,13 @@ async function oppdaterKonkProdukt(produktId, felt, verdi, celle){
 async function lagreNyKonkurrent(){
   const navn=document.getElementById('nyKonkNavn').value.trim();
   const adr=(document.getElementById('nyKonkAdr').value||'').trim();
+  const orgnr=(document.getElementById('nyKonkOrgnr').value||'').trim();
   const valgte=[...document.querySelectorAll('#nyKonkKategorier input:checked')].map(c=>c.value);
   const errEl=document.getElementById('nyKonkErr');
   if(!navn){errEl.textContent='Navn er påkrevd.';return;}
   errEl.textContent='';
   try{
-    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,adresse:adr||null,kategorier:valgte.join(',')||null}});
+    const k=await api('/api/konkurrenter',{method:'POST',body:{navn,adresse:adr||null,kategorier:valgte.join(',')||null,orgnr:orgnr||null}});
     _konkCache.push(k); _konkCache.sort((a,b)=>a.navn.localeCompare(b.navn,'no'));
     closeModal('nyKonkModal'); renderKonkListe(); toast('Konkurrent «'+k.navn+'» opprettet');
   }catch(e){errEl.textContent=e.message;}
@@ -2671,6 +2717,7 @@ async function slettBruker(id, navn){
 
 // ============ Views ============
 function setView(v){
+  lukkMobilmeny();
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
@@ -2732,6 +2779,7 @@ function logout(){setToken(null);CURRENT_USER=null;state={custId:null,calcId:nul
 
 function showLogin(){
   document.getElementById('appRoot').style.display='none';
+  document.getElementById('mobilHamburger').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
   setTimeout(()=>document.getElementById('loginEpost').focus(),50);
 }
@@ -2739,6 +2787,7 @@ function showLogin(){
 async function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appRoot').style.display='flex';
+  document.getElementById('mobilHamburger').style.display='';
   // vis innlogget bruker i sidemenyen
   if(CURRENT_USER){
     const navn=CURRENT_USER.navn||CURRENT_USER.epost||'Bruker';

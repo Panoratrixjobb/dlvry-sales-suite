@@ -291,6 +291,3 @@
   .d-g6,.d-g4{grid-template-columns:repeat(2,1fr)}
   .d-g3,.d-g2{grid-template-columns:1fr}
 }
-@media(max-width:900px){
-  .d-sidemeny{display:none;}
-}
