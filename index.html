@@ -776,6 +776,25 @@ tbody tr:hover{background:#fafbff}
         <p class="sub" style="margin:0">Oppdaterer manglende firmainfo og konkurs-/avviklingsstatus for alle kunder mot Brønnøysundregistrene. Kjøres automatisk ved innlogging (maks hver 7. dag / ny kalendermåned) — bruk knappen for å tvinge en oppdatering nå. Kan ta noen minutter for mange kunder.</p>
         <div id="brregRefreshStatus" style="font-size:13px;margin-top:10px"></div>
       </div>
+
+      <!-- Dashboard-opplasting (FIKS-13/14) — admin/superadmin -->
+      <div class="d-panel" style="margin-top:18px" id="dashUploadPanel">
+        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Dashboard-data (Excel-opplasting)</h3>
+        <div style="display:flex;gap:18px;flex-wrap:wrap">
+          <div style="flex:1;min-width:280px">
+            <p class="sub" style="margin:0 0 8px">Last opp «KONSEPT DASHBOARD MASTER»-fila — oppdaterer total/konsepter/estimat/månedsgraf/LS-grossister.</p>
+            <input type="file" id="dashUploadFil" accept=".xlsx">
+            <button class="d-knapp primar sm" style="margin-left:8px" onclick="lastOppDashboard()" id="dashUploadBtn">Last opp dashboard</button>
+            <div id="dashUploadStatus" style="font-size:13px;margin-top:10px"></div>
+          </div>
+          <div style="flex:1;min-width:280px">
+            <p class="sub" style="margin:0 0 8px">Last opp kundedata-pivot («Total 2026»-arket) — oppdaterer regioner/toppkunder/toppvinnere.</p>
+            <input type="file" id="kundedataUploadFil" accept=".xlsx">
+            <button class="d-knapp primar sm" style="margin-left:8px" onclick="lastOppKundedata()" id="kundedataUploadBtn">Last opp kundedata</button>
+            <div id="kundedataUploadStatus" style="font-size:13px;margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ===== KONKURRENTER VIEW ===== -->
@@ -1044,14 +1063,18 @@ const DASH_FALLBACK={
     {navn:'Kunde 4', verdi:4.1},{navn:'Kunde 5', verdi:3.6}
   ],
   toppvinnere:[
-    {navn:'Kunde X', vekst:0.42},{navn:'Kunde Y', vekst:0.31},{navn:'Kunde Z', vekst:0.27},
-    {navn:'Kunde Æ', vekst:0.22},{navn:'Kunde Ø', vekst:0.19}
+    {navn:'Kunde X', verdi_nok:1.34},{navn:'Kunde Y', verdi_nok:0.34},{navn:'Kunde Z', verdi_nok:0.27},
+    {navn:'Kunde Æ', verdi_nok:0.22},{navn:'Kunde Ø', verdi_nok:0.19}
   ]
 };
 
 // ============ Dashboard ============
 let DASH=null;
 async function loadDash(){
+  try{
+    const r=await fetch(API_BASE+'/api/dashboard-excel',{headers:TOKEN?{'Authorization':'Bearer '+TOKEN}:{}});
+    if(r.ok){DASH=normalizeDash(await r.json());return;}
+  }catch(e){}
   try{const r=await fetch('data.json');if(r.ok){const d=await r.json();DASH=normalizeDash(d);return;}}catch(e){}
   DASH=DASH_FALLBACK;
 }
@@ -1106,7 +1129,7 @@ function renderDash(){
   barList('dashRegioner',D.regioner,'verdi',mnok,'#5b6ef5');
   barList('dashGrossister',D.ls_grossister,'verdi',mnok,'#16a34a');
   barList('dashToppkunder',D.toppkunder,'verdi',mnok,'#22b8cf');
-  barList('dashVinnere',D.toppvinnere,'vekst',v=>'+'+(v*100).toFixed(0)+' %','#f59e0b',true);
+  barList('dashVinnere',D.toppvinnere,'verdi_nok',v=>'+'+mnok(v),'#f59e0b',true);
 
   // Konsept-donut
   drawDashDonut(D.konsepter);
@@ -2770,6 +2793,38 @@ async function sjekkBrregNa(){
   }
 }
 
+async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
+  const input=document.getElementById(filInputId);
+  const st=document.getElementById(statusId);
+  const btn=document.getElementById(btnId);
+  const fil=input.files[0];
+  if(!fil){st.style.color='var(--d-roed)';st.textContent='Velg en .xlsx-fil først.';return;}
+  btn.disabled=true;const opprinneligTekst=btn.textContent;btn.textContent='Laster opp…';
+  st.style.color='var(--d-tekst-3)';st.textContent='';
+  try{
+    const fd=new FormData();fd.append('fil',fil);
+    const r=await fetch(API_BASE+endepunkt,{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd});
+    const txt=await r.text();let data=null;try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
+    if(!r.ok){
+      const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);
+      throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));
+    }
+    st.style.color='var(--d-gronn)';
+    st.textContent='OK — '+feltNavn+': '+JSON.stringify(data);
+    if(typeof toast==='function')toast('Opplasting fullført');
+    input.value='';
+    await loadDash();
+    if(document.getElementById('view-dashboard').style.display!=='none')renderDash();
+  }catch(e){
+    st.style.color='var(--d-roed)';
+    st.textContent='Feil: '+e.message;
+  }finally{
+    btn.disabled=false;btn.textContent=opprinneligTekst;
+  }
+}
+function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
+function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
+
 function oppdaterInvGrossistFelt(){
   const rolle = document.getElementById('invRolle').value;
   document.getElementById('invGrossistFelt').style.display = rolle==='selger' ? '' : 'none';
@@ -2993,6 +3048,9 @@ async function showApp(){
   document.getElementById('appRoot').style.display='flex';
   document.getElementById('mobilHamburger').style.display='';
   document.getElementById('feedbackFab').style.display='flex';
+  // loadDash() ved boot() kan ha kjørt uten token (ikke innlogget ennå) og falt
+  // tilbake til data.json/DASH_FALLBACK — hent på nytt nå som vi har gyldig token.
+  await loadDash();
   // vis innlogget bruker i sidemenyen
   if(CURRENT_USER){
     const navn=CURRENT_USER.navn||CURRENT_USER.epost||'Bruker';
@@ -3008,6 +3066,8 @@ async function showApp(){
   const erAdmin = ['admin','superadmin'].includes(_brukerRolle);
   const exportKnapper = ['kunderExportBtn','leadsExportBtn'];
   exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
+  const dashUploadPanel=document.getElementById('dashUploadPanel');
+  if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
