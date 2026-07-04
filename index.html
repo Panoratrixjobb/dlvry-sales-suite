@@ -240,6 +240,32 @@ tbody tr:hover{background:#fafbff}
 @media(max-width:1300px){.dash-kpis{grid-template-columns:repeat(3,1fr)}.dash-row2,.dash-row3{grid-template-columns:1fr}}
 @media(max-width:900px){.dash-kpis{grid-template-columns:1fr 1fr}}
 
+/* ===== Analyse-fane: filterbar/chips/slider/grossist-detalj/kundebevegelse ===== */
+.an-filterbar{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+.an-filterrow{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
+.an-filtercol{min-width:150px}
+.an-filterlbl{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--muted);margin-bottom:7px;text-transform:uppercase}
+.an-weeklbl{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0}
+.an-weeklbl b{font-weight:700}
+.an-chips{display:flex;flex-wrap:wrap;gap:7px}
+.an-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;border:1.5px solid var(--line);color:var(--muted);background:var(--panel);transition:.12s}
+.an-chip:hover{border-color:var(--brand2)}
+.an-chip.aktiv{color:var(--ink)}
+.an-chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.an-reset-btn{padding:7px 14px;border-radius:8px;border:1.5px solid var(--line);background:none;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;font-family:inherit}
+.an-reset-btn:hover{border-color:var(--brand2);color:var(--brand)}
+.an-expand-link{margin-top:12px;text-align:center;font-size:12px;font-weight:600;color:var(--brand);cursor:pointer}
+.an-grossist-row{cursor:pointer;border-radius:8px;padding:7px 8px;margin:0 -8px 4px}
+.an-grossist-row:hover{background:var(--bg)}
+.an-grossist-row.aktiv{background:#FBEAE6}
+.an-grossist-detail{border:1.5px solid var(--brand2)}
+input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
+[data-dark] .an-filterbar{background:#161b22;border-color:#30363d}
+[data-dark] .an-chip{background:#161b22;border-color:#30363d;color:#8b949e}
+[data-dark] .an-grossist-row:hover{background:#21262d}
+[data-dark] .an-grossist-row.aktiv{background:rgba(214,87,66,.15)}
+@media(max-width:900px){.an-filterrow{flex-direction:column;align-items:stretch}}
+
 .d-logo-ikon{width:26px;height:26px;object-fit:contain;flex-shrink:0}
 .d-login-logo{height:48px;width:auto;display:block;margin:0 auto 24px}
 
@@ -372,56 +398,101 @@ tbody tr:hover{background:#fafbff}
       <!-- Analyse-fane: EXCEL fakturert omsetning -->
       <div id="dash-tab-analyse" class="dash-innhold">
         <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5)">
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--d-tekst-3)">EXCEL — fakturert omsetning (data.json)</span>
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--d-tekst-3)">EXCEL — fakturert omsetning</span>
           <span style="font-size:11px;color:var(--d-roed);font-weight:700;background:var(--d-roed-bg);padding:2px 8px;border-radius:999px">⚠ Ikke summert med APP-tall</span>
         </div>
-        <div class="d-grid d-g6" id="dashKpis" style="margin-bottom:var(--s5)"></div>
+
+        <!-- Filterbar -->
+        <div class="an-filterbar" style="margin-bottom:var(--s5)">
+          <div class="an-filterrow">
+            <div class="an-filtercol" style="flex:2;min-width:320px">
+              <div class="an-filterlbl">KONSEPT</div>
+              <div class="an-chips" id="anKonseptChips"></div>
+            </div>
+            <div class="an-filtercol" style="min-width:160px">
+              <div class="an-filterlbl">REGION</div>
+              <select class="d-select" id="anRegionSelect" onchange="setAnalyseRegion(this.value)"></select>
+            </div>
+            <div class="an-filtercol" style="min-width:220px">
+              <div class="an-filterlbl">GROSSIST</div>
+              <select class="d-select" id="anGrossistSelect" onchange="setAnalyseGrossist(this.value)"></select>
+            </div>
+            <div class="an-filtercol" style="flex:1.4;min-width:240px">
+              <div class="an-filterlbl an-weeklbl"><span>PERIODE — YTD T.O.M. UKE</span><span id="anWeekLabel"></span></div>
+              <input type="range" id="anWeekSlider" min="1" max="27" step="1" oninput="anWeekLabelLive(this.value)" onchange="setAnalyseWeek(this.value)">
+            </div>
+            <div class="an-filtercol">
+              <button class="an-reset-btn" onclick="resetAnalyseFilters()">Nullstill filter</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-grid d-g6" id="anKpis" style="margin-bottom:var(--s5)"></div>
 
         <div class="dash-row2" style="margin-bottom:var(--s4)">
           <section class="d-panel">
-            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Månedlig omsetning per konsept <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK, stablet)</small></h3>
-            <svg id="dashStacked" viewBox="0 0 720 300" style="width:100%;height:300px"></svg>
-            <div class="legend-row" id="dashStackedLegend"></div>
+            <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)" id="anMonthlyTitle"></h3>
+            <div style="font-size:11px;color:var(--d-tekst-3);margin-bottom:14px" id="anMonthlySubtitle"></div>
+            <svg id="anMonthlyChart" viewBox="0 0 720 300" style="width:100%;height:300px"></svg>
+            <div class="legend-row" id="anMonthlyLegend"></div>
           </section>
           <section class="d-panel">
             <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Vekst per konsept</h3>
-            <div id="dashGrowth"></div>
-            <div class="estimat-box" id="dashEstimat"></div>
+            <div id="anGrowth"></div>
+            <div class="estimat-box" id="anEstimat"></div>
           </section>
+        </div>
+
+        <div class="d-panel" style="margin-bottom:var(--s4)">
+          <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)">Vekst-trend per måned (YoY %)</h3>
+          <div style="font-size:11px;color:var(--d-tekst-3);margin-bottom:14px" id="anTrendSubtitle"></div>
+          <svg id="anTrendChart" viewBox="0 0 700 160" style="width:100%;height:160px;overflow:visible"></svg>
+          <div class="legend-row" id="anTrendLegend"></div>
         </div>
 
         <div class="dash-row3" style="margin-bottom:var(--s4)">
           <section class="d-panel">
-            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Omsetning per region <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
-            <div id="dashRegioner"></div>
+            <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)">Omsetning per region <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
+            <div style="font-size:11px;color:var(--d-rosa,#b0899a);font-style:italic;margin-bottom:12px">Kan ikke krysses med konsept/grossist i kildedataen.</div>
+            <div id="anRegioner"></div>
           </section>
           <section class="d-panel">
-            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">La Salumeria — topp grossister <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
-            <div id="dashGrossister"></div>
+            <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)" id="anGrossistTitle"></h3>
+            <div style="font-size:11px;color:var(--d-tekst-3);margin-bottom:12px" id="anGrossistSubtitle"></div>
+            <div id="anGrossistTabell"></div>
+            <div class="an-expand-link" id="anGrossistExpand" onclick="toggleAnalyseExpand('grossist')"></div>
           </section>
           <section class="d-panel">
             <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Toppkunder <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(MNOK)</small></h3>
-            <div id="dashToppkunder"></div>
+            <div id="anToppkunder"></div>
           </section>
+        </div>
+
+        <div class="d-panel an-grossist-detail" id="anGrossistDetail" style="display:none;margin-bottom:var(--s4)"></div>
+
+        <div style="margin-bottom:var(--s4)">
+          <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)">Kundebevegelse</h3>
+          <div style="font-size:11px;color:var(--d-tekst-3);margin-bottom:12px" id="anKundebevegelseSub"></div>
+          <div class="dash-row3" id="anKundebevegelse"></div>
         </div>
 
         <div class="dash-row2" style="margin-bottom:var(--s4)">
           <section class="d-panel">
-            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Toppvinnere <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(vekst %)</small></h3>
-            <div id="dashVinnere"></div>
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Toppvinnere <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(vekst)</small></h3>
+            <div id="anVinnere"></div>
           </section>
           <section class="d-panel">
-            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)">Konseptfordeling 2026</h3>
+            <h3 style="margin:0 0 14px;font-size:14px;font-weight:700;color:var(--d-tekst)" id="anDonutTitle">Konseptfordeling</h3>
             <div class="vk-wrap">
               <div class="donut" style="width:140px;height:140px">
-                <svg width="140" height="140" viewBox="0 0 140 140" id="dashDonut"></svg>
-                <div class="ctr" id="dashDonutCtr" style="font-size:13px"></div>
+                <svg width="140" height="140" viewBox="0 0 140 140" id="anDonut"></svg>
+                <div class="ctr" id="anDonutCtr" style="font-size:13px"></div>
               </div>
-              <div class="legend" id="dashDonutLegend" style="flex:1"></div>
+              <div class="legend" id="anDonutLegend" style="flex:1"></div>
             </div>
           </section>
         </div>
-        <div class="dash-source" id="dashSource"></div>
+        <div class="dash-source" id="anSource"></div>
       </div>
 
       <!-- Pipeline-fane: Kanban -->
@@ -1029,9 +1100,10 @@ tbody tr:hover{background:#fafbff}
 <script src="frontend_steg4.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
-// Erstattes automatisk hvis data.json finnes i samme mappe (samme kontrakt som Vei A).
+// Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
 const DASH_FALLBACK={
-  meta:{periode:'YTD uke 1–25, 2026 vs 2025 (pære-mot-pære)', oppdatert:'2026 uke 25', kilde:'fallback (vault) – last opp data.json for full detalj'},
+  meta:{periode:'YTD uke 1–25, 2026 vs 2025 (pære-mot-pære)', oppdatert:'2026 uke 25', kilde:'fallback (vault) – last opp Excel for full detalj'},
+  cutoff_uke:25,
   total:{navn:'Total ekstern', y2026:309.4, y2025:397.7, vekst:-0.222},
   konsepter:[
     {navn:'La Salumeria', y2026:51.3, y2025:52.0, vekst:-0.014, farge:'#16a34a'},
@@ -1039,32 +1111,39 @@ const DASH_FALLBACK={
     {navn:'Godt Lokalt', y2026:104.1, y2025:120.1, vekst:-0.133, farge:'#f59e0b'},
     {navn:'Wulff & Co', y2026:147.6, y2025:220.3, vekst:-0.330, farge:'#22b8cf'}
   ],
-  estimat:[{navn:'Sesongvektet årsestimat 2026', verdi:677}],
-  // illustrativ månedsfordeling (jan–jun, MNOK) – erstattes av data.json.monthly
+  estimat:[
+    {navn:'La Salumeria', helar_2025:115.9, estimat_2026:122.8},
+    {navn:'East Essence', helar_2025:12.3, estimat_2026:15.5},
+    {navn:'Godt Lokalt', helar_2025:257.1, estimat_2026:232.4},
+    {navn:'Wulff & Co', helar_2025:485.6, estimat_2026:343.6},
+    {navn:'Total ekstern', helar_2025:871.0, estimat_2026:714.3}
+  ],
   monthly:{months:['Jan','Feb','Mar','Apr','Mai','Jun'],
     data:[
-      {navn:'La Salumeria',farge:'#16a34a',vals:[8.1,8.4,9.0,8.6,8.7,8.5]},
-      {navn:'East Essence',farge:'#5b6ef5',vals:[1.0,1.0,1.1,1.1,1.1,1.1]},
-      {navn:'Godt Lokalt',farge:'#f59e0b',vals:[17.0,16.8,17.9,17.3,17.6,17.5]},
-      {navn:'Wulff & Co',farge:'#22b8cf',vals:[24.2,24.0,25.6,24.6,24.7,24.5]}
+      {navn:'La Salumeria',farge:'#16a34a',vals:[8.1,8.4,9.0,8.6,8.7,8.5],vals_2025:[8.1,8.0,8.4,9.0,10.0,12.2],vekst_pct:[0,0,0,0,0,0]},
+      {navn:'East Essence',farge:'#5b6ef5',vals:[1.0,1.0,1.1,1.1,1.1,1.1],vals_2025:[1.0,0.9,0.9,1.0,1.0,1.0],vekst_pct:[0,0,0,0,0,0]},
+      {navn:'Godt Lokalt',farge:'#f59e0b',vals:[17.0,16.8,17.9,17.3,17.6,17.5],vals_2025:[18.7,17.9,19.1,25.7,24.2,20.5],vekst_pct:[0,0,0,0,0,0]},
+      {navn:'Wulff & Co',farge:'#22b8cf',vals:[24.2,24.0,25.6,24.6,24.7,24.5],vals_2025:[34.9,27.9,33.8,42.4,50.4,45.1],vekst_pct:[0,0,0,0,0,0]}
     ]},
+  grossister:{la_salumeria:[],east_essence:[],godt_lokalt:[],wulff_co:[]},
+  kundebevegelse:{
+    la_salumeria:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    east_essence:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    godt_lokalt:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    wulff_co:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    alle:{nye:0,tapt:0,venter:0}
+  },
   regioner:[
     {navn:'Region Øst', verdi:148.5},
     {navn:'Region Vest', verdi:96.2},
     {navn:'Region Midt', verdi:42.1},
     {navn:'Region Nord', verdi:22.6}
   ],
-  ls_grossister:[
-    {navn:'Grossist A', verdi:14.2},{navn:'Grossist B', verdi:11.8},
-    {navn:'Grossist C', verdi:9.1},{navn:'Grossist D', verdi:7.3},{navn:'Grossist E', verdi:5.0}
-  ],
   toppkunder:[
-    {navn:'Kunde 1', verdi:6.8},{navn:'Kunde 2', verdi:5.4},{navn:'Kunde 3', verdi:4.9},
-    {navn:'Kunde 4', verdi:4.1},{navn:'Kunde 5', verdi:3.6}
+    {navn:'Kunde 1', verdi:6.8},{navn:'Kunde 2', verdi:5.4},{navn:'Kunde 3', verdi:4.9}
   ],
   toppvinnere:[
-    {navn:'Kunde X', verdi_nok:1.34},{navn:'Kunde Y', verdi_nok:0.34},{navn:'Kunde Z', verdi_nok:0.27},
-    {navn:'Kunde Æ', verdi_nok:0.22},{navn:'Kunde Ø', verdi_nok:0.19}
+    {navn:'Kunde X', verdi_nok:1.34},{navn:'Kunde Y', verdi_nok:0.34},{navn:'Kunde Z', verdi_nok:0.27}
   ]
 };
 
@@ -1075,20 +1154,21 @@ async function loadDash(){
     const r=await fetch(API_BASE+'/api/dashboard-excel',{headers:TOKEN?{'Authorization':'Bearer '+TOKEN}:{}});
     if(r.ok){DASH=normalizeDash(await r.json());return;}
   }catch(e){}
-  try{const r=await fetch('data.json');if(r.ok){const d=await r.json();DASH=normalizeDash(d);return;}}catch(e){}
   DASH=DASH_FALLBACK;
 }
 function normalizeDash(d){
-  // Aksepter Vei A-kontrakten; fyll manglende felt fra fallback
+  // Aksepter API-kontrakten; fyll manglende felt fra fallback
   const f=DASH_FALLBACK;
   return {
     meta:d.meta||f.meta,
+    cutoff_uke:d.cutoff_uke||f.cutoff_uke,
     total:d.total||f.total,
     konsepter:(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%4].farge,...k})):f.konsepter,
     estimat:d.estimat||f.estimat,
     monthly:d.monthly||f.monthly,
+    grossister:d.grossister||f.grossister,
+    kundebevegelse:d.kundebevegelse||f.kundebevegelse,
     regioner:d.regioner||f.regioner,
-    ls_grossister:d.ls_grossister||f.ls_grossister,
     toppkunder:d.toppkunder||f.toppkunder,
     toppvinnere:d.toppvinnere||f.toppvinnere
   };
@@ -1096,46 +1176,336 @@ function normalizeDash(d){
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
 const growthTag=v=>{const up=v>=0;return `<span style="color:${up?'var(--green)':'var(--red)'};font-weight:700">${up?'▲':'▼'} ${(Math.abs(v)*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %</span>`;};
 
-function renderDash(){
-  if(!DASH)return;const D=DASH;
-  // KPI-kort
-  const kpis=document.getElementById('dashKpis');
-  const cards=[{navn:D.total.navn,...D.total,total:true},...D.konsepter];
-  kpis.innerHTML=cards.map(k=>(
-    '<div class="d-kpi' + (k.total?' d-kpi-total':'') + '">' +
-    '<div class="d-label">' + k.navn + '</div>' +
-    '<div class="d-rad"><span class="d-tall">' + k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}) + '</span><span style="font-size:14px;color:var(--d-tekst-3)"> MNOK</span></div>' +
-    '<div class="d-vs">' + growthTag(k.vekst) + ' fra ' + k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' MNOK</div>' +
-    '</div>'
-  )).join('');
+function barList(id,arr,key,fmt,col,pct){
+  const el=document.getElementById(id);if(!el)return;
+  const max=Math.max(...arr.map(a=>a[key]),0.0001);
+  el.innerHTML=arr.map(a=>`<div class="bl-row">
+    <span class="bl-name">${a.navn}</span>
+    <div class="bl-track"><div class="bl-bar" style="width:${a[key]/max*100}%;background:${col}"></div></div>
+    <span class="bl-val">${fmt(a[key])}</span></div>`).join('');
+}
 
-  // Stablet søylediagram
-  drawStacked(D.monthly);
+// ===== Analyse-fane: konsept/region/grossist/uke-filter + interaktivt dashboard =====
+const AN_KEY_FOR_NAVN={'La Salumeria':'la_salumeria','East Essence':'east_essence','Godt Lokalt':'godt_lokalt','Wulff & Co':'wulff_co'};
+const AN_NAVN_FOR_KEY={la_salumeria:'La Salumeria',east_essence:'East Essence',godt_lokalt:'Godt Lokalt',wulff_co:'Wulff & Co'};
+let analyseState={concept:'all',region:'all',grossist:'',week:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
 
-  // Vekst per konsept (horisontale barer rundt 0)
-  const g=document.getElementById('dashGrowth');
-  const maxg=Math.max(...D.konsepter.map(k=>Math.abs(k.vekst)),0.05);
-  g.innerHTML=D.konsepter.map(k=>{
-    const w=Math.abs(k.vekst)/maxg*50;const up=k.vekst>=0;
-    return `<div class="growth-row">
+function anWeekLabelLive(v){
+  const el=document.getElementById('anWeekLabel');if(!el)return;
+  const lbl=el.querySelector('b');if(lbl)lbl.textContent='Uke '+v;
+}
+function setAnalyseConcept(key){analyseState.concept=key;analyseState.grossist='';analyseState.expandGrossist=false;renderAnalyse();}
+function setAnalyseRegion(v){analyseState.region=v;renderAnalyse();}
+function setAnalyseGrossist(v){analyseState.grossist=v;renderAnalyse();}
+function setAnalyseWeek(v){analyseState.week=Number(v);renderAnalyse();}
+function resetAnalyseFilters(){
+  analyseState={concept:'all',region:'all',grossist:'',week:DASH?DASH.cutoff_uke:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
+  renderAnalyse();
+}
+function toggleAnalyseExpand(which){
+  if(which==='grossist')analyseState.expandGrossist=!analyseState.expandGrossist;
+  if(which==='new')analyseState.expandNew=!analyseState.expandNew;
+  if(which==='lost')analyseState.expandLost=!analyseState.expandLost;
+  if(which==='wait')analyseState.expandWait=!analyseState.expandWait;
+  renderAnalyse();
+}
+
+function anYtdAt(monthly,week){
+  const WPM=52/12;
+  const months=week/WPM;
+  let full=Math.min(Math.floor(months),monthly.length);
+  const frac=months-full;
+  let sum=0;
+  for(let i=0;i<full;i++)sum+=monthly[i]||0;
+  if(full<monthly.length)sum+=frac*(monthly[full]||0);
+  return sum;
+}
+function anSeriesFor(D,key){
+  if(key==='all'){
+    const n=D.monthly.data[0].vals.length;
+    const vals=new Array(n).fill(0),vals2025=new Array(n).fill(0);
+    D.monthly.data.forEach(d=>{d.vals.forEach((v,i)=>vals[i]+=v);d.vals_2025.forEach((v,i)=>vals2025[i]+=v);});
+    return {vals,vals2025,y2026:D.total.y2026,y2025:D.total.y2025,navn:D.total.navn,farge:'#1b2a4a'};
+  }
+  const k=D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===key);
+  const m=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===key);
+  return {vals:m.vals,vals2025:m.vals_2025,y2026:k.y2026,y2025:k.y2025,navn:k.navn,farge:k.farge};
+}
+function anComputeKpi(D,key,week){
+  const ser=anSeriesFor(D,key);
+  const cutoff=D.cutoff_uke;
+  const raw26=anYtdAt(ser.vals,cutoff)||1,raw25=anYtdAt(ser.vals2025,cutoff)||1;
+  const f26=ser.y2026/raw26,f25=ser.y2025/raw25;
+  const y2026=anYtdAt(ser.vals,week)*f26,y2025=anYtdAt(ser.vals2025,week)*f25;
+  const delta=y2026-y2025,pct=y2025?delta/y2025:0;
+  return {key,navn:ser.navn,farge:ser.farge,y2026,y2025,delta,pct};
+}
+function anCombinedGrossister(D){
+  const map={};const order=[];
+  Object.values(D.grossister).forEach(liste=>liste.forEach(g=>{
+    const nokkel=g.kode||g.navn;
+    if(!map[nokkel]){map[nokkel]={kode:g.kode,navn:g.navn,y2025:0,y2026:0};order.push(nokkel);}
+    map[nokkel].y2025+=g.y2025;map[nokkel].y2026+=g.y2026;
+  }));
+  return order.map(k=>map[k]).sort((a,b)=>b.y2026-a.y2026);
+}
+
+function renderAnalyse(){
+  if(!DASH)return;const D=DASH;const s=analyseState;
+  if(s.week==null)s.week=D.cutoff_uke;
+  const isAll=s.concept==='all';
+
+  // ---- Filterbar: konsept-chips ----
+  const chips=[{key:'all',label:'Alle konsepter',farge:'#1b2a4a'}].concat(D.konsepter.map(k=>({key:AN_KEY_FOR_NAVN[k.navn],label:k.navn,farge:k.farge})));
+  document.getElementById('anKonseptChips').innerHTML=chips.map(c=>{
+    const active=s.concept===c.key;
+    return `<div class="an-chip${active?' aktiv':''}" style="${active?`border-color:${c.farge};background:${c.farge}1a;color:var(--d-tekst)`:''}" onclick="setAnalyseConcept('${c.key}')">
+      <span class="an-chip-dot" style="background:${c.farge}"></span>${c.label}</div>`;
+  }).join('');
+
+  // ---- Region-select ----
+  const regionSel=document.getElementById('anRegionSelect');
+  const regionOpts=[{key:'all',label:'Alle regioner'}].concat(D.regioner.map(r=>({key:r.navn,label:r.navn})));
+  regionSel.innerHTML=regionOpts.map(r=>`<option value="${r.key}"${s.region===r.key?' selected':''}>${r.label}</option>`).join('');
+
+  // ---- Grossist-select + tabell-kilde ----
+  const grossistKilde=isAll?anCombinedGrossister(D):(D.grossister[s.concept]||[]).slice().sort((a,b)=>b.y2026-a.y2026);
+  const grossistSel=document.getElementById('anGrossistSelect');
+  grossistSel.disabled=grossistKilde.length===0;
+  grossistSel.innerHTML='<option value="">'+(grossistKilde.length?'Velg grossist…':'Ingen grossistdata')+'</option>'+
+    grossistKilde.map(g=>`<option value="${g.kode||g.navn}"${s.grossist===(g.kode||g.navn)?' selected':''}>${g.navn}</option>`).join('');
+
+  // ---- Uke-slider ----
+  document.getElementById('anWeekSlider').max=D.cutoff_uke;
+  document.getElementById('anWeekSlider').value=s.week;
+  const wpm=52/12;
+  const maaneder=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+  document.getElementById('anWeekLabel').innerHTML=`<b>Uke ${s.week}</b> <span style="color:var(--d-tekst-3);font-weight:500">(${maaneder[Math.min(11,Math.floor((s.week-1)/wpm))]})</span>`;
+
+  // ---- KPI-kort ----
+  const allKpi=anComputeKpi(D,'all',s.week);
+  const konseptKpis=D.konsepter.map(k=>anComputeKpi(D,AN_KEY_FOR_NAVN[k.navn],s.week));
+  const kpiKort=[allKpi,...konseptKpis];
+  document.getElementById('anKpis').innerHTML=kpiKort.map(k=>{
+    const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
+    return `<div class="d-kpi${k.key==='all'?' d-kpi-total':''}" style="cursor:pointer;opacity:${dimmed?0.5:1};${selected&&k.key!=='all'?`box-shadow:0 0 0 2px ${k.farge}`:''}" onclick="setAnalyseConcept('${k.key}')">
+      <div class="d-label">${k.navn}</div>
+      <div class="d-rad"><span class="d-tall">${k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}</span><span style="font-size:14px;color:var(--d-tekst-3)"> MNOK</span></div>
+      <div class="d-vs">${growthTag(k.pct)} fra ${k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} MNOK</div>
+    </div>`;
+  }).join('');
+
+  // ---- Månedsgraf: stablet (alle) eller gruppert 2025-vs-2026 (ett konsept) ----
+  anDrawMonthlyChart(D,s);
+
+  // ---- Vekst per konsept + estimat ----
+  const g=document.getElementById('anGrowth');
+  const maxg=Math.max(...konseptKpis.map(k=>Math.abs(k.pct)),0.05);
+  g.innerHTML=konseptKpis.map(k=>{
+    const w=Math.abs(k.pct)/maxg*50;const up=k.pct>=0;const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
+    return `<div class="growth-row" style="opacity:${dimmed?0.45:1}">
       <span class="gr-name">${k.navn}</span>
       <div class="gr-track"><div class="gr-zero"></div>
         <div class="gr-bar" style="${up?'left:50%':'right:50%'};width:${w}%;background:${up?'var(--green)':'var(--red)'}"></div></div>
-      <span class="gr-val">${growthTag(k.vekst)}</span>
+      <span class="gr-val">${growthTag(k.pct)}</span>
     </div>`;}).join('');
-  document.getElementById('dashEstimat').innerHTML=D.estimat.map(e=>`<div class="est-line"><span>${e.navn}</span><b>${e.verdi.toLocaleString('nb-NO')} MNOK</b></div>`).join('');
+  const estimatSubjekt=D.estimat.find(e=>e.navn===(isAll?'Total ekstern':AN_NAVN_FOR_KEY[s.concept]));
+  document.getElementById('anEstimat').innerHTML=estimatSubjekt?
+    `<div class="est-line"><span>Sesongvektet årsestimat 2026${isAll?'':' — '+estimatSubjekt.navn}</span><b>${estimatSubjekt.estimat_2026.toLocaleString('nb-NO')} MNOK</b></div>` : '';
 
-  // Regioner / grossister / kunder / vinnere — barlister
-  barList('dashRegioner',D.regioner,'verdi',mnok,'#5b6ef5');
-  barList('dashGrossister',D.ls_grossister,'verdi',mnok,'#16a34a');
-  barList('dashToppkunder',D.toppkunder,'verdi',mnok,'#22b8cf');
-  barList('dashVinnere',D.toppvinnere,'verdi_nok',v=>'+'+mnok(v),'#f59e0b',true);
+  // ---- YoY vekst-trend (linjediagram) ----
+  anDrawTrendChart(D,s);
 
-  // Konsept-donut
-  drawDashDonut(D.konsepter);
+  // ---- Region (highlight-only, kan ikke krysses med konsept/grossist) ----
+  const maxRegion=Math.max(...D.regioner.map(r=>r.verdi),0.0001);
+  document.getElementById('anRegioner').innerHTML=D.regioner.map(r=>{
+    const selected=s.region===r.navn;const dimmed=s.region!=='all'&&!selected;
+    return `<div class="bl-row" style="cursor:pointer;opacity:${dimmed?0.45:1};font-weight:${selected?700:400}" onclick="setAnalyseRegion('${s.region===r.navn?'all':r.navn}')">
+      <span class="bl-name">${r.navn}</span>
+      <div class="bl-track"><div class="bl-bar" style="width:${r.verdi/maxRegion*100}%;background:#5b6ef5"></div></div>
+      <span class="bl-val">${mnok(r.verdi)}</span></div>`;
+  }).join('');
 
-  document.getElementById('dashCrumb').textContent=D.meta.periode||'';
-  document.getElementById('dashSource').textContent='Kilde: '+(D.meta.kilde||'')+(D.meta.oppdatert?' · oppdatert '+D.meta.oppdatert:'');
+  // ---- Grossist-tabell + detaljpanel ----
+  anRenderGrossistTabell(D,s,grossistKilde);
+
+  // ---- Toppkunder (statisk) ----
+  barList('anToppkunder',D.toppkunder,'verdi',mnok,'#2bb4c9');
+
+  // ---- Kundebevegelse ----
+  anRenderKundebevegelse(D,s);
+
+  // ---- Toppvinnere + konseptfordeling-donut ----
+  barList('anVinnere',D.toppvinnere,'verdi_nok',v=>'+'+mnok(v),'#f5a623',true);
+  anDrawDonut(D.konsepter);
+
+  document.getElementById('dashCrumb').textContent=`YTD uke 1–${s.week} · 2026 vs 2025 (pære-mot-pære)`;
+  document.getElementById('anSource').textContent='Kilde: '+(D.meta.kilde||'')+(D.meta.oppdatert?' · oppdatert '+D.meta.oppdatert:'');
+}
+
+function anDrawMonthlyChart(D,s){
+  const svg=document.getElementById('anMonthlyChart');svg.innerHTML='';
+  const W=720,H=300,padL=40,padB=30,padT=10,padR=10;
+  const months=D.monthly.months;
+  const plotH=H-padB-padT,plotW=W-padL-padR;
+  const bw=plotW/months.length*(s.concept==='all'?0.6:0.5),gap=plotW/months.length;
+  const isAll=s.concept==='all';
+
+  document.getElementById('anMonthlyTitle').textContent=isAll?'Månedlig omsetning per konsept':'Månedlig omsetning — '+AN_NAVN_FOR_KEY[s.concept];
+  document.getElementById('anMonthlySubtitle').textContent=isAll?'MNOK, stablet — 2026':'MNOK — 2025 vs 2026 per måned';
+
+  let maxY;
+  if(isAll){
+    const totals=months.map((_,i)=>D.monthly.data.reduce((sum,d)=>sum+d.vals[i],0));
+    maxY=Math.ceil(Math.max(...totals)/10)*10||10;
+  }else{
+    const serie=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===s.concept);
+    maxY=Math.ceil(Math.max(...serie.vals,...serie.vals_2025)/5)*5||5;
+  }
+  for(let t=0;t<=4;t++){const yv=maxY*t/4,y=H-padB-(yv/maxY)*plotH;
+    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',padL);ln.setAttribute('x2',W-padR);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);
+    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',padL-6);tx.setAttribute('y',y+3);tx.setAttribute('text-anchor','end');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=yv.toFixed(0);svg.appendChild(tx);}
+
+  if(isAll){
+    months.forEach((mo,i)=>{
+      const x=padL+gap*i+(gap-bw)/2;let yAcc=H-padB;
+      D.monthly.data.forEach(d=>{const h=(d.vals[i]/maxY)*plotH;yAcc-=h;
+        const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x',x);rect.setAttribute('y',yAcc);rect.setAttribute('width',bw);rect.setAttribute('height',Math.max(0,h));
+        rect.setAttribute('fill',d.farge);svg.appendChild(rect);});
+      const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
+    document.getElementById('anMonthlyLegend').innerHTML=D.monthly.data.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
+  }else{
+    const serie=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===s.concept);
+    const farge=serie.farge;
+    months.forEach((mo,i)=>{
+      const x=padL+gap*i+(gap-bw)/2;
+      const h25=(serie.vals_2025[i]/maxY)*plotH,h26=(serie.vals[i]/maxY)*plotH;
+      const r25=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r25.setAttribute('x',x);r25.setAttribute('y',H-padB-h25);r25.setAttribute('width',bw*0.42);r25.setAttribute('height',Math.max(0,h25));r25.setAttribute('fill','#c7cede');svg.appendChild(r25);
+      const r26=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      r26.setAttribute('x',x+bw*0.5);r26.setAttribute('y',H-padB-h26);r26.setAttribute('width',bw*0.42);r26.setAttribute('height',Math.max(0,h26));r26.setAttribute('fill',farge);svg.appendChild(r26);
+      const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
+    document.getElementById('anMonthlyLegend').innerHTML=`<span class="lg-item"><span class="dot" style="background:#c7cede"></span>2025</span><span class="lg-item"><span class="dot" style="background:${farge}"></span>2026</span>`;
+  }
+}
+
+function anDrawTrendChart(D,s){
+  const svg=document.getElementById('anTrendChart');svg.innerHTML='';
+  const isAll=s.concept==='all';
+  const serier=isAll?D.monthly.data:D.monthly.data.filter(d=>AN_KEY_FOR_NAVN[d.navn]===s.concept);
+  document.getElementById('anTrendSubtitle').textContent=isAll?'YoY vekst % per konsept, '+D.monthly.months[0]+'–'+D.monthly.months[D.monthly.months.length-1]:'YoY vekst % for '+AN_NAVN_FOR_KEY[s.concept]+', '+D.monthly.months[0]+'–'+D.monthly.months[D.monthly.months.length-1];
+  const n=D.monthly.months.length;
+  const zeroY=80;
+  const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+  ln.setAttribute('x1',0);ln.setAttribute('y1',zeroY);ln.setAttribute('x2',700);ln.setAttribute('y2',zeroY);ln.setAttribute('stroke','#e3e8f0');svg.appendChild(ln);
+  const maxAbs=Math.max(0.5,...serier.flatMap(d=>d.vekst_pct.map(v=>Math.abs(v))));
+  serier.forEach(d=>{
+    const coords=d.vekst_pct.map((v,i)=>({x:20+i*(660/Math.max(1,n-1)),y:zeroY-(v/maxAbs)*65}));
+    const poly=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+    poly.setAttribute('points',coords.map(p=>p.x+','+p.y).join(' '));poly.setAttribute('fill','none');poly.setAttribute('stroke',d.farge);poly.setAttribute('stroke-width','2.5');svg.appendChild(poly);
+    coords.forEach(p=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',3.5);c.setAttribute('fill',d.farge);svg.appendChild(c);});
+  });
+  D.monthly.months.forEach((m,i)=>{
+    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+    tx.setAttribute('x',20+i*(660/Math.max(1,n-1)));tx.setAttribute('y',155);tx.setAttribute('font-size','11');tx.setAttribute('fill','#a3adc2');tx.setAttribute('text-anchor','middle');tx.textContent=m;svg.appendChild(tx);
+  });
+  document.getElementById('anTrendLegend').innerHTML=serier.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
+}
+
+function anRenderGrossistTabell(D,s,kilde){
+  const isAll=s.concept==='all';
+  document.getElementById('anGrossistTitle').textContent=isAll?'Topp grossister — alle konsepter':'Topp grossister — '+AN_NAVN_FOR_KEY[s.concept];
+  document.getElementById('anGrossistSubtitle').textContent='YTD t.o.m. uke '+D.cutoff_uke+' · MNOK';
+  const maxV=Math.max(...kilde.map(g=>g.y2026),0.0001);
+  const visAntall=s.expandGrossist?kilde.length:Math.min(10,kilde.length);
+  document.getElementById('anGrossistTabell').innerHTML=kilde.length?kilde.slice(0,visAntall).map(g=>{
+    const growth=g.y2025?(g.y2026-g.y2025)/g.y2025:0;
+    const nokkel=g.kode||g.navn;const selected=s.grossist===nokkel;
+    return `<div class="an-grossist-row${selected?' aktiv':''}" onclick="setAnalyseGrossist('${s.grossist===nokkel?'':nokkel}')">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px">
+        <span style="font-weight:${selected?700:500}">${g.navn}</span>
+        <span style="display:flex;gap:10px"><b>${mnok(g.y2026)}</b><span style="color:${growth>=0?'var(--green)':'var(--red)'};min-width:52px;text-align:right">${(growth>=0?'+':'')+(growth*100).toFixed(0)} %</span></span>
+      </div>
+      <div class="bl-track"><div class="bl-bar" style="width:${Math.max(3,g.y2026/maxV*100)}%;background:${isAll?'#3b5bdb':(D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===s.concept)||{}).farge||'#3b5bdb'}"></div></div>
+    </div>`;
+  }).join('') : '<div style="text-align:center;padding:24px 10px;color:var(--d-tekst-3);font-size:13px">Ingen grossistdata for valgt konsept.</div>';
+  document.getElementById('anGrossistExpand').textContent=kilde.length<=10?'':(s.expandGrossist?'Vis færre':'Vis alle ('+kilde.length+')');
+
+  // Detaljpanel
+  const panel=document.getElementById('anGrossistDetail');
+  const funnet=s.grossist?kilde.find(g=>(g.kode||g.navn)===s.grossist):null;
+  if(!funnet){panel.style.display='none';panel.innerHTML='';return;}
+  panel.style.display='block';
+  const growth=funnet.y2025?(funnet.y2026-funnet.y2025)/funnet.y2025:0;
+  const deltaColor=growth>=0?'var(--green)':'var(--red)';
+  const maxBar=Math.max(funnet.y2025,funnet.y2026,0.0001);
+  panel.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><div style="font-size:11px;font-weight:700;color:var(--d-tekst-3);letter-spacing:.03em">GROSSIST-DETALJ</div>
+      <div style="font-size:17px;font-weight:700;color:var(--d-tekst);margin-top:2px">${funnet.navn}</div></div>
+      <div style="cursor:pointer;color:var(--d-tekst-3);font-size:12.5px" onclick="setAnalyseGrossist('')">Lukk ×</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:16px">
+      <div><div style="font-size:12px;color:var(--d-tekst-3)">2026 YTD</div><div style="font-size:19px;font-weight:700;margin-top:4px">${mnok(funnet.y2026)}</div></div>
+      <div><div style="font-size:12px;color:var(--d-tekst-3)">2025 (samme uker)</div><div style="font-size:19px;font-weight:700;margin-top:4px">${mnok(funnet.y2025)}</div></div>
+      <div><div style="font-size:12px;color:var(--d-tekst-3)">Endring</div><div style="font-size:19px;font-weight:700;margin-top:4px;color:${deltaColor}">${mnok(funnet.y2026-funnet.y2025)}</div></div>
+      <div><div style="font-size:12px;color:var(--d-tekst-3)">Vekst %</div><div style="font-size:19px;font-weight:700;margin-top:4px;color:${deltaColor}">${(growth*100).toFixed(1)} %</div></div>
+    </div>
+    <div style="display:flex;gap:22px;margin-top:16px;align-items:flex-end;height:64px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:32px;height:${funnet.y2025/maxBar*56}px;background:#c7cede;border-radius:3px 3px 0 0"></div><div style="font-size:11px;color:var(--d-tekst-3)">2025</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px"><div style="width:32px;height:${funnet.y2026/maxBar*56}px;background:#1b2a4a;border-radius:3px 3px 0 0"></div><div style="font-size:11px;color:var(--d-tekst-3)">2026</div></div>
+    </div>`;
+}
+
+function anRenderKundebevegelse(D,s){
+  const isAll=s.concept==='all';
+  document.getElementById('anKundebevegelseSub').textContent='YTD t.o.m. uke '+D.cutoff_uke+' · '+(isAll?'alle konsepter':AN_NAVN_FOR_KEY[s.concept]);
+  const kb=isAll?null:D.kundebevegelse[s.concept];
+  const alle=D.kundebevegelse.alle||{};
+
+  const kort=(tittel,farge,antall,sumKr,liste,expandKey,expandFlag)=>{
+    const visAntall=expandFlag?liste.length:Math.min(10,liste.length);
+    const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px">
+      <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.navn||k.kundenr}</span>
+      <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}</span></div>`).join('');
+    const expandLbl=liste.length<=10?'':(expandFlag?'Vis færre':'Vis flere (av '+liste.length+')');
+    return `<div class="d-panel">
+      <div style="font-size:13.5px;font-weight:700">${tittel}</div>
+      <div style="font-size:25px;font-weight:700;color:${farge};margin-top:8px">${antall}</div>
+      ${sumKr!=null?`<div style="font-size:12px;color:var(--d-tekst-3);margin-top:2px">${fmtKr(sumKr)}</div>`:''}
+      ${liste.length?`<div style="margin-top:14px">${rader}</div>${expandLbl?`<div class="an-expand-link" onclick="toggleAnalyseExpand('${expandKey}')">${expandLbl}</div>`:''}`:
+        (isAll?'':'<div style="margin-top:12px;font-size:11.5px;color:var(--d-tekst-3);font-style:italic">Ingen navngitte rader.</div>')}
+    </div>`;
+  };
+
+  if(isAll){
+    document.getElementById('anKundebevegelse').innerHTML=
+      kort('Nye kunder','var(--green)',alle.nye||0,null,[],'new',s.expandNew)+
+      kort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
+      kort('Sesongkunder på vent','#c9930f',alle.venter||0,null,[],'wait',s.expandWait);
+  }else{
+    document.getElementById('anKundebevegelse').innerHTML=
+      kort('Nye kunder','var(--green)',kb.ny.antall,kb.ny.sum_kr,kb.ny.liste,'new',s.expandNew)+
+      kort('Tapte kunder (sesongjustert)','var(--red)',kb.tapt.antall,kb.tapt.sum_kr,kb.tapt.liste,'lost',s.expandLost)+
+      kort('Sesongkunder på vent','#c9930f',kb.venter.antall,null,kb.venter.liste,'wait',s.expandWait);
+  }
+}
+
+function anDrawDonut(kons){
+  const svg=document.getElementById('anDonut');svg.innerHTML='';
+  const tot=kons.reduce((s,k)=>s+k.y2026,0);
+  let off=0;const R=54,cx=70,cy=70,C=2*Math.PI*R;
+  kons.forEach(k=>{const frac=k.y2026/tot;const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',R);c.setAttribute('fill','none');c.setAttribute('stroke',k.farge);c.setAttribute('stroke-width',16);
+    c.setAttribute('stroke-dasharray',`${(C*frac).toFixed(1)} ${(C*(1-frac)).toFixed(1)}`);c.setAttribute('stroke-dashoffset',(-C*off).toFixed(1));
+    c.setAttribute('transform',`rotate(-90 ${cx} ${cy})`);svg.appendChild(c);off+=frac;});
+  document.getElementById('anDonutCtr').innerHTML=tot.toLocaleString('nb-NO',{maximumFractionDigits:0})+'<small style="display:block;font-size:9px;color:var(--muted)">MNOK total</small>';
+  document.getElementById('anDonutLegend').innerHTML=kons.map(k=>`<div class="li"><span class="name"><span class="dot" style="background:${k.farge}"></span>${k.navn}</span><span class="pct">${(k.y2026/tot*100).toFixed(0)} %</span></div>`).join('');
 }
 
 // ===== Dashboard tab switching =====
@@ -1145,7 +1515,7 @@ function setDashTab(tab){
   document.querySelectorAll('.dash-innhold').forEach(d=>d.classList.remove('vis'));
   const el=document.getElementById('dash-tab-'+tab);
   if(el)el.classList.add('vis');
-  if(tab==='analyse')renderDash();
+  if(tab==='analyse')renderAnalyse();
   if(tab==='pipeline'&&!_dashTabRendered.pipeline){
     _dashTabRendered.pipeline=true;
     Steg4.visDashboardPipeline(document.getElementById('dash-tab-pipeline'),null);
@@ -1181,52 +1551,6 @@ function toggleDark(){
   const on=document.documentElement.toggleAttribute('data-dark');
   const btn=document.getElementById('btnDarkMode');
   if(btn)btn.textContent=on?'☀️':'🌙';
-}
-
-function barList(id,arr,key,fmt,col,pct){
-  const el=document.getElementById(id);if(!el)return;
-  const max=Math.max(...arr.map(a=>a[key]),0.0001);
-  el.innerHTML=arr.map(a=>`<div class="bl-row">
-    <span class="bl-name">${a.navn}</span>
-    <div class="bl-track"><div class="bl-bar" style="width:${a[key]/max*100}%;background:${col}"></div></div>
-    <span class="bl-val">${fmt(a[key])}</span></div>`).join('');
-}
-
-function drawStacked(m){
-  const svg=document.getElementById('dashStacked');svg.innerHTML='';
-  const W=720,H=300,padL=40,padB=30,padT=10,padR=10;
-  const months=m.months,series=m.data;
-  const totals=months.map((_,i)=>series.reduce((s,d)=>s+d.vals[i],0));
-  const maxY=Math.ceil(Math.max(...totals)/10)*10||10;
-  const plotH=H-padB-padT,plotW=W-padL-padR;
-  const bw=plotW/months.length*0.6,gap=plotW/months.length;
-  // y-akse
-  for(let t=0;t<=4;t++){const yv=maxY*t/4,y=H-padB-(yv/maxY)*plotH;
-    const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
-    ln.setAttribute('x1',padL);ln.setAttribute('x2',W-padR);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);
-    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
-    tx.setAttribute('x',padL-6);tx.setAttribute('y',y+3);tx.setAttribute('text-anchor','end');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=yv.toFixed(0);svg.appendChild(tx);}
-  months.forEach((mo,i)=>{
-    const x=padL+gap*i+(gap-bw)/2;let yAcc=H-padB;
-    series.forEach(d=>{const h=(d.vals[i]/maxY)*plotH;yAcc-=h;
-      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      rect.setAttribute('x',x);rect.setAttribute('y',yAcc);rect.setAttribute('width',bw);rect.setAttribute('height',Math.max(0,h));
-      rect.setAttribute('fill',d.farge);rect.setAttribute('rx',i===0?0:0);svg.appendChild(rect);});
-    const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
-    tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
-  document.getElementById('dashStackedLegend').innerHTML=series.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
-}
-
-function drawDashDonut(kons){
-  const svg=document.getElementById('dashDonut');svg.innerHTML='';
-  const tot=kons.reduce((s,k)=>s+k.y2026,0);
-  let off=0;const R=54,cx=70,cy=70,C=2*Math.PI*R;
-  kons.forEach(k=>{const frac=k.y2026/tot;const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',R);c.setAttribute('fill','none');c.setAttribute('stroke',k.farge);c.setAttribute('stroke-width',16);
-    c.setAttribute('stroke-dasharray',`${(C*frac).toFixed(1)} ${(C*(1-frac)).toFixed(1)}`);c.setAttribute('stroke-dashoffset',(-C*off).toFixed(1));
-    c.setAttribute('transform',`rotate(-90 ${cx} ${cy})`);svg.appendChild(c);off+=frac;});
-  document.getElementById('dashDonutCtr').innerHTML=tot.toLocaleString('nb-NO',{maximumFractionDigits:0})+'<small style="display:block;font-size:9px;color:var(--muted)">MNOK total</small>';
-  document.getElementById('dashDonutLegend').innerHTML=kons.map(k=>`<div class="li"><span class="name"><span class="dot" style="background:${k.farge}"></span>${k.navn}</span><span class="pct">${(k.y2026/tot*100).toFixed(0)} %</span></div>`).join('');
 }
 
 // ============ Formatters ============
@@ -2814,7 +3138,7 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
     if(typeof toast==='function')toast('Opplasting fullført');
     input.value='';
     await loadDash();
-    if(document.getElementById('view-dashboard').style.display!=='none')renderDash();
+    if(document.getElementById('view-dashboard').style.display!=='none')renderAnalyse();
   }catch(e){
     st.style.color='var(--d-roed)';
     st.textContent='Feil: '+e.message;
@@ -2986,7 +3310,7 @@ function setView(v){
   if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
   if(v==='kunder'&&state.custId)renderCalcArea();
   if(v==='dashboard'){
-    renderDash();
+    renderAnalyse();
     Steg4.visDashboard(document.getElementById('dash-tab-oversikt'), DASH);
     _dashTabRendered={pipeline:false,selger:false};
   }
