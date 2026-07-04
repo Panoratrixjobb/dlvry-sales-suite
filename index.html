@@ -1157,17 +1157,40 @@ async function loadDash(){
   DASH=DASH_FALLBACK;
 }
 function normalizeDash(d){
-  // Aksepter API-kontrakten; fyll manglende felt fra fallback
+  // Aksepter API-kontrakten; fyll manglende felt fra fallback. Må tåle en ELDRE
+  // dashboard_snapshot (fra før denne kontrakten fantes) uten å kaste — det skjer
+  // helt til admin laster opp Excel på nytt med den nye backend-koden.
   const f=DASH_FALLBACK;
+  const konsepter=(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%4].farge,...k})):f.konsepter;
+
+  const months=(d.monthly&&Array.isArray(d.monthly.months))?d.monthly.months:f.monthly.months;
+  const monthlyData=(d.monthly&&Array.isArray(d.monthly.data)&&d.monthly.data.length)?d.monthly.data.map((m,i)=>{
+    const vals=Array.isArray(m.vals)?m.vals:new Array(months.length).fill(0);
+    return {
+      navn:m.navn,
+      farge:m.farge||f.konsepter[i%4].farge,
+      vals,
+      vals_2025:Array.isArray(m.vals_2025)?m.vals_2025:new Array(vals.length).fill(0),
+      vekst_pct:Array.isArray(m.vekst_pct)?m.vekst_pct:new Array(vals.length).fill(0),
+    };
+  }):f.monthly.data;
+
+  // Gammel form var [{navn,verdi}] (kun total) — nyere form har estimat_2026 per konsept.
+  const estimat=(d.estimat&&d.estimat.length&&d.estimat[0].estimat_2026!=null)?d.estimat:[];
+
+  const grossister={...f.grossister,...(d.grossister||{})};
+  const kundebevegelse={...f.kundebevegelse,...(d.kundebevegelse||{})};
+  if(!kundebevegelse.alle)kundebevegelse.alle=f.kundebevegelse.alle;
+
   return {
     meta:d.meta||f.meta,
     cutoff_uke:d.cutoff_uke||f.cutoff_uke,
     total:d.total||f.total,
-    konsepter:(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%4].farge,...k})):f.konsepter,
-    estimat:d.estimat||f.estimat,
-    monthly:d.monthly||f.monthly,
-    grossister:d.grossister||f.grossister,
-    kundebevegelse:d.kundebevegelse||f.kundebevegelse,
+    konsepter,
+    estimat,
+    monthly:{months,data:monthlyData},
+    grossister,
+    kundebevegelse,
     regioner:d.regioner||f.regioner,
     toppkunder:d.toppkunder||f.toppkunder,
     toppvinnere:d.toppvinnere||f.toppvinnere
@@ -1234,7 +1257,13 @@ function anSeriesFor(D,key){
 function anComputeKpi(D,key,week){
   const ser=anSeriesFor(D,key);
   const cutoff=D.cutoff_uke;
-  const raw26=anYtdAt(ser.vals,cutoff)||1,raw25=anYtdAt(ser.vals2025,cutoff)||1;
+  const raw26=anYtdAt(ser.vals,cutoff),raw25=anYtdAt(ser.vals2025,cutoff);
+  if(!raw26||!raw25){
+    // 2025-manedsdetalj mangler ennå (eldre opplasting, før denne kontrakten) —
+    // vis de statiske YTD-tallene uten uke-interpolasjon i stedet for å late som 0.
+    const delta=ser.y2026-ser.y2025,pct=ser.y2025?delta/ser.y2025:0;
+    return {key,navn:ser.navn,farge:ser.farge,y2026:ser.y2026,y2025:ser.y2025,delta,pct};
+  }
   const f26=ser.y2026/raw26,f25=ser.y2025/raw25;
   const y2026=anYtdAt(ser.vals,week)*f26,y2025=anYtdAt(ser.vals2025,week)*f25;
   const delta=y2026-y2025,pct=y2025?delta/y2025:0;
@@ -1515,7 +1544,7 @@ function setDashTab(tab){
   document.querySelectorAll('.dash-innhold').forEach(d=>d.classList.remove('vis'));
   const el=document.getElementById('dash-tab-'+tab);
   if(el)el.classList.add('vis');
-  if(tab==='analyse')renderAnalyse();
+  if(tab==='analyse')try{renderAnalyse();}catch(e){console.error('renderAnalyse feilet',e);}
   if(tab==='pipeline'&&!_dashTabRendered.pipeline){
     _dashTabRendered.pipeline=true;
     Steg4.visDashboardPipeline(document.getElementById('dash-tab-pipeline'),null);
@@ -3310,7 +3339,7 @@ function setView(v){
   if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
   if(v==='kunder'&&state.custId)renderCalcArea();
   if(v==='dashboard'){
-    renderAnalyse();
+    try{renderAnalyse();}catch(e){console.error('renderAnalyse feilet',e);}
     Steg4.visDashboard(document.getElementById('dash-tab-oversikt'), DASH);
     _dashTabRendered={pipeline:false,selger:false};
   }
