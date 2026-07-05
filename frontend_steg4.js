@@ -526,6 +526,15 @@ const Steg4 = (() => {
         "</div>"
       : "";
 
+    const orgDeltHtml =
+      d.presisjon === "orgnr" && d.org_delt_med_andre_kunder
+        ? '<div style="background:var(--d-gul-bg);color:var(--d-gul);border:1px solid #E9D9A8;' +
+          'border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-size:13px">' +
+          "⚠ Org.nr deles av flere utleveringssteder/kundekontoer (typisk en kjede). Tallene under er " +
+          "SUMMERT PÅ TVERS av alle stedene som deler dette org.nr-et, ikke bare denne ene kunden." +
+          "</div>"
+        : "";
+
     const siste = d.uker.slice(-12).reverse();
     const rader = siste
       .map(
@@ -535,8 +544,14 @@ const Steg4 = (() => {
       )
       .join("");
 
+    const presisjonTekst =
+      d.presisjon === "kundekonto"
+        ? "Viser tall for akkurat dette utleveringsstedet (matchet på kundekonto)."
+        : "Viser tall summert på org.nr-nivå (kundekonto matchet ikke direkte).";
+
     el.innerHTML = [
       avvikHtml,
+      orgDeltHtml,
       '<div style="display:flex;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap">',
       '<div class="kort" style="flex:1;min-width:150px">',
       '<div class="lbl">Omsetning 2026</div>',
@@ -549,7 +564,7 @@ const Steg4 = (() => {
       '<div class="sub">samme kildeperiode</div>',
       "</div>",
       "</div>",
-      '<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. Siste 12 uker med data:</p>',
+      `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. ${esc(presisjonTekst)} Siste 12 uker med data:</p>`,
       '<table class="d-tabell"><thead><tr><th>År</th><th>Uke</th><th>Grossist</th><th style="text-align:right">Beløp</th></tr></thead>',
       `<tbody>${rader}</tbody></table>`,
     ].join("");
@@ -635,7 +650,9 @@ const Steg4 = (() => {
     const kpi = [
       {
         lbl: "Omsetning i år",
-        sub: omsDeltaPct == null ? "mot i fjor" : (omsDeltaPct >= 0 ? "+" : "") + omsDeltaPct + "% mot i fjor",
+        sub:
+          (omsDeltaPct == null ? "mot i fjor" : (omsDeltaPct >= 0 ? "+" : "") + omsDeltaPct + "% mot i fjor") +
+          (salgshist.presisjon === "orgnr" && salgshist.org_delt_med_andre_kunder ? " · org.nr-nivå (kjede)" : ""),
         verdi: harOmsData ? kr(oms2026) : "—",
         kommer: !harOmsData,
       },
