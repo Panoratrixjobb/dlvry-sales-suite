@@ -32,6 +32,16 @@ const Steg4 = (() => {
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
     );
 
+  /* ISO-uke for "i dag" (mandag-basert), brukt til recency/frekvens-KPI-er på kundekortet. */
+  function isoUkeIdag() {
+    const d = new Date();
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+    const arStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    const uke = Math.ceil((((t - arStart) / 86400000) + 1) / 7);
+    return { ar: t.getUTCFullYear(), uke };
+  }
+
   /* Status → badge-fargeklasse */
   function statusFarge(s) {
     return (
@@ -631,7 +641,6 @@ const Steg4 = (() => {
     const meta = [];
     if (kunde.orgnr) meta.push(`<span class="d-kk-mono">${esc(kunde.orgnr)}</span>`);
     if (segTekst) meta.push(`<span>${esc(segTekst)}</span>`);
-    meta.push(`<span>Kunde siden ${KOMMER}</span>`);
     if (selger)
       meta.push(
         `<span class="d-kk-kam"><span class="pp">${esc(initialer(selger))}</span>${esc(selger)}</span>`
@@ -647,6 +656,27 @@ const Steg4 = (() => {
     const omsDeltaPct =
       harOmsData && oms2025 ? Math.round(((oms2026 - oms2025) / oms2025) * 1000) / 10 : null;
 
+    /* Siste kjøp + Snittordre/ordrefrekvens — estimert fra ukentlig salgsdata (FIKS-14).
+       Kilden gir kun SUM omsetning pr. uke, ikke enkeltordre, så én aktiv salgsuke telles
+       som én "ordre" — en tilnærming, ikke ekte ordreantall. */
+    const alleUker = (salgshist.uker || []).slice().sort((a, b) => a.ar - b.ar || a.uke - b.uke);
+    const sisteUkeRad = alleUker.length ? alleUker[alleUker.length - 1] : null;
+    const { ar: naAr, uke: naUke } = isoUkeIdag();
+
+    let sisteKjopVerdi = "—", sisteKjopSub = "";
+    if (sisteUkeRad) {
+      const ukerSiden = (naAr - sisteUkeRad.ar) * 52 + (naUke - sisteUkeRad.uke);
+      sisteKjopVerdi = `Uke ${sisteUkeRad.uke}, ${sisteUkeRad.ar}`;
+      sisteKjopSub = ukerSiden <= 0 ? "denne uken" : ukerSiden === 1 ? "1 uke siden" : `${ukerSiden} uker siden`;
+    }
+
+    const aktiveUker2026 = alleUker.filter((u) => u.ar === 2026).length;
+    const snittordre = harOmsData && aktiveUker2026 > 0 ? oms2026 / aktiveUker2026 : null;
+    const ordrefrekvens = aktiveUker2026 > 0 && naAr === 2026 ? aktiveUker2026 / Math.max(naUke, 1) : null;
+    const ordreEstimatTittel =
+      "Estimat: hver uke med registrert salg telles som én ordre — kildedataen (FIKS-14) gir kun " +
+      "ukentlig omsetningssum, ikke ekte ordreantall.";
+
     const kpi = [
       {
         lbl: "Omsetning i år",
@@ -657,12 +687,26 @@ const Steg4 = (() => {
         kommer: !harOmsData,
       },
       { lbl: "Totalmargin", sub: "dekningsbidrag", verdi: "—", kommer: true },
-      { lbl: "Utestående", sub: "av kredittgrense", verdi: "—", kommer: true },
-      { lbl: "Snittordre", sub: "ordrefrekvens", verdi: "—", kommer: true },
+      {
+        lbl: "Siste kjøp",
+        sub: sisteKjopSub || "ingen salgsdata ennå",
+        verdi: sisteKjopVerdi,
+        kommer: !sisteUkeRad,
+      },
+      {
+        lbl: "Snittordre",
+        sub:
+          ordrefrekvens != null
+            ? ordrefrekvens.toLocaleString("nb-NO", { maximumFractionDigits: 1 }) + " kjøp/uke i snitt"
+            : "ordrefrekvens",
+        verdi: snittordre != null ? kr(snittordre) : "—",
+        kommer: snittordre == null,
+        tittel: ordreEstimatTittel,
+      },
     ]
       .map(
         (k) =>
-          '<div class="kort">' +
+          '<div class="kort"' + (k.tittel ? ` title="${esc(k.tittel)}"` : "") + '>' +
           '<div class="lbl">' + esc(k.lbl) + (k.kommer ? KOMMER : "") + "</div>" +
           '<div class="verdi' + (k.kommer ? " d-ph" : "") + '">' + esc(k.verdi) + "</div>" +
           '<div class="sub">' + esc(k.sub) + "</div>" +
