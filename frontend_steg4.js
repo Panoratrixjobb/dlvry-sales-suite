@@ -3,7 +3,7 @@
  * Dashboard: APP-tall og EXCEL-tall side om side, ALDRI summert.
  *
  * Bruk:
- *   Steg4.API = "https://konseptsuite-backend.onrender.com";
+ *   Steg4.API = "https://app-konseptsuite-dlvry.azurewebsites.net"; // Azure App Service (satt via API_BASE i index.html)
  *   Steg4.token = <JWT fra innlogging>;
  *   Steg4.monterKundekort(kundeId, document.getElementById("kundekort-steg4"));
  *   Steg4.visDashboard(document.getElementById("dashboard-app"), excelData);
@@ -492,6 +492,69 @@ const Steg4 = (() => {
       });
   }
 
+  // ---------- SALGSHISTORIKK (FIKS-14: ukentlig omsetning pr. org.nr, ikke enkeltordre) ----------
+  async function monterSalgshistorikk(kundeId, el) {
+    el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--d-tekst-3)">Laster salgshistorikk…</p>';
+    let d;
+    try {
+      d = await api(`/api/kunder/${kundeId}/salgshistorikk`);
+    } catch (e) {
+      el.innerHTML = `<p style="margin:0;color:var(--d-roed);font-size:12px">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+
+    if (!d.orgnr || !d.uker || !d.uker.length) {
+      el.innerHTML = placeholderFane(
+        "Salgshistorikk",
+        d.orgnr
+          ? "Ingen kjøp registrert på dette org.nr i salgsdataene (FIKS-14)."
+          : "Kunden mangler org.nr — kan ikke kobles mot salgsdata (FIKS-14)."
+      );
+      return;
+    }
+
+    const t = d.totalt_per_ar || {};
+    const oms2026 = t["2026"] || 0;
+    const oms2025 = t["2025"] || 0;
+    const deltaPct = oms2025 ? Math.round(((oms2026 - oms2025) / oms2025) * 1000) / 10 : null;
+
+    const avvikHtml = d.grossist_avvik
+      ? '<div style="background:var(--d-roed-bg);color:var(--d-roed);border:1px solid #E6B5AE;' +
+        'border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-size:13px">' +
+        `⚠ Grossist i salgsdata (${esc((d.grossist_i_salgsdata || []).join(", ") || "ukjent")}) stemmer ikke med ` +
+        `grossist registrert på kunden i appen (${esc(d.grossist_i_appen || "ingen satt")}).` +
+        "</div>"
+      : "";
+
+    const siste = d.uker.slice(-12).reverse();
+    const rader = siste
+      .map(
+        (u) =>
+          `<tr><td>${esc(u.ar)}</td><td>Uke ${esc(u.uke)}</td><td>${esc(u.grossist || "—")}</td>` +
+          `<td style="text-align:right">${kr(u.belop)}</td></tr>`
+      )
+      .join("");
+
+    el.innerHTML = [
+      avvikHtml,
+      '<div style="display:flex;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap">',
+      '<div class="kort" style="flex:1;min-width:150px">',
+      '<div class="lbl">Omsetning 2026</div>',
+      `<div class="verdi">${kr(oms2026)}</div>`,
+      `<div class="sub">${deltaPct == null ? "—" : (deltaPct >= 0 ? "+" : "") + deltaPct + "% mot i fjor"}</div>`,
+      "</div>",
+      '<div class="kort" style="flex:1;min-width:150px">',
+      '<div class="lbl">Omsetning 2025</div>',
+      `<div class="verdi">${kr(oms2025)}</div>`,
+      '<div class="sub">samme kildeperiode</div>',
+      "</div>",
+      "</div>",
+      '<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. Siste 12 uker med data:</p>',
+      '<table class="d-tabell"><thead><tr><th>År</th><th>Uke</th><th>Grossist</th><th style="text-align:right">Beløp</th></tr></thead>',
+      `<tbody>${rader}</tbody></table>`,
+    ].join("");
+  }
+
   // ---------- KUNDEKORT (kundeinfo + faner) — Variant A "Oversikt" ----------
   function initialer(navn) {
     return (
@@ -518,10 +581,16 @@ const Steg4 = (() => {
       '<p style="color:var(--d-tekst-3);font-size:13px;padding:var(--s4) 0">Laster kundekort…</p>';
 
     let kunde = {};
-    try {
-      kunde = await api(`/api/kunder/${kundeId}`);
-    } catch (e) {
-      console.warn("Kunne ikke hente kundedata:", e.message);
+    let salgshist = {};
+    {
+      const [kundeRes, salgshistRes] = await Promise.allSettled([
+        api(`/api/kunder/${kundeId}`),
+        api(`/api/kunder/${kundeId}/salgshistorikk`),
+      ]);
+      if (kundeRes.status === "fulfilled") kunde = kundeRes.value;
+      else console.warn("Kunne ikke hente kundedata:", kundeRes.reason?.message);
+      if (salgshistRes.status === "fulfilled") salgshist = salgshistRes.value;
+      else console.warn("Kunne ikke hente salgshistorikk:", salgshistRes.reason?.message);
     }
 
     const STATUSER = ["Lead", "Aktiv dialog", "Kunde", "Sovende", "Konkurs", "Ikke aktuell"];
@@ -554,19 +623,32 @@ const Steg4 = (() => {
       );
     const metaHtml = meta.join('<span class="skille">·</span>');
 
-    /* ── KPI-strip (placeholder) ── */
+    /* ── KPI-strip: "Omsetning i år" er ekte data når org.nr matcher salgsdata (FIKS-14),
+       resten er placeholder til margin/kreditt/ordre-kilder finnes ── */
+    const totPerAr = salgshist.totalt_per_ar || {};
+    const oms2026 = totPerAr["2026"];
+    const oms2025 = totPerAr["2025"];
+    const harOmsData = oms2026 != null;
+    const omsDeltaPct =
+      harOmsData && oms2025 ? Math.round(((oms2026 - oms2025) / oms2025) * 1000) / 10 : null;
+
     const kpi = [
-      ["Omsetning i år", "mot i fjor"],
-      ["Totalmargin", "dekningsbidrag"],
-      ["Utestående", "av kredittgrense"],
-      ["Snittordre", "ordrefrekvens"],
+      {
+        lbl: "Omsetning i år",
+        sub: omsDeltaPct == null ? "mot i fjor" : (omsDeltaPct >= 0 ? "+" : "") + omsDeltaPct + "% mot i fjor",
+        verdi: harOmsData ? kr(oms2026) : "—",
+        kommer: !harOmsData,
+      },
+      { lbl: "Totalmargin", sub: "dekningsbidrag", verdi: "—", kommer: true },
+      { lbl: "Utestående", sub: "av kredittgrense", verdi: "—", kommer: true },
+      { lbl: "Snittordre", sub: "ordrefrekvens", verdi: "—", kommer: true },
     ]
       .map(
-        ([lbl, sub]) =>
+        (k) =>
           '<div class="kort">' +
-          '<div class="lbl">' + esc(lbl) + KOMMER + "</div>" +
-          '<div class="verdi d-ph">—</div>' +
-          '<div class="sub">' + esc(sub) + "</div>" +
+          '<div class="lbl">' + esc(k.lbl) + (k.kommer ? KOMMER : "") + "</div>" +
+          '<div class="verdi' + (k.kommer ? " d-ph" : "") + '">' + esc(k.verdi) + "</div>" +
+          '<div class="sub">' + esc(k.sub) + "</div>" +
           "</div>"
       )
       .join("");
@@ -835,7 +917,7 @@ const Steg4 = (() => {
       '<button class="d-fane aktiv" data-fane="kon">Kontaktpersoner</button>',
       '<button class="d-fane" data-fane="akt">Aktiviteter</button>',
       '<button class="d-fane" data-fane="kalk">Kalkyler</button>',
-      '<button class="d-fane" data-fane="ord">Ordrehistorikk</button>',
+      '<button class="d-fane" data-fane="ord">Salgshistorikk</button>',
       '<button class="d-fane" data-fane="lev">Leveringssteder</button>',
       "</div>",
       '<div id="ks-faneinnhold"></div>',
@@ -1003,11 +1085,7 @@ const Steg4 = (() => {
           "Kalkyler",
           "Kalkyler knyttet til kundekortet vises her når kalkyle-koblingen er ferdig. Du kan opprette kalkyler nå via «Ny kalkyle»."
         );
-      else if (f === "ord")
-        innhold.innerHTML = placeholderFane(
-          "Ordrehistorikk",
-          "Fakturerte ordre kommer når ordre-/Excel-koblingen er på plass. Kilden er ikke koblet til appen ennå."
-        );
+      else if (f === "ord") monterSalgshistorikk(kundeId, innhold);
     };
     el.querySelectorAll(".d-fane").forEach((b) =>
       b.addEventListener("click", () => {
