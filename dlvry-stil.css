@@ -247,8 +247,8 @@
 /* To-kolonne body */
 .d-kk-body{display:grid; grid-template-columns:1fr 1.12fr; border-top:1px solid var(--d-ramme);}
 .d-kk-venstre{padding:var(--s5) var(--s6); border-right:1px solid var(--d-ramme);
-  display:flex; flex-direction:column; gap:var(--s5);}
-.d-kk-hoyre{padding:var(--s5) var(--s6); display:flex; flex-direction:column; gap:var(--s4);}
+  display:flex; flex-direction:column; gap:var(--s5); min-width:0;}
+.d-kk-hoyre{padding:var(--s5) var(--s6); display:flex; flex-direction:column; gap:var(--s4); min-width:0;}
 .d-kk-skille{height:1px; background:var(--d-ramme);}
 .d-kk-rad{display:flex; justify-content:space-between; align-items:center; gap:var(--s3);}
 .d-kk-rad .k{font-size:13px; font-weight:500; color:var(--d-tekst-3);}
