@@ -819,6 +819,7 @@ const Steg4 = (() => {
     const erSovende = kunde.status === "Sovende";
     const gjDato = kunde.gjenbesok_dato ? kunde.gjenbesok_dato.slice(0, 10) : "";
     const besFrekv = kunde.besoksfrekvens_uker ?? "";
+    const nesteBesokDato = kunde.neste_besok_dato ? kunde.neste_besok_dato.slice(0, 10) : "";
     const BESOKSFREKVENSER = [
       { v: "1", t: "Ukentlig" },
       { v: "2", t: "Annenhver uke" },
@@ -996,6 +997,10 @@ const Steg4 = (() => {
           `<label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:400;cursor:pointer"><input type="radio" name="ki-besoksfrekvens" value="${f.v}"${String(besFrekv) === f.v ? " checked" : ""}> ${f.t}</label>`
       ).join(""),
       "</div>",
+      `<div id="ki-neste-besok-wrap" style="display:${besFrekv ? "block" : "none"};margin-top:8px;max-width:200px">`,
+      "<label>Neste besøk</label>",
+      `<input id="ki-neste-besok" type="date" class="d-input" value="${nesteBesokDato || new Date().toISOString().slice(0, 10)}">`,
+      "</div>",
       "</div>",
 
       /* Adresser (redigerbare) */
@@ -1111,6 +1116,8 @@ const Steg4 = (() => {
         if (kunde.besoksfrekvens_uker) {
           var bfTekst = {1:'Ukentlig',2:'Annenhver uke',3:'Hver 3. uke',4:'Hver 4. uke'}[kunde.besoksfrekvens_uker] || (kunde.besoksfrekvens_uker+' uker');
           r += '<div class="d-kk-rad"><span class="k">Ønsket bes\xF8ksfrekvens</span><span class="v">'+esc(bfTekst)+'</span></div>';
+          if (kunde.neste_besok_dato)
+            r += '<div class="d-kk-rad"><span class="k">Neste bes\xF8k</span><span class="v">'+new Date(kunde.neste_besok_dato).toLocaleDateString("nb-NO")+'</span></div>';
         }
         r += '</div></div><div class="d-kk-skille"></div>';
         return r;
@@ -1288,6 +1295,13 @@ const Steg4 = (() => {
         s === "Sovende" ? "block" : "none";
     });
 
+    /* Besøksfrekvens → vis/skjul dato for neste besøk */
+    el.querySelectorAll('input[name="ki-besoksfrekvens"]').forEach((r) =>
+      r.addEventListener("change", () => {
+        el.querySelector("#ki-neste-besok-wrap").style.display = r.value ? "block" : "none";
+      })
+    );
+
     /* Fakturaadresse = leveringsadresse */
     const sammeEl = el.querySelector("#ki-samme");
     const faktEl = el.querySelector("#ki-faktadresse");
@@ -1337,7 +1351,13 @@ const Steg4 = (() => {
           payload.gjenbesok_dato = el.querySelector("#ki-gjenbesok").value || null;
         }
         const besFrekvValgt = el.querySelector('input[name="ki-besoksfrekvens"]:checked');
-        payload.besoksfrekvens_uker = besFrekvValgt && besFrekvValgt.value ? parseInt(besFrekvValgt.value, 10) : null;
+        if (besFrekvValgt && besFrekvValgt.value) {
+          payload.besoksfrekvens_uker = parseInt(besFrekvValgt.value, 10);
+          payload.neste_besok_dato = el.querySelector("#ki-neste-besok").value || new Date().toISOString().slice(0, 10);
+        } else {
+          payload.besoksfrekvens_uker = null;
+          payload.neste_besok_dato = null;
+        }
         await api(`/api/kunder/${kundeId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),

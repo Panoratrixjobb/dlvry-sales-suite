@@ -362,6 +362,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <a class="deaktivert"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
+      <a data-view="besoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
     </nav>
     <div class="d-side-bruker">
       <div class="avatar" id="userAvatar">MF</div>
@@ -900,6 +901,20 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
     </div>
 
+    <!-- ===== BESØKSPLAN VIEW ===== -->
+    <div id="view-besoksplan" style="display:none">
+      <div class="topbar">
+        <h1>Besøksplan</h1>
+        <select id="besoksplanPeriode" class="d-select" style="width:auto;margin-left:auto" onchange="endreBesoksplanPeriode(this.value)">
+          <option value="7">Neste 7 dager</option>
+          <option value="14" selected>Neste 14 dager</option>
+          <option value="30">Neste 30 dager</option>
+        </select>
+      </div>
+      <div class="crumb">Kunder med avtalt besøksfrekvens som er forfalt eller forfaller i valgt periode. Sett frekvens og neste besøk i kundekortet.</div>
+      <div id="besoksplanListe" style="margin-top:12px"></div>
+    </div>
+
   </main>
 </div>
 
@@ -1035,6 +1050,31 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('oppgaveModal')">Avbryt</button>
       <button class="d-knapp primar" onclick="bekreftNyOppgave()">Lagre oppgave</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: fjern fra besøksplan -->
+<div class="modal-bg" id="besoksplanFjernModal">
+  <div class="modal">
+    <h2>Fjern fra besøksplan</h2>
+    <p class="sub" id="besoksplanFjernNavn"></p>
+    <div class="d-felt" style="margin-bottom:10px">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+        <input type="radio" name="bp-fjern-valg" value="avslutt" checked onchange="oppdaterBesoksplanFjernValg()"> Avslutt serien (fjern besøksfrekvens helt)
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;margin-top:6px">
+        <input type="radio" name="bp-fjern-valg" value="pause" onchange="oppdaterBesoksplanFjernValg()"> Sett på pause til en fremtidig dato (f.eks. sesongkunde)
+      </label>
+    </div>
+    <div id="bp-fjern-pause-dato-wrap" style="display:none;margin-bottom:10px">
+      <label>Ny dato</label>
+      <input id="bp-fjern-pause-dato" type="date" class="d-input">
+    </div>
+    <div id="besoksplanFjernErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
+    <div class="modal-actions">
+      <button class="d-knapp sekundar" onclick="closeModal('besoksplanFjernModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="bekreftBesoksplanFjern()">Bekreft</button>
     </div>
   </div>
 </div>
@@ -2827,6 +2867,104 @@ let _konkCache=[], _konkValgtId=null, _konkValgtNavn='', _konkPrisPage=1, _konkP
 const KONK_PER_SIDE=200;
 let _konkSokTimer=null;
 
+// ===== Besøksplan =====
+let _besoksplanCache=[];
+let _besoksplanDager=14;
+const BESOKSPLAN_FREKV_TEKST={1:'Ukentlig',2:'Annenhver uke',3:'Hver 3. uke',4:'Hver 4. uke'};
+
+async function mountBesoksplan(){
+  document.getElementById('besoksplanListe').innerHTML='<span style="color:var(--muted);font-size:13px">Laster…</span>';
+  try{
+    _besoksplanCache=await api('/api/besoksplan?dager='+_besoksplanDager)||[];
+  }catch(e){
+    document.getElementById('besoksplanListe').innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>';
+    return;
+  }
+  renderBesoksplanListe();
+}
+
+function endreBesoksplanPeriode(v){
+  _besoksplanDager=parseInt(v,10)||14;
+  mountBesoksplan();
+}
+
+function apneKundeFraBesoksplan(kundeId){
+  setView('kunder');
+  selectCust(kundeId);
+}
+
+function renderBesoksplanListe(){
+  const el=document.getElementById('besoksplanListe');
+  if(!_besoksplanCache.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px">Ingen kunder er forfalt for besøk i valgt periode.</div>';
+    return;
+  }
+  const iDagStr=new Date().toISOString().slice(0,10);
+  const rader=_besoksplanCache.map(function(k){
+    const forfalt=k.neste_besok_dato<iDagStr;
+    const frekvTekst=BESOKSPLAN_FREKV_TEKST[k.besoksfrekvens_uker]||(k.besoksfrekvens_uker+' uker');
+    return '<tr>'
+      +'<td><a href="#" onclick="apneKundeFraBesoksplan(\''+k.kunde_id+'\');return false" style="color:var(--brand);text-decoration:none;font-weight:600">'+esc(k.kunde_navn)+'</a></td>'
+      +'<td>'+esc(frekvTekst)+'</td>'
+      +'<td style="white-space:nowrap;'+(forfalt?'color:var(--d-roed);font-weight:700':'')+'">'+k.neste_besok_dato+'</td>'
+      +'<td style="white-space:nowrap">'
+      +'<span class="d-badge flat bla" style="font-size:11px;cursor:pointer;margin-right:4px" onclick="besoksplanUtsett(\''+k.kunde_id+'\',\''+k.neste_besok_dato+'\',7)">+1 uke</span>'
+      +'<span class="d-badge flat bla" style="font-size:11px;cursor:pointer;margin-right:4px" onclick="besoksplanUtsett(\''+k.kunde_id+'\',\''+k.neste_besok_dato+'\',14)">+2 uker</span>'
+      +'<span class="d-badge flat bla" style="font-size:11px;cursor:pointer;margin-right:4px" onclick="besoksplanUtsett(\''+k.kunde_id+'\',\''+k.neste_besok_dato+'\',30)">+1 måned</span>'
+      +'<span class="d-badge flat roed" style="font-size:11px;cursor:pointer" onclick="apneBesoksplanFjern(\''+k.kunde_id+'\',\''+esc(k.kunde_navn).replace(/'/g,"\\'")+'\')">Fjern</span>'
+      +'</td>'
+      +'</tr>';
+  }).join('');
+  el.innerHTML='<div class="table-wrap"><table><thead><tr><th>Kunde</th><th>Frekvens</th><th>Neste besøk</th><th></th></tr></thead><tbody>'+rader+'</tbody></table></div>';
+}
+
+async function besoksplanUtsett(kundeId, gammelDato, dagerOffset){
+  const iDag=new Date(); iDag.setHours(0,0,0,0);
+  let basis=gammelDato?new Date(gammelDato+'T00:00:00'):iDag;
+  if(basis<iDag) basis=new Date(iDag);
+  basis.setDate(basis.getDate()+dagerOffset);
+  const nyDato=basis.toISOString().slice(0,10);
+  try{
+    await api('/api/kunder/'+kundeId,{method:'PATCH',body:{neste_besok_dato:nyDato}});
+    toast('Utsatt til '+nyDato);
+    mountBesoksplan();
+  }catch(e){toast('Feil: '+e.message);}
+}
+
+let _bpFjernKundeId=null;
+function apneBesoksplanFjern(kundeId, kundeNavn){
+  _bpFjernKundeId=kundeId;
+  document.getElementById('besoksplanFjernNavn').textContent=kundeNavn;
+  document.querySelector('input[name="bp-fjern-valg"][value="avslutt"]').checked=true;
+  document.getElementById('bp-fjern-pause-dato-wrap').style.display='none';
+  document.getElementById('bp-fjern-pause-dato').value='';
+  document.getElementById('besoksplanFjernErr').textContent='';
+  document.getElementById('besoksplanFjernModal').classList.add('open');
+}
+
+function oppdaterBesoksplanFjernValg(){
+  const valgt=document.querySelector('input[name="bp-fjern-valg"]:checked').value;
+  document.getElementById('bp-fjern-pause-dato-wrap').style.display = valgt==='pause' ? 'block' : 'none';
+}
+
+async function bekreftBesoksplanFjern(){
+  const valgt=document.querySelector('input[name="bp-fjern-valg"]:checked').value;
+  const errEl=document.getElementById('besoksplanFjernErr');
+  errEl.textContent='';
+  try{
+    if(valgt==='avslutt'){
+      await api('/api/kunder/'+_bpFjernKundeId,{method:'PATCH',body:{besoksfrekvens_uker:null,neste_besok_dato:null}});
+    }else{
+      const dato=document.getElementById('bp-fjern-pause-dato').value;
+      if(!dato){errEl.textContent='Velg en dato';return;}
+      await api('/api/kunder/'+_bpFjernKundeId,{method:'PATCH',body:{neste_besok_dato:dato}});
+    }
+    closeModal('besoksplanFjernModal');
+    toast('Oppdatert');
+    mountBesoksplan();
+  }catch(e){errEl.textContent='Feil: '+e.message;}
+}
+
 async function mountKonkurrenter(){
   document.getElementById('konkListe').innerHTML='<span style="color:var(--muted);font-size:13px">Laster…</span>';
   document.getElementById('konkPrisPanel').style.display='none';
@@ -3460,6 +3598,7 @@ function setView(v){
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
   document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
   document.getElementById('view-konkurrenter').style.display=v==='konkurrenter'?'':'none';
+  document.getElementById('view-besoksplan').style.display=v==='besoksplan'?'':'none';
   document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
@@ -3473,6 +3612,7 @@ function setView(v){
   if(v==='kalkulator'){ if(!state.calcId){setKalkSub('liste');lastKalkyleListe();} else setKalkSub('editor'); }
   if(v==='brukere')mountBrukere();
   if(v==='konkurrenter')mountKonkurrenter();
+  if(v==='besoksplan')mountBesoksplan();
 }
 
 // ============ Init ============
