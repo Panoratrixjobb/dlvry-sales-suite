@@ -184,6 +184,7 @@ const Steg4 = (() => {
         <div class="d-innh">
           <div class="d-tit">${esc(a.type)}</div>
           <div class="d-meta">${new Date(a.dato).toLocaleDateString("nb-NO")}${a.bruker_navn ? " · " + esc(a.bruker_navn) : ""}
+            ${a.type === "Møte" ? `<button class="d-knapp subtil sm" data-mote-notater="${a.id}" style="margin-left:var(--s2)">📝 Møtenotater</button>` : ""}
             <button class="d-knapp fare sm" data-slett="${a.id}" style="margin-left:var(--s2)">Slett</button>
           </div>
           ${a.notat ? `<div class="d-notat">${esc(a.notat)}</div>` : ""}
@@ -214,6 +215,11 @@ const Steg4 = (() => {
       </div>
       <ul class="d-tidslinje">${hendinger || '<li style="color:var(--d-tekst-3);font-size:13px">Ingen aktivitet logget ennå.</li>'}</ul>`;
 
+    el.querySelectorAll("[data-mote-notater]").forEach((b) =>
+      b.addEventListener("click", () => {
+        if (window.apneMoteDetalj) window.apneMoteDetalj(b.dataset.moteNotater);
+      })
+    );
     el.querySelectorAll("[data-slett]").forEach((b) =>
       b.addEventListener("click", async () => {
         try {
@@ -1413,7 +1419,16 @@ const Steg4 = (() => {
     return d.toLocaleDateString("nb-NO", { weekday: "short", day: "numeric", month: "short" });
   }
 
+  let _moterUkerValgt = 1;
+  let _sisteDashEl = null, _sisteDashExcel = null;
+
+  async function endreMoterUker(v) {
+    _moterUkerValgt = parseInt(v, 10) || 1;
+    if (_sisteDashEl) await visDashboard(_sisteDashEl, _sisteDashExcel);
+  }
+
   async function visDashboard(el, excelData) {
+    _sisteDashEl = el; _sisteDashExcel = excelData;
     el.innerHTML =
       '<div style="display:flex;align-items:center;gap:10px;color:var(--d-tekst-3);padding:var(--s6) 0">' +
       '<span style="display:inline-block;width:16px;height:16px;border:2px solid var(--primaer);border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></span>' +
@@ -1425,7 +1440,7 @@ const Steg4 = (() => {
     try {
       [app, moter, oppfolging, oppgaver] = await Promise.all([
         api("/api/dashboard"),
-        api("/api/moter").catch(() => []),
+        api(`/api/moter?uker=${_moterUkerValgt}`).catch(() => []),
         api("/api/oppfolging").catch(() => []),
         api("/api/oppgaver").catch(() => []),
       ]);
@@ -1457,7 +1472,7 @@ const Steg4 = (() => {
       { label: "Konverteringsrate",       tall: konvRate !== null ? konvRate.toLocaleString("nb-NO", {maximumFractionDigits:1}) + "%" : "—", vs: "Lead → Vunnet", nav: "", color:"#6366f1", icon:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
       { label: "Leads til oppf\xF8lging", tall: oppfolging.length,        vs: "Tilbud/gjenbes\xF8k krever handling", nav: "", color:"#f59e0b", icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' },
       { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "", color:"#ef4444", icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
-      { label: "M\xF8ter denne uken",     tall: moter.length,             vs: "Man → s\xF8ndag",                nav: "", color:"#10b981", icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
+      { label: _moterUkerValgt === 1 ? "M\xF8ter denne uken" : "M\xF8ter neste " + _moterUkerValgt + " uker", tall: moter.length, vs: "Man → s\xF8ndag", nav: "", color:"#10b981", icon:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
     ];
     const kpiHtml = kpiKort.map(function(k) {
       var c = k.color, rr = parseInt(c.slice(1,3),16), gg = parseInt(c.slice(3,5),16), bb = parseInt(c.slice(5,7),16);
@@ -1500,10 +1515,13 @@ const Steg4 = (() => {
             '<td style="white-space:nowrap">' + norskDato(m.dato) + "</td>" +
             '<td><a href="#" data-kunde-id="' + esc(m.kunde_id) + '" style="color:var(--primaer);text-decoration:none;font-weight:600">' + esc(m.kunde_navn) + "</a></td>" +
             '<td style="color:var(--d-tekst-3)">' + esc(m.notat || "—") + "</td>" +
-            '<td><button onclick="Steg4.slettMote(\'' + m.aktivitet_id + '\',this)" style="background:none;border:none;color:var(--d-tekst-3);cursor:pointer;font-size:14px;padding:2px 6px" title="Slett møte">✕</button></td>' +
+            '<td style="white-space:nowrap">' +
+            '<button onclick="window.apneMoteDetalj&&window.apneMoteDetalj(\'' + m.aktivitet_id + '\')" style="background:none;border:none;color:var(--primaer);cursor:pointer;font-size:13px;padding:2px 6px" title="Åpne møtenotater">📝</button>' +
+            '<button onclick="Steg4.slettMote(\'' + m.aktivitet_id + '\',this)" style="background:none;border:none;color:var(--d-tekst-3);cursor:pointer;font-size:14px;padding:2px 6px" title="Slett møte">✕</button>' +
+            "</td>" +
             "</tr>";
         }).join("")
-      : '<tr><td colspan="4" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen m\xF8ter denne uken.</td></tr>';
+      : '<tr><td colspan="4" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen m\xF8ter i valgt periode.</td></tr>';
 
     // --- Oppfølging + oppgave-rader (kombinert, sortert på dato) ---
     const oppfKombo = oppfolging
@@ -1548,8 +1566,13 @@ const Steg4 = (() => {
       // Møter + Oppfølging side om side
       '<div class="d-grid d-g2" style="margin-bottom:var(--s5)">' +
         '<div class="d-panel">' +
-          '<div class="d-panel-hode"><span class="d-t-h2">Ukens m\xF8ter</span>' +
+          '<div class="d-panel-hode"><span class="d-t-h2">M\xF8ter</span>' +
+          '<span style="display:flex;align-items:center;gap:8px">' +
+          '<select onchange="Steg4.endreMoterUker(this.value)" style="font-size:11.5px;padding:3px 6px;border-radius:5px;border:1px solid var(--line)">' +
+          [1, 2, 3, 4].map(function(u) { return '<option value="' + u + '"' + (u === _moterUkerValgt ? " selected" : "") + '>' + u + (u === 1 ? " uke" : " uker") + '</option>'; }).join("") +
+          "</select>" +
           '<button onclick="openNyttMote && openNyttMote()" style="font-size:11.5px;font-weight:600;color:#fff;background:var(--brand);border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-family:inherit">+ Nytt m\xF8te</button>' +
+          "</span>" +
           "</div>" +
           '<table class="d-tabell"><thead><tr>' +
           '<th>Dato</th><th>Kunde</th><th>Notat</th><th></th>' +
@@ -1754,6 +1777,6 @@ const Steg4 = (() => {
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, monterKonkurrenter, slettMote, fullforOppgave,
+    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, monterKonkurrenter, slettMote, fullforOppgave, endreMoterUker,
   };
 })();
