@@ -1577,7 +1577,10 @@ const Steg4 = (() => {
       a.addEventListener("click", function(e) {
         e.preventDefault();
         const id = a.dataset.kundeId;
-        if (id && window.velgKunde) window.velgKunde(id);
+        if (id && typeof window.setView === "function" && typeof window.selectCust === "function") {
+          window.setView("kunder");
+          window.selectCust(id);
+        }
       });
     });
   }
