@@ -245,6 +245,189 @@ const Steg4 = (() => {
     });
   }
 
+  // ---------- KONKURRENTPRISER ----------
+  let _konkFakturaData = null;
+  let _konkListe = null;
+
+  async function monterKonkurrenter(kundeId, el) {
+    el.innerHTML = '<p style="color:var(--d-tekst-3);font-size:13px">Laster konkurrentpriser…</p>';
+    let priser;
+    try {
+      priser = await api(`/api/konkurrenter/kunde/${kundeId}/priser`);
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--d-roed)">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+
+    const rader = priser
+      .map(
+        (p) => `
+      <tr>
+        <td style="white-space:nowrap">${new Date(p.dato).toLocaleDateString("nb-NO")}</td>
+        <td>${esc(p.konkurrent_navn)}</td>
+        <td>${esc(p.varenavn)}${p.varenummer ? ` <span style="color:var(--d-tekst-3);font-size:11px">(${esc(p.varenummer)})</span>` : ""}</td>
+        <td style="text-align:right">${p.rapris != null ? kr(p.rapris) : "—"}</td>
+        <td style="text-align:right">${p.rabatt != null ? p.rabatt + " %" : "—"}</td>
+      </tr>`
+      )
+      .join("");
+
+    el.innerHTML = `
+      <div class="d-legg-til" style="margin-bottom:var(--s4)">
+        <div class="d-felt" style="flex:1;min-width:220px">
+          <label>Last opp konkurrentfaktura (bilde/PDF)</label>
+          <input id="kk-faktura-fil" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" class="d-input">
+        </div>
+        <span id="kk-faktura-status" style="font-size:12px;color:var(--d-tekst-3);align-self:flex-end"></span>
+      </div>
+      <div id="kk-faktura-innhold" style="margin-bottom:var(--s4)"></div>
+      <table class="d-tabell"><thead><tr>
+        <th>Dato</th><th>Konkurrent</th><th>Produkt</th>
+        <th style="text-align:right">Listepris</th><th style="text-align:right">Rabatt</th>
+      </tr></thead><tbody>${rader || '<tr><td colspan="5" style="color:var(--d-tekst-3);font-style:italic">Ingen konkurrentpriser registrert på denne kunden ennå.</td></tr>'}</tbody></table>`;
+
+    el.querySelector("#kk-faktura-fil").addEventListener("change", (ev) =>
+      lastOppKonkFaktura(ev, kundeId, el)
+    );
+  }
+
+  async function lastOppKonkFaktura(ev, kundeId, el) {
+    const fil = ev.target.files[0];
+    if (!fil) return;
+    ev.target.value = "";
+    const status = el.querySelector("#kk-faktura-status");
+    const innhold = el.querySelector("#kk-faktura-innhold");
+    status.textContent = "Leser faktura med AI… (kan ta 10–30 sek)";
+    status.style.color = "var(--d-tekst-3)";
+    innhold.innerHTML = "";
+    try {
+      const fd = new FormData();
+      fd.append("fil", fil);
+      const r = await fetch(API + "/api/faktura/tolk", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token },
+        body: fd,
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(r.status + ": " + t.slice(0, 200));
+      }
+      _konkFakturaData = await r.json();
+      status.textContent = "";
+      if (!_konkListe) _konkListe = await api("/api/konkurrenter");
+      renderKonkFaktura(kundeId, el);
+    } catch (e) {
+      status.textContent = "Feil: " + e.message;
+      status.style.color = "var(--d-roed)";
+    }
+  }
+
+  function renderKonkFaktura(kundeId, el) {
+    const d = _konkFakturaData;
+    const innhold = el.querySelector("#kk-faktura-innhold");
+    const linjer = d.linjer || [];
+    const gjettetNavn = (d.leverandor || "").trim();
+    const gjettetTreff = _konkListe.find(
+      (k) => k.navn.toLowerCase() === gjettetNavn.toLowerCase()
+    );
+
+    const rows = linjer
+      .map(
+        (l, i) => `
+      <tr>
+        <td>${esc(l.beskrivelse ?? "—")}</td>
+        <td style="text-align:right">${l.antall ?? "—"}</td>
+        <td style="text-align:right">${l.enhetspris ?? "—"}</td>
+        <td style="text-align:right">${l.rabatt ?? "—"}</td>
+      </tr>`
+      )
+      .join("");
+
+    const opts = _konkListe
+      .map(
+        (k) =>
+          `<option value="${k.id}" ${gjettetTreff && gjettetTreff.id === k.id ? "selected" : ""}>${esc(k.navn)}</option>`
+      )
+      .join("");
+
+    innhold.innerHTML = `
+      <div style="padding:12px;background:var(--panel);border:1px solid var(--d-ramme);border-radius:var(--d-radius-sm)">
+        <p style="font-size:13px;margin:0 0 10px">Leverandør på faktura: <b>${esc(d.leverandor || "—")}</b> · ${linjer.length} linjer</p>
+        <div class="d-felt" style="max-width:280px;margin-bottom:10px">
+          <label>Konkurrent</label>
+          <select id="kk-konk-velg" class="d-select">
+            <option value="">— opprett ny fra leverandørnavn —</option>
+            ${opts}
+          </select>
+        </div>
+        <div class="table-wrap" style="margin-bottom:10px">
+          <table><thead><tr><th>Beskrivelse</th><th>Antall</th><th>Pris</th><th>Rabatt</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4">Ingen linjer</td></tr>'}</tbody></table>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="d-knapp primar" id="kk-konk-lagre">Lagre på kunde</button>
+          <button class="d-knapp subtil" id="kk-konk-avbryt">Avbryt</button>
+        </div>
+      </div>`;
+
+    innhold.querySelector("#kk-konk-avbryt").addEventListener("click", () => {
+      _konkFakturaData = null;
+      innhold.innerHTML = "";
+    });
+    innhold.querySelector("#kk-konk-lagre").addEventListener("click", () =>
+      lagreKonkFaktura(kundeId, el)
+    );
+  }
+
+  async function lagreKonkFaktura(kundeId, el) {
+    const status = el.querySelector("#kk-faktura-status");
+    const valgtId = el.querySelector("#kk-konk-velg").value;
+    const d = _konkFakturaData;
+    status.textContent = "Lagrer…";
+    status.style.color = "var(--d-tekst-3)";
+    try {
+      let konkurrentId = valgtId;
+      if (!konkurrentId) {
+        const navn = (d.leverandor || "").trim();
+        if (!navn) {
+          status.textContent = "Fant ingen leverandørnavn — velg en konkurrent manuelt";
+          status.style.color = "var(--d-roed)";
+          return;
+        }
+        const k = await api("/api/konkurrenter/finn-eller-opprett", {
+          method: "POST",
+          body: JSON.stringify({ navn }),
+        });
+        konkurrentId = k.id;
+        _konkListe.push(k);
+      }
+      const linjer = (d.linjer || [])
+        .filter((l) => l.beskrivelse && l.enhetspris != null)
+        .map((l) => ({
+          produktnavn: l.beskrivelse,
+          enhet: l.enhet || null,
+          pris: l.enhetspris,
+          mengde: l.antall ?? null,
+          rabatt: l.rabatt ?? null,
+          varenummer: l.art_nr_faktura || null,
+        }));
+      if (!linjer.length) {
+        status.textContent = "Ingen linjer med pris å lagre";
+        status.style.color = "var(--d-roed)";
+        return;
+      }
+      await api(`/api/konkurrenter/${konkurrentId}/priser-fra-faktura`, {
+        method: "POST",
+        body: JSON.stringify({ linjer, kunde_id: kundeId }),
+      });
+      _konkFakturaData = null;
+      monterKonkurrenter(kundeId, el);
+    } catch (e) {
+      status.textContent = "Feil: " + e.message;
+      status.style.color = "var(--d-roed)";
+    }
+  }
+
   // ---------- KONTAKTPERSONER ----------
   async function monterKontaktpersoner(kundeId, el) {
     el.innerHTML = '<p style="color:var(--d-tekst-3);font-size:13px">Laster kontaktpersoner…</p>';
@@ -627,6 +810,14 @@ const Steg4 = (() => {
     const erIkkeAktuell = kunde.status === "Ikke aktuell";
     const erSovende = kunde.status === "Sovende";
     const gjDato = kunde.gjenbesok_dato ? kunde.gjenbesok_dato.slice(0, 10) : "";
+    const besFrekv = kunde.besoksfrekvens_uker ?? "";
+    const BESOKSFREKVENSER = [
+      { v: "1", t: "Ukentlig" },
+      { v: "2", t: "Annenhver uke" },
+      { v: "3", t: "Hver 3. uke" },
+      { v: "4", t: "Hver 4. uke" },
+      { v: "", t: "Ikke satt" },
+    ];
     const segTekst = kunde.naeringsbeskrivelse
       ? (kunde.naeringskode ? kunde.naeringskode + " — " : "") + kunde.naeringsbeskrivelse
       : "";
@@ -788,6 +979,17 @@ const Steg4 = (() => {
       "</div>",
       "</div>",
 
+      /* Ønsket besøksfrekvens */
+      '<div class="d-felt" style="margin-bottom:var(--s3)">',
+      "<label>Ønsket besøksfrekvens</label>",
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">',
+      BESOKSFREKVENSER.map(
+        (f) =>
+          `<label style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:400;cursor:pointer"><input type="radio" name="ki-besoksfrekvens" value="${f.v}"${String(besFrekv) === f.v ? " checked" : ""}> ${f.t}</label>`
+      ).join(""),
+      "</div>",
+      "</div>",
+
       /* Adresser (redigerbare) */
       '<div class="d-grid d-g2" style="margin-bottom:var(--s3)">',
       '<div class="d-felt">',
@@ -872,7 +1074,7 @@ const Steg4 = (() => {
       /* Leads-info (nye felt fra leads-import) */
       (function() {
         var har = kunde.telefon || kunde.epost || kunde.postnr || kunde.bransje || kunde.lead_score != null
-          || kunde.naermeste_grossist || kunde.markedskjede || kunde.innkjopssamarbeid;
+          || kunde.naermeste_grossist || kunde.markedskjede || kunde.innkjopssamarbeid || kunde.besoksfrekvens_uker;
         if (!har) return '';
         var r = '<div><span class="d-kk-sek-tit">Leads-info</span>';
         r += '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:9px">';
@@ -898,6 +1100,10 @@ const Steg4 = (() => {
           r += '<div class="d-kk-rad"><span class="k">Markedskjede</span><span class="v">'+esc(kunde.markedskjede)+'</span></div>';
         if (kunde.innkjopssamarbeid)
           r += '<div class="d-kk-rad"><span class="k">Innkjøpssamarbeid</span><span class="v">'+esc(kunde.innkjopssamarbeid)+'</span></div>';
+        if (kunde.besoksfrekvens_uker) {
+          var bfTekst = {1:'Ukentlig',2:'Annenhver uke',3:'Hver 3. uke',4:'Hver 4. uke'}[kunde.besoksfrekvens_uker] || (kunde.besoksfrekvens_uker+' uker');
+          r += '<div class="d-kk-rad"><span class="k">Ønsket bes\xF8ksfrekvens</span><span class="v">'+esc(bfTekst)+'</span></div>';
+        }
         r += '</div></div><div class="d-kk-skille"></div>';
         return r;
       })(),
@@ -980,6 +1186,7 @@ const Steg4 = (() => {
       '<button class="d-fane" data-fane="kalk">Kalkyler</button>',
       '<button class="d-fane" data-fane="ord">Salgshistorikk</button>',
       '<button class="d-fane" data-fane="lev">Leveringssteder</button>',
+      '<button class="d-fane" data-fane="konk">Konkurrenter</button>',
       "</div>",
       '<div id="ks-faneinnhold"></div>',
 
@@ -1121,6 +1328,8 @@ const Steg4 = (() => {
         if (statusVal === "Sovende") {
           payload.gjenbesok_dato = el.querySelector("#ki-gjenbesok").value || null;
         }
+        const besFrekvValgt = el.querySelector('input[name="ki-besoksfrekvens"]:checked');
+        payload.besoksfrekvens_uker = besFrekvValgt && besFrekvValgt.value ? parseInt(besFrekvValgt.value, 10) : null;
         await api(`/api/kunder/${kundeId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
@@ -1147,6 +1356,7 @@ const Steg4 = (() => {
           "Kalkyler knyttet til kundekortet vises her når kalkyle-koblingen er ferdig. Du kan opprette kalkyler nå via «Ny kalkyle»."
         );
       else if (f === "ord") monterSalgshistorikk(kundeId, innhold);
+      else if (f === "konk") monterKonkurrenter(kundeId, innhold);
     };
     el.querySelectorAll(".d-fane").forEach((b) =>
       b.addEventListener("click", () => {
@@ -1183,12 +1393,13 @@ const Steg4 = (() => {
       "<style>@keyframes spin{to{transform:rotate(360deg)}}</style>";
 
     let app = { per_status: [], per_selger: [], sum_potensiell_total: 0, totalt_kalkyler: 0, totalt_kunder: 0 };
-    let moter = [], oppfolging = [];
+    let moter = [], oppfolging = [], oppgaver = [];
     try {
-      [app, moter, oppfolging] = await Promise.all([
+      [app, moter, oppfolging, oppgaver] = await Promise.all([
         api("/api/dashboard"),
         api("/api/moter").catch(() => []),
         api("/api/oppfolging").catch(() => []),
+        api("/api/oppgaver").catch(() => []),
       ]);
     } catch (e) {
       el.innerHTML = '<p style="color:var(--d-roed);padding:var(--s4)">Feil ved lasting av dashboard: ' + esc(e.message) + "</p>";
@@ -1266,19 +1477,25 @@ const Steg4 = (() => {
         }).join("")
       : '<tr><td colspan="4" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen m\xF8ter denne uken.</td></tr>';
 
-    // --- Oppfølging-rader ---
-    const oppfRader = oppfolging.length
-      ? oppfolging.map(function(o) {
+    // --- Oppfølging + oppgave-rader (kombinert, sortert på dato) ---
+    const oppfKombo = oppfolging
+      .map(function(o) { return { kind: o.type, kunde_navn: o.kunde_navn, dato: o.dato, id: null }; })
+      .concat(oppgaver.map(function(o) { return { kind: "oppgave", kunde_navn: o.kunde_navn ? o.tittel + " — " + o.kunde_navn : o.tittel, dato: o.frist_dato, id: o.id }; }))
+      .sort(function(a, b) { return (a.dato || "") < (b.dato || "") ? -1 : (a.dato || "") > (b.dato || "") ? 1 : 0; });
+
+    const oppfRader = oppfKombo.length
+      ? oppfKombo.map(function(o) {
           const forfalt = o.dato && (o.dato || "").slice(0, 10) < iDagStr;
-          const typeLabel = o.type === "tilbud" ? "Tilbud" : "Gjenbes\xF8k";
-          const typeFarge = o.type === "tilbud" ? "bla" : "gronn";
+          const typeLabel = o.kind === "tilbud" ? "Tilbud" : o.kind === "oppgave" ? "Oppgave" : "Gjenbes\xF8k";
+          const typeFarge = o.kind === "tilbud" ? "bla" : o.kind === "oppgave" ? "gul" : "gronn";
           return "<tr>" +
             '<td><span class="d-badge ' + typeFarge + ' flat">' + typeLabel + "</span></td>" +
             '<td style="font-weight:600">' + esc(o.kunde_navn) + "</td>" +
             '<td style="white-space:nowrap;' + (forfalt ? "color:var(--d-roed);font-weight:700" : "color:var(--d-tekst-3)") + '">' + norskDato(o.dato) + "</td>" +
+            '<td>' + (o.kind === "oppgave" ? '<button onclick="Steg4.fullforOppgave(\'' + o.id + '\',this)" style="background:none;border:none;color:var(--d-tekst-3);cursor:pointer;font-size:12px;padding:2px 6px" title="Merk fullf\xF8rt">✓ Fullf\xF8rt</button>' : "") + '</td>' +
             "</tr>";
         }).join("")
-      : '<tr><td colspan="3" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen oppf\xF8lginger n\xE5.</td></tr>';
+      : '<tr><td colspan="4" style="color:var(--d-tekst-3);font-style:italic;padding:var(--s4) var(--s3)">Ingen oppf\xF8lginger n\xE5.</td></tr>';
 
     // Per-selger-data sendes til visDashboardSelger via setView
 
@@ -1312,10 +1529,13 @@ const Steg4 = (() => {
         "</div>" +
         '<div class="d-panel">' +
           '<div class="d-panel-hode"><span class="d-t-h2">Oppf\xF8lging</span>' +
-          '<span style="font-size:11px;font-weight:600;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:10px;border:1px solid var(--line)">' + oppfolging.length + " aktive</span>" +
+          '<span style="display:flex;align-items:center;gap:8px">' +
+          '<span style="font-size:11px;font-weight:600;color:var(--muted);background:var(--bg);padding:3px 10px;border-radius:10px;border:1px solid var(--line)">' + oppfKombo.length + " aktive</span>" +
+          '<button onclick="openNyOppgave && openNyOppgave()" style="font-size:11.5px;font-weight:600;color:#fff;background:var(--brand);border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-family:inherit">+ Ny oppgave</button>' +
+          "</span>" +
           "</div>" +
           '<table class="d-tabell"><thead><tr>' +
-          "<th>Type</th><th>Kunde</th><th>Dato</th>" +
+          "<th>Type</th><th>Kunde</th><th>Dato</th><th></th>" +
           "</tr></thead><tbody>" + oppfRader + "</tbody></table>" +
         "</div>" +
       "</div>" +
@@ -1488,9 +1708,21 @@ const Steg4 = (() => {
     }
   }
 
+  async function fullforOppgave(oppgaveId, btn) {
+    btn.disabled = true;
+    try {
+      await api("/api/oppgaver/" + oppgaveId + "/fullfor", { method: "PATCH" });
+      const tr = btn.closest("tr");
+      if (tr) tr.remove();
+    } catch(e) {
+      alert("Feil: " + e.message);
+      btn.disabled = false;
+    }
+  }
+
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, slettMote,
+    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, monterKonkurrenter, slettMote, fullforOppgave,
   };
 })();

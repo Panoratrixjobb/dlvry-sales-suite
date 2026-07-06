@@ -998,6 +998,47 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
   </div>
 </div>
 
+<!-- Modal: nytt møte (dashboard) -->
+<div class="modal-bg" id="moteModal">
+  <div class="modal">
+    <h2>Nytt møte</h2>
+    <p class="sub">Registrer et møte med en kunde eller lead — vises i "Ukens møter" på dashboard.</p>
+    <div class="d-felt" style="margin-bottom:10px">
+      <label>Kunde/lead *</label>
+      <input id="moteKundeInput" class="d-input" list="moteKundeListe" placeholder="Søk kundenavn…" oninput="filtrerMoteKunde(this.value)">
+      <datalist id="moteKundeListe"></datalist>
+    </div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Dato *</label><input id="moteDato" type="date" class="d-input"></div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Notat</label><input id="moteNotat" class="d-input" placeholder="Valgfritt"></div>
+    <div id="moteErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
+    <div class="modal-actions">
+      <button class="d-knapp sekundar" onclick="closeModal('moteModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="bekreftNyttMote()">Lagre møte</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ny oppgave (dashboard) -->
+<div class="modal-bg" id="oppgaveModal">
+  <div class="modal">
+    <h2>Ny oppgave</h2>
+    <p class="sub">Frist vises i "Oppfølging" på dashboard — forfalte frister fremheves i rødt.</p>
+    <div class="d-felt" style="margin-bottom:10px"><label>Tittel *</label><input id="oppgaveTittel" class="d-input" placeholder="f.eks. Ring om tilbudet"></div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Frist *</label><input id="oppgaveFrist" type="date" class="d-input"></div>
+    <div class="d-felt" style="margin-bottom:10px">
+      <label>Kunde/lead (valgfritt)</label>
+      <input id="oppgaveKundeInput" class="d-input" list="oppgaveKundeListe" placeholder="Søk kundenavn…" oninput="filtrerOppgaveKunde(this.value)">
+      <datalist id="oppgaveKundeListe"></datalist>
+    </div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Notat</label><input id="oppgaveNotat" class="d-input" placeholder="Valgfritt"></div>
+    <div id="oppgaveErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
+    <div class="modal-actions">
+      <button class="d-knapp sekundar" onclick="closeModal('oppgaveModal')">Avbryt</button>
+      <button class="d-knapp primar" onclick="bekreftNyOppgave()">Lagre oppgave</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: ny kalkyle -->
 <div class="modal-bg" id="calcModal">
   <div class="modal">
@@ -2221,6 +2262,91 @@ async function bekreftVelgKunde(){
     oppdaterVelgKundeBanner();
     toast('Kunde tilknyttet');
   }catch(e){toast('Feil: '+e.message);}
+}
+
+// ===== Nytt møte (dashboard, "+ Nytt møte") =====
+let _moteKundeCache=[];
+async function openNyttMote(){
+  document.getElementById('moteKundeInput').value='';
+  document.getElementById('moteNotat').value='';
+  document.getElementById('moteDato').value=new Date().toISOString().slice(0,10);
+  document.getElementById('moteErr').textContent='';
+  document.getElementById('moteModal').classList.add('open');
+  try{
+    _moteKundeCache=(await api('/api/kunder?limit=200')||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
+    document.getElementById('moteKundeListe').innerHTML=_moteKundeCache.map(function(c){return'<option value="'+esc(c.navn)+'">';}).join('');
+  }catch(e){
+    document.getElementById('moteErr').textContent='Kunne ikke hente kundeliste: '+e.message;
+  }
+}
+function filtrerMoteKunde(q){
+  var dl=document.getElementById('moteKundeListe');
+  if(!dl)return;
+  var low=q.toLowerCase();
+  var treff=_moteKundeCache.filter(function(c){return(c.navn||'').toLowerCase().indexOf(low)>=0;}).slice(0,40);
+  dl.innerHTML=treff.map(function(c){return'<option value="'+esc(c.navn)+'">';}).join('');
+}
+async function bekreftNyttMote(){
+  var navn=(document.getElementById('moteKundeInput').value||'').trim();
+  var dato=document.getElementById('moteDato').value;
+  var notat=(document.getElementById('moteNotat').value||'').trim();
+  var errEl=document.getElementById('moteErr');
+  errEl.textContent='';
+  var c=_moteKundeCache.find(function(x){return(x.navn||'').toLowerCase()===navn.toLowerCase();});
+  if(!c){errEl.textContent='Velg en kunde/lead fra listen';return;}
+  if(!dato){errEl.textContent='Velg en dato';return;}
+  try{
+    await api('/api/kunder/'+c.id+'/aktiviteter',{method:'POST',body:{type:'Møte',dato:new Date(dato).toISOString(),notat:notat||null}});
+    closeModal('moteModal');
+    toast('Møte registrert');
+    setView('dashboard');
+  }catch(e){errEl.textContent='Feil: '+e.message;}
+}
+
+// ===== Ny oppgave (dashboard, "+ Ny oppgave") =====
+let _oppgaveKundeCache=[];
+async function openNyOppgave(){
+  document.getElementById('oppgaveTittel').value='';
+  document.getElementById('oppgaveKundeInput').value='';
+  document.getElementById('oppgaveNotat').value='';
+  document.getElementById('oppgaveFrist').value=new Date().toISOString().slice(0,10);
+  document.getElementById('oppgaveErr').textContent='';
+  document.getElementById('oppgaveModal').classList.add('open');
+  try{
+    _oppgaveKundeCache=(await api('/api/kunder?limit=200')||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
+    document.getElementById('oppgaveKundeListe').innerHTML=_oppgaveKundeCache.map(function(c){return'<option value="'+esc(c.navn)+'">';}).join('');
+  }catch(e){
+    document.getElementById('oppgaveErr').textContent='Kunne ikke hente kundeliste: '+e.message;
+  }
+}
+function filtrerOppgaveKunde(q){
+  var dl=document.getElementById('oppgaveKundeListe');
+  if(!dl)return;
+  var low=q.toLowerCase();
+  var treff=_oppgaveKundeCache.filter(function(c){return(c.navn||'').toLowerCase().indexOf(low)>=0;}).slice(0,40);
+  dl.innerHTML=treff.map(function(c){return'<option value="'+esc(c.navn)+'">';}).join('');
+}
+async function bekreftNyOppgave(){
+  var tittel=(document.getElementById('oppgaveTittel').value||'').trim();
+  var frist=document.getElementById('oppgaveFrist').value;
+  var kundeNavn=(document.getElementById('oppgaveKundeInput').value||'').trim();
+  var notat=(document.getElementById('oppgaveNotat').value||'').trim();
+  var errEl=document.getElementById('oppgaveErr');
+  errEl.textContent='';
+  if(!tittel){errEl.textContent='Skriv inn en tittel';return;}
+  if(!frist){errEl.textContent='Velg en frist';return;}
+  var kundeId=null;
+  if(kundeNavn){
+    var c=_oppgaveKundeCache.find(function(x){return(x.navn||'').toLowerCase()===kundeNavn.toLowerCase();});
+    if(!c){errEl.textContent='Fant ikke kunden — velg fra listen, eller la feltet stå tomt';return;}
+    kundeId=c.id;
+  }
+  try{
+    await api('/api/oppgaver',{method:'POST',body:{tittel:tittel,frist_dato:frist,kunde_id:kundeId,notat:notat||null}});
+    closeModal('oppgaveModal');
+    toast('Oppgave lagret');
+    setView('dashboard');
+  }catch(e){errEl.textContent='Feil: '+e.message;}
 }
 
 async function duplicateCalc(){
@@ -3559,11 +3685,12 @@ async function bekreftPrisliste(){
     enhet:l.enhet||null,
     pris:num(l.enhetspris),
     mengde:l.antall!=null?num(l.antall):null,
-    rabatt:l.rabatt!=null?num(l.rabatt):null
+    rabatt:l.rabatt!=null?num(l.rabatt):null,
+    varenummer:l.art_nr_faktura||null
   }));
   if(!linjer.length){errEl.textContent='Ingen linjer med pris å lagre.';return;}
   try{
-    const res=await api('/api/konkurrenter/'+konkId+'/priser-fra-faktura',{method:'POST',body:{linjer}});
+    const res=await api('/api/konkurrenter/'+konkId+'/priser-fra-faktura',{method:'POST',body:{linjer,kunde_id:state.custId||null}});
     document.getElementById('kfPopup').remove();
     toast('Lagret '+(res.lagret||0)+' produktpriser på konkurrent');
   }catch(e){errEl.textContent='Feil: '+e.message;}
