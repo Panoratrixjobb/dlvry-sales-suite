@@ -2433,6 +2433,12 @@ function _mdNotaterPayload(){
   };
 }
 
+function _mdDato(isoStr){
+  if(!isoStr)return '—';
+  const d=new Date(isoStr+(isoStr.length===10?'T00:00:00':''));
+  return d.toLocaleDateString('nb-NO',{weekday:'short',day:'numeric',month:'short'});
+}
+
 async function apneMoteDetalj(aktId){
   _mdAktId=aktId;
   document.getElementById('moteDetaljInfo').textContent='Laster…';
@@ -2444,7 +2450,7 @@ async function apneMoteDetalj(aktId){
   document.getElementById('moteDetaljModal').classList.add('open');
   try{
     const a=await api('/api/aktiviteter/'+aktId);
-    document.getElementById('moteDetaljInfo').textContent=norskDato(a.dato)+(a.lukket_tid?' · Møte lukket':'');
+    document.getElementById('moteDetaljInfo').textContent=_mdDato(a.dato)+(a.lukket_tid?' · Møte lukket':'');
     document.getElementById('md-notat-for').value=a.notat_for||'';
     document.getElementById('md-notat-under').value=a.notat_under||'';
     document.getElementById('md-notat-etter').value=a.notat_etter||'';
