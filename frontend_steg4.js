@@ -250,12 +250,32 @@ const Steg4 = (() => {
   let _konkListe = null;
 
   async function monterKonkurrenter(kundeId, el) {
-    el.innerHTML = '<p style="color:var(--d-tekst-3);font-size:13px">Laster konkurrentpriser…</p>';
+    // Opplastingsknappen skal alltid vises, selv om listen under feiler å laste.
+    el.innerHTML = `
+      <div class="d-legg-til" style="margin-bottom:var(--s4)">
+        <div class="d-felt" style="flex:1;min-width:220px">
+          <label>Last opp konkurrentfaktura (bilde/PDF)</label>
+          <input id="kk-faktura-fil" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" class="d-input">
+        </div>
+        <span id="kk-faktura-status" style="font-size:12px;color:var(--d-tekst-3);align-self:flex-end"></span>
+      </div>
+      <div id="kk-faktura-innhold" style="margin-bottom:var(--s4)"></div>
+      <div id="kk-konk-liste"><p style="color:var(--d-tekst-3);font-size:13px">Laster konkurrentpriser…</p></div>`;
+
+    el.querySelector("#kk-faktura-fil").addEventListener("change", (ev) =>
+      lastOppKonkFaktura(ev, kundeId, el)
+    );
+
+    await lastInnKonkPrisliste(kundeId, el);
+  }
+
+  async function lastInnKonkPrisliste(kundeId, el) {
+    const listeEl = el.querySelector("#kk-konk-liste");
     let priser;
     try {
       priser = await api(`/api/konkurrenter/kunde/${kundeId}/priser`);
     } catch (e) {
-      el.innerHTML = `<p style="color:var(--d-roed)">Feil: ${esc(e.message)}</p>`;
+      listeEl.innerHTML = `<p style="color:var(--d-roed)">Feil ved lasting av liste: ${esc(e.message)}</p>`;
       return;
     }
 
@@ -272,23 +292,11 @@ const Steg4 = (() => {
       )
       .join("");
 
-    el.innerHTML = `
-      <div class="d-legg-til" style="margin-bottom:var(--s4)">
-        <div class="d-felt" style="flex:1;min-width:220px">
-          <label>Last opp konkurrentfaktura (bilde/PDF)</label>
-          <input id="kk-faktura-fil" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" class="d-input">
-        </div>
-        <span id="kk-faktura-status" style="font-size:12px;color:var(--d-tekst-3);align-self:flex-end"></span>
-      </div>
-      <div id="kk-faktura-innhold" style="margin-bottom:var(--s4)"></div>
+    listeEl.innerHTML = `
       <table class="d-tabell"><thead><tr>
         <th>Dato</th><th>Konkurrent</th><th>Produkt</th>
         <th style="text-align:right">Listepris</th><th style="text-align:right">Rabatt</th>
       </tr></thead><tbody>${rader || '<tr><td colspan="5" style="color:var(--d-tekst-3);font-style:italic">Ingen konkurrentpriser registrert på denne kunden ennå.</td></tr>'}</tbody></table>`;
-
-    el.querySelector("#kk-faktura-fil").addEventListener("change", (ev) =>
-      lastOppKonkFaktura(ev, kundeId, el)
-    );
   }
 
   async function lastOppKonkFaktura(ev, kundeId, el) {
