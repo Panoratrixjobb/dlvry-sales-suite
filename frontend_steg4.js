@@ -1600,9 +1600,9 @@ const Steg4 = (() => {
       a.addEventListener("click", function(e) {
         e.preventDefault();
         const id = a.dataset.kundeId;
-        if (id && typeof window.setView === "function" && typeof window.selectCust === "function") {
+        if (id && typeof window.setView === "function" && typeof window.klVelgKunde === "function") {
           window.setView("kunder");
-          window.selectCust(id);
+          window.klVelgKunde(id);
         }
       });
     });
