@@ -905,6 +905,22 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           </div>
         </div>
       </div>
+
+      <!-- Bulk-importer brukere (Excel) -->
+      <div class="d-panel" style="margin-top:18px" id="bulkImportPanel">
+        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Bulk-importer brukere (Excel)</h3>
+        <p class="sub" style="margin:0 0 10px">
+          Last opp «Import»-arket (samme mal som salgsavdeling-importen). Matcher rader på
+          e-post: finnes brukeren fra før oppdateres kun utfylte felt (tomme celler rører ikke
+          eksisterende data); finnes den ikke opprettes en ny bruker med tilfeldig midlertidig
+          passord. Kjør «Forhåndsvis» først for å se hva som skjer — ingenting skrives før du
+          trykker «Bekreft import».
+        </p>
+        <input type="file" id="bulkImportFil" accept=".xlsx">
+        <button class="d-knapp primar sm" style="margin-left:8px" id="bulkImportForhandsvisBtn" onclick="bulkImportForhandsvis()">Forhåndsvis (tørrkjøring)</button>
+        <button class="d-knapp fare sm" style="margin-left:8px;display:none" id="bulkImportBekreftBtn" onclick="bulkImportBekreft()">Bekreft import</button>
+        <div id="bulkImportRapport" style="margin-top:14px"></div>
+      </div>
     </div>
 
     <!-- ===== KONKURRENTER VIEW ===== -->
@@ -3592,6 +3608,88 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
 }
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
+
+// ============ Bulk-import brukere (Excel) ============
+async function bulkImportKjor(commit){
+  const input=document.getElementById('bulkImportFil');
+  const rapportEl=document.getElementById('bulkImportRapport');
+  const btnForhandsvis=document.getElementById('bulkImportForhandsvisBtn');
+  const btnBekreft=document.getElementById('bulkImportBekreftBtn');
+  const fil=input.files[0];
+  if(!fil){rapportEl.innerHTML='<span style="color:var(--d-roed)">Velg en .xlsx-fil først.</span>';return;}
+  btnForhandsvis.disabled=true; btnBekreft.disabled=true;
+  const opprinneligForhandsvis=btnForhandsvis.textContent, opprinneligBekreft=btnBekreft.textContent;
+  (commit?btnBekreft:btnForhandsvis).textContent = commit ? 'Skriver…' : 'Analyserer…';
+  try{
+    const fd=new FormData();fd.append('fil',fil);
+    const r=await fetch(API_BASE+'/api/brukere/bulk-import?commit='+(commit?'true':'false'),{
+      method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd
+    });
+    const txt=await r.text();let data=null;try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
+    if(!r.ok){
+      const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);
+      throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));
+    }
+    renderBulkImportRapport(data, commit);
+    const harGyldigeRader=(data.rader||[]).some(x=>x.status!=='feil');
+    btnBekreft.style.display = (!commit && harGyldigeRader) ? '' : 'none';
+    if(commit){
+      if(typeof toast==='function')toast('Import fullført');
+      await lastBrukere();
+    }
+  }catch(e){
+    rapportEl.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{
+    btnForhandsvis.disabled=false; btnBekreft.disabled=false;
+    btnForhandsvis.textContent=opprinneligForhandsvis; btnBekreft.textContent=opprinneligBekreft;
+  }
+}
+function bulkImportForhandsvis(){return bulkImportKjor(false);}
+function bulkImportBekreft(){
+  if(!confirm('Skrive disse endringene til databasen nå? Dette oppretter/oppdaterer ekte brukere.'))return;
+  return bulkImportKjor(true);
+}
+function renderBulkImportRapport(data, commit){
+  const el=document.getElementById('bulkImportRapport');
+  const rows=data.rader||[];
+  let html='<div style="margin-bottom:10px;font-size:13px">'
+    +(commit?'<strong style="color:var(--d-gronn)">Skrevet til database.</strong> ':'<strong>Tørrkjøring — ingenting skrevet ennå.</strong> ')
+    +'Opprettet: '+data.opprettet+' · Oppdatert: '+data.oppdatert+' · Leder koblet: '+data.leder_koblet
+    +' · Kompetanse: '+data.kompetanse_satt+' · Feil-rader: '+data.feil_rader
+    +'</div>';
+  if(data.uloste_ledere&&data.uloste_ledere.length){
+    html+='<div style="color:var(--d-roed);font-size:12.5px;margin-bottom:8px">Advarsel — leder ikke koblet for: '+data.uloste_ledere.map(esc).join(', ')+'</div>';
+  }
+  html+='<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+    +'<thead><tr style="border-bottom:1px solid var(--line)">'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">Rad</th>'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">Navn</th>'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">E-post</th>'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">Rolle</th>'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">Status</th>'
+    +'<th style="text-align:left;padding:5px 8px;color:var(--muted)">Feil</th>'
+    +'</tr></thead><tbody>'
+    +rows.map(r=>{
+      const farge=r.status==='feil'?'var(--d-roed)':(r.status==='insert'?'var(--d-gronn)':'inherit');
+      return '<tr style="border-bottom:1px solid var(--line)">'
+        +'<td style="padding:5px 8px">'+r.radnr+'</td>'
+        +'<td style="padding:5px 8px">'+esc(r.navn)+'</td>'
+        +'<td style="padding:5px 8px">'+esc(r.epost)+'</td>'
+        +'<td style="padding:5px 8px">'+esc(r.rolle)+'</td>'
+        +'<td style="padding:5px 8px;color:'+farge+';font-weight:500">'+esc(r.status)+'</td>'
+        +'<td style="padding:5px 8px;color:var(--d-roed)">'+(r.feil&&r.feil.length?esc(r.feil.join('; ')):'')+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table>';
+  if(commit&&data.nye_passord&&Object.keys(data.nye_passord).length){
+    html+='<div style="margin-top:14px;padding:10px;border:1px solid var(--d-roed);border-radius:8px">'
+      +'<strong style="color:var(--d-roed)">Midlertidige passord — kopier og del direkte NÅ (vises ikke igjen):</strong>'
+      +'<pre style="white-space:pre-wrap;font-size:12px;margin-top:6px">'
+      +Object.entries(data.nye_passord).map(([ep,pw])=>esc(ep)+'  '+esc(pw)).join('\n')
+      +'</pre></div>';
+  }
+  el.innerHTML=html;
+}
 
 function oppdaterInvGrossistFelt(){
   const rolle = document.getElementById('invRolle').value;
