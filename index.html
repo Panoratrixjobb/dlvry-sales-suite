@@ -344,7 +344,24 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <input id="loginPassord" type="password" autocomplete="current-password" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
     <div id="loginErr" style="color:#dc2626;font-size:12px;min-height:16px;margin-bottom:8px"></div>
     <button id="loginBtn" onclick="doLogin()" style="width:100%;background:#D65742;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
+    <div style="text-align:center;margin-top:10px">
+      <a href="javascript:void(0)" onclick="visGlemtPassord()" style="font-size:12px;color:#7a8499;text-decoration:underline">Glemt passord?</a>
+    </div>
     <div style="font-size:11px;color:#a0a8ba;text-align:center;margin-top:14px;line-height:1.4">Første kall kan ta ~50 sek mens serveren våkner.</div>
+  </div>
+
+  <div id="glemtPassordCard" style="display:none;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:34px 32px;width:340px;max-width:90vw">
+    <div style="margin-bottom:4px">
+      <img src="dlvry-logo-full.png" alt="DLVRY" class="d-login-logo">
+    </div>
+    <div style="font-size:12.5px;color:#7a8499;margin-bottom:22px">Skriv inn e-posten din, så sender vi deg en lenke for å sette nytt passord.</div>
+    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">E-post</label>
+    <input id="glemtEpost" type="email" autocomplete="username" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
+    <div id="glemtMelding" style="font-size:12px;min-height:16px;margin-bottom:8px"></div>
+    <button id="glemtBtn" onclick="sendGlemtPassord()" style="width:100%;background:#D65742;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Send lenke</button>
+    <div style="text-align:center;margin-top:10px">
+      <a href="javascript:void(0)" onclick="skjulGlemtPassord()" style="font-size:12px;color:#7a8499;text-decoration:underline">Tilbake til innlogging</a>
+    </div>
   </div>
 </div>
 
@@ -3798,13 +3815,42 @@ async function doLogin(){
   finally{btn.disabled=false;btn.textContent='Logg inn';}
 }
 
-function logout(){setToken(null);CURRENT_USER=null;state={custId:null,calcId:null,cart:[],dirty:false};showLogin();}
+function logout(){setToken(null);CURRENT_USER=null;state={custId:null,calcId:null,brukerId:null,cart:[],dirty:false};showLogin();}
+
+function visGlemtPassord(){
+  document.querySelector('#loginScreen>div:not(#glemtPassordCard)').style.display='none';
+  document.getElementById('glemtPassordCard').style.display='';
+  document.getElementById('glemtEpost').value='';
+  document.getElementById('glemtMelding').textContent='';
+}
+
+function skjulGlemtPassord(){
+  document.getElementById('glemtPassordCard').style.display='none';
+  document.querySelector('#loginScreen>div:not(#glemtPassordCard)').style.display='';
+}
+
+async function sendGlemtPassord(){
+  const epost=document.getElementById('glemtEpost').value.trim();
+  const meldEl=document.getElementById('glemtMelding');
+  if(!epost){meldEl.style.color='#dc2626';meldEl.textContent='Fyll inn e-post.';return;}
+  const btn=document.getElementById('glemtBtn');btn.disabled=true;btn.textContent='Sender…';
+  try{
+    const res=await api('/api/passord/glemt',{method:'POST',body:{epost}});
+    meldEl.style.color='#16a34a';
+    meldEl.textContent=res.melding||'Hvis e-posten finnes hos oss, er en lenke sendt.';
+  }catch(e){
+    meldEl.style.color='#dc2626';meldEl.textContent=e.message;
+  }finally{
+    btn.disabled=false;btn.textContent='Send lenke';
+  }
+}
 
 function showLogin(){
   document.getElementById('appRoot').style.display='none';
   document.getElementById('mobilHamburger').style.display='none';
   document.getElementById('feedbackFab').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
+  skjulGlemtPassord();
   setTimeout(()=>document.getElementById('loginEpost').focus(),50);
 }
 
