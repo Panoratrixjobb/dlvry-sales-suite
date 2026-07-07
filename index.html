@@ -808,7 +808,24 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div class="d-felt" style="margin-bottom:10px"><label>Navn</label><input id="nbNavn" class="d-input" placeholder="Fornavn Etternavn"></div>
           <div class="d-felt" style="margin-bottom:10px"><label>E-post (= brukernavn)</label><input id="nbEpost" type="email" class="d-input" placeholder="navn@dlvry.no"></div>
           <div class="d-felt" style="margin-bottom:10px"><label>Rolle</label>
-            <select id="nbRolle" class="d-select"><option value="selger">selger</option><option value="leder">leder</option><option value="admin">admin</option><option value="superadmin">superadmin</option></select></div>
+            <select id="nbRolle" class="d-select">
+              <optgroup label="Operativt">
+                <option value="selger">selger</option>
+                <option value="salgsjef">salgsjef</option>
+                <option value="regionsalgsleder">regionsalgsleder</option>
+                <option value="salgsdirektor">salgsdirektor</option>
+                <option value="leder">leder (eldre rolle)</option>
+              </optgroup>
+              <optgroup label="Administrativt">
+                <option value="regionansvarlig">regionansvarlig</option>
+                <option value="kommersiell_direktor">kommersiell direktør</option>
+                <option value="ceo">CEO</option>
+                <option value="admin">admin (eldre rolle)</option>
+              </optgroup>
+              <optgroup label="System">
+                <option value="superadmin">superadmin</option>
+              </optgroup>
+            </select></div>
           <div class="d-felt" style="margin-bottom:10px"><label>Midlertidig passord (min. 8 tegn)</label><input id="nbPassord" class="d-input" type="password"></div>
           <div id="nbErr" style="font-size:12px;color:var(--d-roed);min-height:16px;margin-bottom:8px"></div>
           <button class="d-knapp primar" onclick="opprettBrukerDirekte()" style="width:100%">Opprett bruker</button>
@@ -821,6 +838,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div id="brukerListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
         </div>
       </div>
+
+      <!-- Brukerkort (åpnes ved klikk på navn i lista) -->
+      <div id="brukerkort-steg4" style="margin-bottom:24px"></div>
 
       <!-- Invitasjonsliste -->
       <div class="d-panel">
@@ -1778,7 +1798,7 @@ async function loadProducts(){
 }
 
 // ============ App-tilstand ============
-let state={custId:null, calcId:null, cart:[], dirty:false};
+let state={custId:null, calcId:null, brukerId:null, cart:[], dirty:false};
 let custCache=[];
 
 // Leads-underfane
@@ -3442,8 +3462,12 @@ async function bekreftTildel(){
 let brukereMounted = false;
 let invGrossister = [];
 
-// Rollehierarki — hvilke roller kan innlogget bruker invitere?
-const KAN_INVITERE = { superadmin:'admin', admin:'leder', leder:'selger' };
+// Rollehierarki — hvilke roller kan innlogget bruker invitere? (steg 13: to spor)
+const KAN_INVITERE = {
+  superadmin:'admin', admin:'leder', leder:'selger',
+  salgsdirektor:'regionsalgsleder', regionsalgsleder:'salgsjef', salgsjef:'selger',
+  ceo:'kommersiell_direktor', kommersiell_direktor:'regionansvarlig',
+};
 
 async function mountBrukere(){
   if(brukereMounted) return;
@@ -3557,6 +3581,17 @@ function oppdaterInvGrossistFelt(){
   document.getElementById('invGrossistFelt').style.display = rolle==='selger' ? '' : 'none';
 }
 
+function apneBrukerkort(id){
+  state.brukerId = id;
+  Steg4.monterBrukerkort(id, document.getElementById('brukerkort-steg4'), CURRENT_USER?.rolle);
+  document.getElementById('brukerkort-steg4').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function lukkBrukerkort(){
+  state.brukerId = null;
+  document.getElementById('brukerkort-steg4').innerHTML = '';
+}
+
 async function lastBrukere(){
   const el = document.getElementById('brukerListe');
   try{
@@ -3572,9 +3607,10 @@ async function lastBrukere(){
       +'</tr></thead><tbody>'
       + brukere.map(b=>
         '<tr style="border-bottom:1px solid var(--line)">'
-        +'<td style="padding:7px 8px">'+esc(b.navn)+'</td>'
+        +'<td style="padding:7px 8px"><a href="javascript:void(0)" onclick="apneBrukerkort(\''+b.id+'\')" style="color:var(--d-blaa,inherit);text-decoration:underline;cursor:pointer">'+esc(b.navn)+'</a>'
+        +(b.leder_navn?'<div style="font-size:11px;color:var(--muted)">rapporterer til '+esc(b.leder_navn)+'</div>':'')+'</td>'
         +'<td style="padding:7px 8px"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">'+esc(b.rolle)+'</span></td>'
-        +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : '<span style="color:var(--muted)">—</span>')+'</td>'
+        +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : (b.region?esc(b.region):'<span style="color:var(--muted)">—</span>'))+'</td>'
         +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
         +'<td style="padding:7px 8px">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
         +'</tr>'
@@ -3720,7 +3756,7 @@ function setView(v){
   }
   if(v==='kunder'&&state.custId)Steg4.monterKundekort(state.custId,document.getElementById('kundekort-steg4'));
   if(v==='kalkulator'){ if(!state.calcId){setKalkSub('liste');lastKalkyleListe();} else setKalkSub('editor'); }
-  if(v==='brukere')mountBrukere();
+  if(v==='brukere'){mountBrukere();if(state.brukerId)Steg4.monterBrukerkort(state.brukerId,document.getElementById('brukerkort-steg4'),CURRENT_USER?.rolle);}
   if(v==='konkurrenter')mountKonkurrenter();
   if(v==='besoksplan')mountBesoksplan();
 }

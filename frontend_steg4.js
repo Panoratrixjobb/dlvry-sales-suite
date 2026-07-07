@@ -1774,9 +1774,239 @@ const Steg4 = (() => {
     }
   }
 
+  // ---------- BRUKERKORT (steg 13: brukerdetalj — info/tilgang/aktivitet) ----------
+  const kr0 = (n) => (n || 0).toLocaleString("nb-NO", { maximumFractionDigits: 0 }) + " kr";
+
+  async function monterBrukerkort(brukerId, el, viewerRolle) {
+    el.innerHTML =
+      '<p style="color:var(--d-tekst-3);font-size:13px;padding:var(--s4) 0">Laster brukerkort…</p>';
+
+    let b, oversikt = {};
+    try {
+      b = await api(`/api/brukere/${brukerId}`);
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--d-roed);font-size:13px">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+    try {
+      oversikt = await api(`/api/brukere/${brukerId}/oversikt`);
+    } catch (e) {
+      console.warn("Kunne ikke hente brukeroversikt:", e.message);
+    }
+
+    const erSuperadmin = viewerRolle === "superadmin";
+
+    el.innerHTML = [
+      '<div class="d-panel">',
+      '<div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">',
+      `<span class="d-kk-avatar">${esc(initialer(b.navn))}</span>`,
+      '<div style="flex:1;min-width:0">',
+      `<div class="d-t-h2" style="margin:0">${esc(b.navn || "Bruker")}</div>`,
+      `<div style="font-size:12px;color:var(--d-tekst-3)">${esc(b.epost || "")}` +
+        (b.leder_navn ? " · rapporterer til " + esc(b.leder_navn) : "") + "</div>",
+      "</div>",
+      `<span class="d-badge${b.aktiv ? " gronn" : ""}" style="flex-shrink:0">${esc(b.rolle)}</span>`,
+      `<button onclick="lukkBrukerkort()" class="d-knapp subtil sm" title="Lukk">✕</button>`,
+      "</div>",
+
+      '<div class="d-faner">',
+      '<button class="d-fane aktiv" data-fane="info">Info</button>',
+      '<button class="d-fane" data-fane="tilgang">Tilgang</button>',
+      '<button class="d-fane" data-fane="akt">Aktivitet/Resultater</button>',
+      "</div>",
+      '<div id="bk-faneinnhold"></div>',
+      "</div>",
+    ].join("");
+
+    const innhold = el.querySelector("#bk-faneinnhold");
+    const visFane = (f) => {
+      if (f === "info") monterBrukerInfo(brukerId, innhold, b, erSuperadmin);
+      else if (f === "tilgang") monterBrukerTilgang(brukerId, innhold, b, erSuperadmin);
+      else if (f === "akt") monterBrukerOversikt(innhold, oversikt);
+    };
+    el.querySelectorAll(".d-fane").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        el.querySelectorAll(".d-fane").forEach((x) => x.classList.toggle("aktiv", x === btn));
+        visFane(btn.dataset.fane);
+      })
+    );
+    visFane("info");
+  }
+
+  async function monterBrukerInfo(brukerId, el, b, erSuperadmin) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--d-tekst-3)">Laster…</p>';
+    let grossister = [], brukere = [];
+    if (erSuperadmin) {
+      try { grossister = await api("/api/grossister"); } catch (_) {}
+      try { brukere = await api("/api/brukere"); } catch (_) {}
+    }
+    const grossistOpt = grossister
+      .map((g) => `<option value="${esc(g.id)}" ${b.grossist_id === g.id ? "selected" : ""}>${esc(g.navn)}</option>`)
+      .join("");
+    const lederOpt = brukere
+      .filter((x) => x.id !== brukerId)
+      .map((x) => `<option value="${esc(x.id)}" ${b.leder_id === x.id ? "selected" : ""}>${esc(x.navn)} (${esc(x.rolle)})</option>`)
+      .join("");
+
+    el.innerHTML = [
+      '<div style="display:flex;flex-wrap:wrap;gap:14px">',
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Navn</label>',
+      `<input id="bi-navn" class="d-input" value="${esc(b.navn || "")}"></div>`,
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Telefon</label>',
+      `<input id="bi-telefon" class="d-input" value="${esc(b.telefon || "")}"></div>`,
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Region</label>',
+      `<input id="bi-region" class="d-input" placeholder="f.eks. Øst (for region-nivå roller)" value="${esc(b.region || "")}"></div>`,
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Rolle</label>',
+      erSuperadmin
+        ? `<select id="bi-rolle" class="d-select">` +
+          ["selger", "salgsjef", "regionsalgsleder", "salgsdirektor", "leder",
+            "regionansvarlig", "kommersiell_direktor", "ceo", "admin", "superadmin"]
+            .map((r) => `<option value="${r}" ${b.rolle === r ? "selected" : ""}>${r}</option>`).join("")
+          + "</select>"
+        : `<div style="padding:8px 0;font-size:13px">${esc(b.rolle)} <span style="color:var(--d-tekst-3);font-size:11px">(krever superadmin for å endre)</span></div>`,
+      "</div>",
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Grossist</label>',
+      erSuperadmin
+        ? `<select id="bi-grossist" class="d-select"><option value="">— ingen —</option>${grossistOpt}</select>`
+        : `<div style="padding:8px 0;font-size:13px">${esc(b.grossist_navn || "—")}</div>`,
+      "</div>",
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Leder</label>',
+      erSuperadmin
+        ? `<select id="bi-leder" class="d-select"><option value="">— ingen —</option>${lederOpt}</select>`
+        : `<div style="padding:8px 0;font-size:13px">${esc(b.leder_navn || "—")}</div>`,
+      "</div>",
+      '<div class="d-felt" style="min-width:100%"><label>Notat</label>',
+      `<textarea id="bi-notat" class="d-input" rows="3" style="width:100%;resize:vertical">${esc(b.notat || "")}</textarea></div>`,
+      erSuperadmin
+        ? '<div class="d-felt"><label><input type="checkbox" id="bi-aktiv" ' +
+          (b.aktiv ? "checked" : "") + '> Aktiv</label></div>'
+        : "",
+      "</div>",
+      '<div style="margin-top:10px;display:flex;align-items:center;gap:10px">',
+      '<button id="bi-lagre" class="d-knapp primar sm">Lagre</button>',
+      '<span id="bi-status" style="font-size:12px;color:var(--d-tekst-3)"></span>',
+      "</div>",
+    ].join("");
+
+    el.querySelector("#bi-lagre").addEventListener("click", async () => {
+      const st = el.querySelector("#bi-status");
+      const btn = el.querySelector("#bi-lagre");
+      const payload = {
+        navn: el.querySelector("#bi-navn").value.trim() || null,
+        telefon: el.querySelector("#bi-telefon").value.trim() || null,
+        region: el.querySelector("#bi-region").value.trim() || null,
+        notat: el.querySelector("#bi-notat").value.trim() || null,
+      };
+      if (erSuperadmin) {
+        payload.rolle = el.querySelector("#bi-rolle").value;
+        payload.grossist_id = el.querySelector("#bi-grossist").value || null;
+        payload.leder_id = el.querySelector("#bi-leder").value || null;
+        payload.aktiv = el.querySelector("#bi-aktiv").checked;
+      }
+      btn.disabled = true;
+      st.textContent = "Lagrer…";
+      st.style.color = "var(--d-tekst-3)";
+      try {
+        await api(`/api/brukere/${brukerId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        st.textContent = "Lagret ✓";
+        st.style.color = "var(--d-gronn)";
+        if (typeof window.lastBrukere === "function") window.lastBrukere();
+      } catch (e) {
+        st.textContent = "Feil: " + e.message;
+        st.style.color = "var(--d-roed)";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+
+  async function monterBrukerTilgang(brukerId, el, b, erSuperadmin) {
+    el.innerHTML = '<p style="font-size:12px;color:var(--d-tekst-3)">Laster…</p>';
+    let liste = [];
+    try {
+      liste = erSuperadmin ? await api(`/api/brukere/${brukerId}/tilgang`) : (b.spesial_tilganger || []);
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--d-roed);font-size:12px">Feil: ${esc(e.message)}</p>`;
+      return;
+    }
+    const rader = liste
+      .map(
+        (t) =>
+          `<tr><td>${esc(t.ressurs_type)}</td><td>${esc(t.ressurs_id)}</td><td>` +
+          (erSuperadmin
+            ? `<button data-slett-tilg="${t.id}" class="d-knapp fare sm">Fjern</button>`
+            : "") +
+          "</td></tr>"
+      )
+      .join("");
+
+    el.innerHTML = [
+      `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 10px">Rolle: <b>${esc(b.rolle)}</b> styrer standard synlighet. Spesialtilgang gir unntak (f.eks. innsyn i en annen region/grossist enn egen).</p>`,
+      liste.length
+        ? `<table class="d-tabell"><thead><tr><th>Type</th><th>Ressurs</th><th></th></tr></thead><tbody>${rader}</tbody></table>`
+        : '<p style="font-size:12px;color:var(--d-tekst-3)">Ingen spesialtilganger.</p>',
+      erSuperadmin
+        ? '<div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+          '<select id="tg-type" class="d-select" style="width:auto"><option value="grossist">grossist</option><option value="region">region</option></select>' +
+          '<input id="tg-id" class="d-input" style="width:auto" placeholder="grossist-id eller regionnavn">' +
+          '<button id="tg-legg" class="d-knapp sekundar sm">+ Gi tilgang</button>' +
+          '<span id="tg-status" style="font-size:12px;color:var(--d-tekst-3)"></span>' +
+          "</div>"
+        : "",
+    ].join("");
+
+    el.querySelectorAll("[data-slett-tilg]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        try {
+          await api(`/api/brukere/${brukerId}/tilgang/${btn.dataset.slettTilg}`, { method: "DELETE" });
+          monterBrukerTilgang(brukerId, el, b, erSuperadmin);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+    const leggBtn = el.querySelector("#tg-legg");
+    if (leggBtn)
+      leggBtn.addEventListener("click", async () => {
+        const st = el.querySelector("#tg-status");
+        const ressursId = el.querySelector("#tg-id").value.trim();
+        if (!ressursId) { st.textContent = "Fyll inn grossist-id/regionnavn"; st.style.color = "var(--d-roed)"; return; }
+        st.textContent = "Lagrer…";
+        st.style.color = "var(--d-tekst-3)";
+        try {
+          await api(`/api/brukere/${brukerId}/tilgang`, {
+            method: "POST",
+            body: JSON.stringify({ ressurs_type: el.querySelector("#tg-type").value, ressurs_id: ressursId }),
+          });
+          monterBrukerTilgang(brukerId, el, b, erSuperadmin);
+        } catch (e) {
+          st.textContent = "Feil: " + e.message;
+          st.style.color = "var(--d-roed)";
+        }
+      });
+  }
+
+  function monterBrukerOversikt(el, o) {
+    const rad = (lbl, verdi) =>
+      `<div class="kort" style="flex:1;min-width:150px"><div class="lbl">${esc(lbl)}</div><div class="verdi">${verdi}</div></div>`;
+    const kalenderRader =
+      o.moter_planlagt == null
+        ? '<p style="font-size:12px;color:var(--d-tekst-3);margin-top:12px">Kalender/aktivitetslogg vises ikke for administrative roller — kun resultater.</p>'
+        : `<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">` +
+          rad("Møter planlagt", o.moter_planlagt) + rad("Aktiviteter planlagt", o.aktiviteter_planlagt) + "</div>";
+    el.innerHTML = [
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">',
+      rad("Tilbud sendt (30 dager)", o.tilbud_sendt_siste_30d ?? 0),
+      rad("Pipeline (potensiell)", kr0(o.pipeline_sum)),
+      rad("Resultat hittil i år", kr0(o.resultat_hittil_ar)),
+      "</div>",
+      kalenderRader,
+    ].join("");
+  }
+
   return {
     get API() { return API; }, set API(v) { API = v; },
     get token() { return token; }, set token(v) { token = v; },
-    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, monterKonkurrenter, slettMote, fullforOppgave, endreMoterUker,
+    monterKundekort, visDashboard, visDashboardPipeline, visDashboardSelger, monterLeveringssteder, monterAktiviteter, monterKontaktpersoner, monterKonsepter, monterKundeGrossister, monterKonkurrenter, monterBrukerkort, slettMote, fullforOppgave, endreMoterUker,
   };
 })();
