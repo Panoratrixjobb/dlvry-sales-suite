@@ -490,8 +490,11 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div class="d-panel an-grossist-detail" id="anGrossistDetail" style="display:none;margin-bottom:var(--s4)"></div>
 
         <div style="margin-bottom:var(--s4)">
-          <h3 style="margin:0 0 2px;font-size:14px;font-weight:700;color:var(--d-tekst)">Kundebevegelse</h3>
-          <div style="font-size:11px;color:var(--d-tekst-3);margin-bottom:12px" id="anKundebevegelseSub"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--d-tekst)">Kundebevegelse</h3>
+            <div id="kbFilterRow" style="display:flex;gap:10px;align-items:center"></div>
+          </div>
+          <div style="font-size:11px;color:var(--d-tekst-3);margin:4px 0 12px" id="anKundebevegelseSub"></div>
           <div class="dash-row3" id="anKundebevegelse"></div>
         </div>
 
@@ -1391,6 +1394,7 @@ function setAnalyseGrossist(v){analyseState.grossist=v;renderAnalyse();}
 function setAnalyseWeek(v){analyseState.week=Number(v);renderAnalyse();}
 function resetAnalyseFilters(){
   analyseState={concept:'all',region:'all',grossist:'',week:DASH?DASH.cutoff_uke:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
+  kbState={region:'',grossist:''};
   renderAnalyse();
 }
 function toggleAnalyseExpand(which){
@@ -1529,8 +1533,8 @@ function renderAnalyse(){
   // ---- Toppkunder (statisk) ----
   barList('anToppkunder',D.toppkunder,'verdi',mnok,'#2bb4c9');
 
-  // ---- Kundebevegelse ----
-  anRenderKundebevegelse(D,s);
+  // ---- Kundebevegelse (steg 17: rollestyrt, egen async-henting) ----
+  renderAnalyseKundebevegelse();
 
   // ---- Toppvinnere + konseptfordeling-donut ----
   barList('anVinnere',D.toppvinnere,'verdi_nok',v=>'+'+mnok(v),'#f5a623',true);
@@ -1659,38 +1663,131 @@ function anRenderGrossistTabell(D,s,kilde){
     </div>`;
 }
 
-function anRenderKundebevegelse(D,s){
-  const isAll=s.concept==='all';
-  document.getElementById('anKundebevegelseSub').textContent='YTD t.o.m. uke '+D.cutoff_uke+' · '+(isAll?'alle konsepter':AN_NAVN_FOR_KEY[s.concept]);
-  const kb=isAll?null:D.kundebevegelse[s.concept];
-  const alle=D.kundebevegelse.alle||{};
+// ===== Kundebevegelse (steg 17) — rollestyrt =====
+// ser_alt-brukere uten region/grossist-drilldown ser det nasjonale Excel-øyeblikksbildet
+// (D.kundebevegelse, samme "sesongjustert"-formel som før — uendret oppførsel). Så snart
+// noen drilrer ned (region/grossist), eller for roller som aldri ser nasjonalt (selger/
+// salgsjef/regionsalgsleder), hentes tallene i stedet dynamisk fra
+// /api/dashboard-excel/kundebevegelse-reell (org.nr-nivå fra kunde_salg_uke, rollestyrt
+// server-side av deps.synlig_kundebevegelse_filter — klienten kan ikke utvide egen tilgang).
+let kbScope=null;              // siste scope-meta fra backend ({type, valgbare_regioner, valgbare_grossister, ...})
+let kbState={region:'',grossist:''};
+const kbCache={};
 
-  const kort=(tittel,farge,antall,sumKr,liste,expandKey,expandFlag)=>{
-    const visAntall=expandFlag?liste.length:Math.min(10,liste.length);
-    const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px">
-      <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.navn||k.kundenr}</span>
-      <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}</span></div>`).join('');
-    const expandLbl=liste.length<=10?'':(expandFlag?'Vis færre':'Vis flere (av '+liste.length+')');
-    return `<div class="d-panel">
-      <div style="font-size:13.5px;font-weight:700">${tittel}</div>
-      <div style="font-size:25px;font-weight:700;color:${farge};margin-top:8px">${antall}</div>
-      ${sumKr!=null?`<div style="font-size:12px;color:var(--d-tekst-3);margin-top:2px">${fmtKr(sumKr)}</div>`:''}
-      ${liste.length?`<div style="margin-top:14px">${rader}</div>${expandLbl?`<div class="an-expand-link" onclick="toggleAnalyseExpand('${expandKey}')">${expandLbl}</div>`:''}`:
-        (isAll?'':'<div style="margin-top:12px;font-size:11.5px;color:var(--d-tekst-3);font-style:italic">Ingen navngitte rader.</div>')}
-    </div>`;
-  };
+function kbNokkel(s){
+  return [(s.concept==='all'?'':s.concept),kbState.region,kbState.grossist].join('|');
+}
+function setKbRegion(v){kbState.region=v;kbState.grossist='';renderAnalyseKundebevegelse();}
+function setKbGrossist(v){kbState.grossist=v;renderAnalyseKundebevegelse();}
 
-  if(isAll){
-    document.getElementById('anKundebevegelse').innerHTML=
-      kort('Nye kunder','var(--green)',alle.nye||0,null,[],'new',s.expandNew)+
-      kort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
-      kort('Sesongkunder på vent','#c9930f',alle.venter||0,null,[],'wait',s.expandWait);
-  }else{
-    document.getElementById('anKundebevegelse').innerHTML=
-      kort('Nye kunder','var(--green)',kb.ny.antall,kb.ny.sum_kr,kb.ny.liste,'new',s.expandNew)+
-      kort('Tapte kunder (sesongjustert)','var(--red)',kb.tapt.antall,kb.tapt.sum_kr,kb.tapt.liste,'lost',s.expandLost)+
-      kort('Sesongkunder på vent','#c9930f',kb.venter.antall,null,kb.venter.liste,'wait',s.expandWait);
+async function kbHent(s){
+  const nokkel=kbNokkel(s);
+  if(kbCache[nokkel])return kbCache[nokkel];
+  const konsept=s.concept==='all'?'':s.concept;
+  const qs=new URLSearchParams();
+  if(konsept)qs.set('konsept',konsept);
+  if(kbState.region)qs.set('region',kbState.region);
+  if(kbState.grossist)qs.set('grossist_id',kbState.grossist);
+  const data=await api('/api/dashboard-excel/kundebevegelse-reell'+(qs.toString()?'?'+qs:''));
+  kbCache[nokkel]=data;
+  return data;
+}
+
+function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt){
+  const visAntall=expandFlag?liste.length:Math.min(10,liste.length);
+  const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px">
+    <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.navn||k[navnFelt]||''}</span>
+    <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}</span></div>`).join('');
+  const expandLbl=liste.length<=10?'':(expandFlag?'Vis færre':'Vis flere (av '+liste.length+')');
+  return `<div class="d-panel">
+    <div style="font-size:13.5px;font-weight:700">${tittel}</div>
+    <div style="font-size:25px;font-weight:700;color:${farge};margin-top:8px">${antall}</div>
+    ${sumKr!=null?`<div style="font-size:12px;color:var(--d-tekst-3);margin-top:2px">${fmtKr(sumKr)}</div>`:''}
+    ${liste.length?`<div style="margin-top:14px">${rader}</div>${expandLbl?`<div class="an-expand-link" onclick="toggleAnalyseExpand('${expandKey}')">${expandLbl}</div>`:''}`:
+      '<div style="margin-top:12px;font-size:11.5px;color:var(--d-tekst-3);font-style:italic">Ingen rader.</div>'}
+  </div>`;
+}
+
+function kbTegnStatisk(s,isAllKonsept){
+  const alle=DASH.kundebevegelse.alle||{};
+  const kb=isAllKonsept?null:DASH.kundebevegelse[s.concept];
+  document.getElementById('anKundebevegelse').innerHTML=isAllKonsept?
+    kbKort('Nye kunder','var(--green)',alle.nye||0,null,[],'new',s.expandNew)+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
+    kbKort('Sesongkunder på vent','#c9930f',alle.venter||0,null,[],'wait',s.expandWait)
+    :
+    kbKort('Nye kunder','var(--green)',kb.ny.antall,kb.ny.sum_kr,kb.ny.liste,'new',s.expandNew,'kundenr')+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',kb.tapt.antall,kb.tapt.sum_kr,kb.tapt.liste,'lost',s.expandLost,'kundenr')+
+    kbKort('Sesongkunder på vent','#c9930f',kb.venter.antall,null,kb.venter.liste,'wait',s.expandWait,'kundenr');
+}
+
+function kbRenderFilterUI(){
+  const el=document.getElementById('kbFilterRow');
+  if(!el)return;
+  if(!kbScope||kbScope.type==='ingen'){el.innerHTML='';return;}
+  if(kbScope.type==='grossist'){
+    el.innerHTML=(kbScope.grossist_navn&&kbScope.grossist_navn.length)?
+      `<span style="font-size:11.5px;color:var(--d-tekst-3)">${kbScope.grossist_navn.join(', ')}</span>`:'';
+    return;
   }
+  const grossistKilde=kbScope.valgbare_grossister||[];
+  const grossistOpts=kbState.region?grossistKilde.filter(g=>g.region===kbState.region):grossistKilde;
+  let html='';
+  if(kbScope.type==='alle'){
+    const regionOpts=kbScope.valgbare_regioner||[];
+    html+=`<select class="d-select" style="min-width:130px" onchange="setKbRegion(this.value)">`+
+      `<option value="">Alle regioner</option>`+
+      regionOpts.map(r=>`<option value="${r}"${kbState.region===r?' selected':''}>${r}</option>`).join('')+
+      `</select>`;
+  }
+  html+=`<select class="d-select" style="min-width:200px" onchange="setKbGrossist(this.value)">`+
+    `<option value="">${kbScope.type==='alle'?'Alle grossister':'Velg grossist…'}</option>`+
+    grossistOpts.map(g=>`<option value="${g.id}"${kbState.grossist===g.id?' selected':''}>${g.navn}</option>`).join('')+
+    `</select>`;
+  if(kbState.region||kbState.grossist){
+    html+=`<button class="an-reset-btn" onclick="setKbRegion('')">Nullstill</button>`;
+  }
+  el.innerHTML=html;
+}
+
+async function renderAnalyseKundebevegelse(){
+  if(!DASH)return;
+  const s=analyseState;
+  const isAllKonsept=s.concept==='all';
+  const nokkelVedStart=kbNokkel(s);
+
+  document.getElementById('anKundebevegelseSub').textContent=
+    'YTD t.o.m. uke '+DASH.cutoff_uke+' · '+(isAllKonsept?'alle konsepter':AN_NAVN_FOR_KEY[s.concept]);
+
+  const kanBrukeStatiskSnapshot=kbScope&&kbScope.type==='alle'&&!kbState.region&&!kbState.grossist;
+  if(kanBrukeStatiskSnapshot){
+    kbTegnStatisk(s,isAllKonsept);
+  }else if(!kbScope){
+    document.getElementById('anKundebevegelse').innerHTML=
+      '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-tekst-3);padding:20px 0">Henter kundebevegelse…</div>';
+  }
+
+  let data;
+  try{
+    data=await kbHent(s);
+  }catch(e){
+    document.getElementById('anKundebevegelse').innerHTML=
+      '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-roed)">Kunne ikke hente kundebevegelse: '+e.message+'</div>';
+    return;
+  }
+  if(kbNokkel(analyseState)!==nokkelVedStart)return; // filter endret mens vi ventet — utdatert svar, dropp
+
+  kbScope=data.scope;
+  kbRenderFilterUI();
+
+  if(kbScope.type==='alle'&&!kbState.region&&!kbState.grossist){
+    kbTegnStatisk(s,isAllKonsept);
+    return;
+  }
+  document.getElementById('anKundebevegelse').innerHTML=
+    kbKort('Nye kunder','var(--green)',data.ny.antall,data.ny.sum_kr,data.ny.liste,'new',s.expandNew,'orgnr')+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',data.tapt.antall,data.tapt.sum_kr,data.tapt.liste,'lost',s.expandLost,'orgnr')+
+    kbKort('Sesongkunder på vent','#c9930f',data.venter.antall,null,data.venter.liste,'wait',s.expandWait,'orgnr');
 }
 
 function anDrawDonut(kons){
