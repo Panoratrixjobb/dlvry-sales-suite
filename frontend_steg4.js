@@ -1774,7 +1774,7 @@ const Steg4 = (() => {
     }
   }
 
-  // ---------- BRUKERKORT (steg 13: brukerdetalj — info/tilgang/aktivitet) ----------
+  // ---------- BRUKERKORT (steg 14: brukerdetalj — info/tilgang/aktivitet) ----------
   const kr0 = (n) => (n || 0).toLocaleString("nb-NO", { maximumFractionDigits: 0 }) + " kr";
 
   async function monterBrukerkort(brukerId, el, viewerRolle) {
