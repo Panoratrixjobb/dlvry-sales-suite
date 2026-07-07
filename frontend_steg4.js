@@ -1811,7 +1811,7 @@ const Steg4 = (() => {
 
       '<div class="d-faner">',
       '<button class="d-fane aktiv" data-fane="info">Info</button>',
-      '<button class="d-fane" data-fane="tilgang">Tilgang</button>',
+      '<button class="d-fane" data-fane="tilgang">Tilgang &amp; kompetanse</button>',
       '<button class="d-fane" data-fane="akt">Aktivitet/Resultater</button>',
       "</div>",
       '<div id="bk-faneinnhold"></div>',
@@ -1875,6 +1875,15 @@ const Steg4 = (() => {
         ? `<select id="bi-leder" class="d-select"><option value="">— ingen —</option>${lederOpt}</select>`
         : `<div style="padding:8px 0;font-size:13px">${esc(b.leder_navn || "—")}</div>`,
       "</div>",
+      '<div class="d-felt" style="min-width:220px;flex:1"><label>Konsept</label>',
+      erSuperadmin
+        ? `<select id="bi-konsept" class="d-select"><option value="">— ingen (grossist-tilknyttet) —</option>` +
+          ["La Salumeria", "East Essence", "Godt Lokalt", "Sabor"]
+            .map((k) => `<option value="${esc(k)}" ${b.konsept === k ? "selected" : ""}>${esc(k)}</option>`).join("")
+          + "</select>"
+        : `<div style="padding:8px 0;font-size:13px">${esc(b.konsept || "—")}</div>`,
+      '<p class="sub" style="margin:4px 0 0;font-size:11px">Konsept-tilknyttet selger ser alle uklargede leads (varemix på tvers av regioner) i stedet for kun egen region.</p>',
+      "</div>",
       '<div class="d-felt" style="min-width:100%"><label>Notat</label>',
       `<textarea id="bi-notat" class="d-input" rows="3" style="width:100%;resize:vertical">${esc(b.notat || "")}</textarea></div>`,
       erSuperadmin
@@ -1901,6 +1910,7 @@ const Steg4 = (() => {
         payload.rolle = el.querySelector("#bi-rolle").value;
         payload.grossist_id = el.querySelector("#bi-grossist").value || null;
         payload.leder_id = el.querySelector("#bi-leder").value || null;
+        payload.konsept = el.querySelector("#bi-konsept").value || null;
         payload.aktiv = el.querySelector("#bi-aktiv").checked;
       }
       btn.disabled = true;
@@ -1922,12 +1932,20 @@ const Steg4 = (() => {
 
   async function monterBrukerTilgang(brukerId, el, b, erSuperadmin) {
     el.innerHTML = '<p style="font-size:12px;color:var(--d-tekst-3)">Laster…</p>';
-    let liste = [];
+    let liste = [], kompetanse = [], bransjer = [];
     try {
       liste = erSuperadmin ? await api(`/api/brukere/${brukerId}/tilgang`) : (b.spesial_tilganger || []);
     } catch (e) {
       el.innerHTML = `<p style="color:var(--d-roed);font-size:12px">Feil: ${esc(e.message)}</p>`;
       return;
+    }
+    try {
+      kompetanse = await api(`/api/brukere/${brukerId}/kompetanse`);
+    } catch (_) {
+      kompetanse = b.kompetanse || [];
+    }
+    if (erSuperadmin) {
+      try { bransjer = await api("/api/kunder/bransjer"); } catch (_) {}
     }
     const rader = liste
       .map(
@@ -1940,6 +1958,19 @@ const Steg4 = (() => {
       )
       .join("");
 
+    const kompetanseTags = kompetanse
+      .map(
+        (k) =>
+          `<span class="d-badge gronn flat" style="gap:6px">${esc(k.bransje)}` +
+          (erSuperadmin
+            ? `<button data-slett-komp="${k.id}" title="Fjern" style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;font-size:14px;line-height:1;color:currentColor;opacity:.7">×</button>`
+            : "") +
+          `</span>`
+      )
+      .join("");
+
+    const bransjeOpt = bransjer.map((br) => `<option value="${esc(br)}">${esc(br)}</option>`).join("");
+
     el.innerHTML = [
       `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 10px">Rolle: <b>${esc(b.rolle)}</b> styrer standard synlighet. Spesialtilgang gir unntak (f.eks. innsyn i en annen region/grossist enn egen).</p>`,
       liste.length
@@ -1951,6 +1982,21 @@ const Steg4 = (() => {
           '<input id="tg-id" class="d-input" style="width:auto" placeholder="grossist-id eller regionnavn">' +
           '<button id="tg-legg" class="d-knapp sekundar sm">+ Gi tilgang</button>' +
           '<span id="tg-status" style="font-size:12px;color:var(--d-tekst-3)"></span>' +
+          "</div>"
+        : "",
+
+      '<h3 style="margin:20px 0 8px;font-size:14px;font-weight:600">Bransje-kompetanse</h3>',
+      `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 10px">Utvider hvilke uklargede leads selgeren ser i egen region — f.eks. gir «GATEKJØKKEN/FASTFOOD» tilgang til alle fast food-leads i regionen, uansett standard bransje-avgrensning.</p>`,
+      '<div style="display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin-bottom:10px">',
+      kompetanseTags || '<span style="font-size:12px;color:var(--d-tekst-3)">Ingen bransje-kompetanse satt.</span>',
+      "</div>",
+      erSuperadmin
+        ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+          (bransjeOpt
+            ? `<select id="komp-velg" class="d-select" style="width:auto;min-width:180px"><option value="">— velg bransje —</option>${bransjeOpt}</select>`
+            : '<input id="komp-velg-fri" class="d-input" style="width:auto" placeholder="Bransje, f.eks. GATEKJØKKEN/FASTFOOD">') +
+          '<button id="komp-legg" class="d-knapp sekundar sm">+ Legg til kompetanse</button>' +
+          '<span id="komp-status" style="font-size:12px;color:var(--d-tekst-3)"></span>' +
           "</div>"
         : "",
     ].join("");
@@ -1977,6 +2023,37 @@ const Steg4 = (() => {
           await api(`/api/brukere/${brukerId}/tilgang`, {
             method: "POST",
             body: JSON.stringify({ ressurs_type: el.querySelector("#tg-type").value, ressurs_id: ressursId }),
+          });
+          monterBrukerTilgang(brukerId, el, b, erSuperadmin);
+        } catch (e) {
+          st.textContent = "Feil: " + e.message;
+          st.style.color = "var(--d-roed)";
+        }
+      });
+
+    el.querySelectorAll("[data-slett-komp]").forEach((btn) =>
+      btn.addEventListener("click", async () => {
+        try {
+          await api(`/api/brukere/${brukerId}/kompetanse/${btn.dataset.slettKomp}`, { method: "DELETE" });
+          monterBrukerTilgang(brukerId, el, b, erSuperadmin);
+        } catch (e) {
+          alert("Feil: " + e.message);
+        }
+      })
+    );
+    const kompLeggBtn = el.querySelector("#komp-legg");
+    if (kompLeggBtn)
+      kompLeggBtn.addEventListener("click", async () => {
+        const st = el.querySelector("#komp-status");
+        const velgEl = el.querySelector("#komp-velg") || el.querySelector("#komp-velg-fri");
+        const bransje = velgEl ? velgEl.value.trim() : "";
+        if (!bransje) { st.textContent = "Velg/fyll inn en bransje"; st.style.color = "var(--d-roed)"; return; }
+        st.textContent = "Lagrer…";
+        st.style.color = "var(--d-tekst-3)";
+        try {
+          await api(`/api/brukere/${brukerId}/kompetanse`, {
+            method: "POST",
+            body: JSON.stringify({ bransje }),
           });
           monterBrukerTilgang(brukerId, el, b, erSuperadmin);
         } catch (e) {
