@@ -328,31 +328,66 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .dash-topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
 
 /* ===== Rapporter ===== */
+.rap-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+.rap-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--brand);background:var(--primaer-svak,rgba(214,87,66,.1));padding:4px 10px;border-radius:999px;margin-bottom:9px}
+.rap-eyebrow .tpl{font-weight:400;text-transform:none;letter-spacing:0;opacity:.7}
+[data-dark] .rap-eyebrow{background:rgba(214,87,66,.16)}
+.rap-h1{font-size:24px;margin:0 0 2px;font-weight:750;letter-spacing:-.01em}
+.rap-h1 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
+.rap-hsub{font-size:12.5px;color:var(--muted);margin:0}
+
 .rap-subrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
-.rap-pill{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 13px;border-radius:999px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.rap-subrow .rap-sublbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:2px}
+.rap-pill{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 13px;border-radius:999px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:background .12s,color .12s,border-color .12s}
+.rap-pill.small{padding:5px 11px;font-size:11.5px}
 .rap-pill:hover{border-color:var(--brand)}
 .rap-pill.aktiv{background:var(--brand);color:#fff;border-color:var(--brand)}
-.rap-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
-.rap-kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--d-radius,14px);padding:12px 14px}
-.rap-kpi .lbl{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
-.rap-kpi .val{font-size:20px;font-weight:700;margin-top:5px}
-.rap-kpi .delta{font-size:11px;margin-top:5px;font-weight:600}
-.rap-kpi .delta.up{color:var(--pos)}
-.rap-kpi .delta.down{color:var(--neg)}
-.rap-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+
+.rap-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:14px 0}
+.rap-kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--d-radius,14px);padding:13px 14px;box-shadow:var(--d-skygge,none)}
+.rap-kpi .lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.rap-kpi .val{font-size:21px;font-weight:750;margin-top:5px}
+.rap-kpi .delta{display:inline-block;font-size:11px;margin-top:7px;padding:2px 8px;border-radius:999px;font-weight:700}
+.rap-kpi .delta.up{color:var(--pos);background:var(--green-bg)}
+.rap-kpi .delta.down{color:var(--neg);background:var(--red-bg)}
+.rap-kpi .delta.plain{color:var(--muted);background:var(--bg);font-weight:600}
+
+.rap-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--d-radius,14px);padding:16px 16px 8px;margin-bottom:14px;box-shadow:var(--d-skygge,none)}
+.rap-card h3{margin:0 0 10px;font-size:13px;font-weight:750}
+.rap-card .rap-card-note{font-size:11px;color:var(--muted);margin:-4px 0 10px;line-height:1.5}
+
+.rap-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .rap-status.up{color:var(--pos);background:var(--green-bg)}
 .rap-status.down{color:var(--neg);background:var(--red-bg)}
-.rap-insight{background:var(--brand-svak,var(--primaer-svak,#fbeae6));border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
-[data-dark] .rap-insight{background:rgba(214,87,66,.1)}
+.rap-status.flat{color:var(--muted);background:var(--bg)}
+.rap-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle}
+
+.rap-insight{background:var(--primaer-svak,rgba(214,87,66,.1));border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
+[data-dark] .rap-insight{background:rgba(214,87,66,.12)}
 .rap-insight p{margin:0 0 6px}
 .rap-insight p:last-child{margin-bottom:0}
+.rap-insight b{font-variant-numeric:tabular-nums}
+
+.rap-caveat{margin-top:8px;font-size:11px;color:var(--neg);background:var(--red-bg);border-radius:8px;padding:8px 11px;line-height:1.5}
 .rap-empty{color:var(--muted);font-size:12.5px;padding:14px 0}
-.rap-note{font-size:11px;color:var(--muted);margin:-6px 0 10px;line-height:1.5}
+.rap-note{font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+.rap-filternote{font-size:12px;color:var(--muted);margin:2px 0 0}
+
+.rap-trend-row{display:flex;align-items:flex-end;gap:5px;height:56px;margin:6px 0 4px}
+.rap-trend-bar{flex:1;background:var(--teal);border-radius:3px 3px 0 0;min-height:3px}
+.rap-trend-table{width:100%;border-collapse:collapse;font-size:10.5px;margin-top:2px}
+.rap-trend-table td{padding:3px 4px;text-align:center;font-variant-numeric:tabular-nums;border:none}
+.rap-trend-table tr:first-child td{color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em}
+
+.d-tabell.rap-tabell tbody td{font-variant-numeric:tabular-nums}
+.d-tabell.rap-tabell tbody tr.total td{font-weight:750;background:var(--bg)}
+
 @media print{
   .d-sidemeny,.rap-noprint,#mobilHamburger,#mobilOverlay,.recalc-bar,#feedbackFab{display:none!important}
   .app.d-skall{display:block!important}
   .main{padding:0!important}
   body{background:#fff!important}
+  .rap-card,.rap-kpi{box-shadow:none!important;break-inside:avoid}
 }
 
 </style>
@@ -1402,11 +1437,13 @@ function normalizeDash(d){
   const estimat=(d.estimat&&d.estimat.length&&d.estimat[0].estimat_2026!=null)?d.estimat:[];
 
   const grossister={...f.grossister,...(d.grossister||{})};
+  // API-et (GET /api/dashboard-excel) nester allerede kundebevegelse_alle inn som
+  // d.kundebevegelse.alle server-side (se hent_dashboard_excel i dashboard_excel.py)
+  // — spreaden under henter den korrekt. (Rettet en feilaktig "fix" her tidligere som
+  // så etter d.kundebevegelse_alle som eget topplevel-felt; det feltet finnes ikke i
+  // responsen, backend popper/renamer det FØR den sendes — det brøt kundebevegelse.alle.)
   const kundebevegelse={...f.kundebevegelse,...(d.kundebevegelse||{})};
-  // kundebevegelse_alle er et EGET topplevel-felt fra API-et (nasjonalt ny/tapt/venter-øyeblikksbilde
-  // fra «Dashboard»-arkets rad 42) — ikke en del av d.kundebevegelse (som er PER KONSEPT). Uten denne
-  // linjen forblir kundebevegelse.alle alltid fallback-nuller, uansett hva API-et faktisk sender.
-  kundebevegelse.alle=d.kundebevegelse_alle||f.kundebevegelse.alle;
+  if(!kundebevegelse.alle)kundebevegelse.alle=f.kundebevegelse.alle;
 
   return {
     meta:d.meta||f.meta,
@@ -1419,7 +1456,8 @@ function normalizeDash(d){
     kundebevegelse,
     regioner:d.regioner||f.regioner,
     toppkunder:d.toppkunder||f.toppkunder,
-    toppvinnere:d.toppvinnere||f.toppvinnere
+    toppvinnere:d.toppvinnere||f.toppvinnere,
+    regionrapport:d.regionrapport||null
   };
 }
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
@@ -4005,11 +4043,11 @@ async function slettBruker(id, navn){
 
 // ============ Rapporter ============
 // Bruker samme DASH-objekt som Dashboard-visningen (/api/dashboard-excel) — ingen egen
-// datahenting. Totalrapport + Konseptrapport har alt de trenger i DASH allerede.
-// Regionrapport er bevisst utsatt: krever omsetning gruppert på region × konsept fra
-// kunde_salg_uke, som ikke er eksponert i /api/dashboard-excel ennå.
+// datahenting. Totalrapport, Konseptrapport og Regionrapport har alt de trenger i DASH
+// (DASH.regionrapport kommer fra hent_omsetning_regioner() i dashboard_excel.py, steg 18).
 const KONSEPT_ORDER_RAP=['la_salumeria','east_essence','godt_lokalt','wulff_co'];
-let rapState={tab:'total',konsept:'la_salumeria'};
+const REGION_ORDER_RAP=['Nord','Sør','Vest','Øst'];
+let rapState={tab:'total',konsept:'la_salumeria',region:'Nord',regionFilter:'ALLE'};
 
 function rapFmtM(n){return (isFinite(n)?n:0).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' MNOK';}
 function rapFmtPct(n){const v=(n||0)*100;return (v>=0?'+':'−')+Math.abs(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';}
@@ -4017,34 +4055,52 @@ function rapFmtPctAbs(n){return Math.abs((n||0)*100).toLocaleString('nb-NO',{min
 function rapFmtPP(n){const v=(n||0)*100;return (v>=0?'+':'−')+Math.abs(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';}
 function rapArrow(up){return up?'↗':'↘';}
 function rapStatus(up,txt){return `<span class="rap-status ${up?'up':'down'}">${rapArrow(up)} ${txt}</span>`;}
+function rapCalc(y25,y26){const delta=y26-y25;const lowBase=y25<0.10*Math.max(y26,1e-6);return{delta,pct:lowBase?null:delta/y25,up:delta>=0,lowBase};}
+function rapStatusCalc(c){return c.pct===null?'<span class="rap-status flat">'+rapArrow(c.up)+' lav base</span>':rapStatus(c.up,rapFmtPct(c.pct));}
+
+function rapHeader(kicker,eyebrow,tpl,title,sub,dotColor){
+  return `<div>
+    <div class="rap-kicker">${kicker}</div>
+    <div class="rap-eyebrow">${eyebrow}${tpl?` <span class="tpl">— ${tpl}</span>`:''}</div>
+    <h1 class="rap-h1">${dotColor?`<span class="dot" style="background:${dotColor}"></span>`:''}${title}</h1>
+    <p class="rap-hsub">${sub}</p>
+  </div>`;
+}
 
 function mountRapporter(){
   if(!DASH)DASH=DASH_FALLBACK;
   const crumb=document.getElementById('rapCrumb');
   if(crumb)crumb.textContent=(DASH.meta&&DASH.meta.periode)||'';
-  document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===rapState.tab));
-  document.getElementById('rapSubKonsept').style.display=rapState.tab==='konsept'?'flex':'none';
   renderRapporter();
 }
 function setRapTab(tab){
   rapState.tab=tab;
   document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===tab));
-  document.getElementById('rapSubKonsept').style.display=tab==='konsept'?'flex':'none';
   renderRapporter();
 }
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
+function setRapRegion(r){rapState.region=r;renderRapporter();}
+function setRapRegionFilter(f){rapState.regionFilter=f;renderRapporter();}
 
 function renderRapporter(){
   const el=document.getElementById('rapInnhold');
+  const sub=document.getElementById('rapSubKonsept');
   if(!el)return;
   if(rapState.tab==='total'){
+    sub.style.display='none';
     el.innerHTML=renderRapTotal();
   } else if(rapState.tab==='konsept'){
-    const sub=document.getElementById('rapSubKonsept');
+    sub.style.display='flex';
     sub.innerHTML=KONSEPT_ORDER_RAP.map(k=>`<button class="rap-pill ${k===rapState.konsept?'aktiv':''}" onclick="setRapKonsept('${k}')">${AN_NAVN_FOR_KEY[k]}</button>`).join('');
     el.innerHTML=renderRapKonsept(rapState.konsept);
   } else {
-    el.innerHTML=renderRapRegionPlaceholder();
+    sub.style.display='flex';
+    sub.innerHTML=`<span class="rap-sublbl">Region</span>`+
+      REGION_ORDER_RAP.map(r=>`<button class="rap-pill ${r===rapState.region?'aktiv':''}" onclick="setRapRegion('${r}')">${r}</button>`).join('')+
+      `<span class="rap-sublbl" style="margin-left:10px">Vis konsept</span>`+
+      [['ALLE','Alle konsepter']].concat(KONSEPT_ORDER_RAP.map(k=>[k,AN_NAVN_FOR_KEY[k]])).map(([k,navn])=>
+        `<button class="rap-pill small ${k===rapState.regionFilter?'aktiv':''}" onclick="setRapRegionFilter('${k}')">${navn}</button>`).join('');
+    el.innerHTML=renderRapRegion(rapState.region,rapState.regionFilter);
   }
 }
 
@@ -4061,7 +4117,7 @@ function renderRapTotal(){
     const bidragPP=totalY25?(k.y2026-k.y2025)/totalY25:0;
     const estK=est.find(e=>e.navn===k.navn);
     return `<tr>
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${k.farge};margin-right:7px"></span>${k.navn}</td>
+      <td><span class="rap-dot" style="background:${k.farge}"></span>${k.navn}</td>
       <td style="text-align:right">${rapFmtM(k.y2026)}</td>
       <td style="text-align:right">${rapFmtM(k.y2025)}</td>
       <td style="text-align:right">${rapFmtM(delta)}</td>
@@ -4071,7 +4127,7 @@ function renderRapTotal(){
     </tr>`;
   }).join('');
 
-  const totalRow=`<tr style="font-weight:700;background:var(--bg)">
+  const totalRow=`<tr class="total">
     <td>TOTAL EKSTERN</td>
     <td style="text-align:right">${rapFmtM(totalY26)}</td>
     <td style="text-align:right">${rapFmtM(totalY25)}</td>
@@ -4091,16 +4147,17 @@ function renderRapTotal(){
   </div>`:'';
 
   return `
+    ${rapHeader('DLVRY · SALESAPP','Ukerapport · Alle konsepter',null,'Totalrapport',(DASH.meta&&DASH.meta.periode)||'')}
     <div class="rap-kpi-row">
       <div class="rap-kpi"><div class="lbl">Total ekstern YTD</div><div class="val">${rapFmtM(totalY26)}</div><div class="delta ${t.vekst>=0?'up':'down'}">${rapFmtPct(t.vekst)} mot 2025</div></div>
-      <div class="rap-kpi"><div class="lbl">Endring</div><div class="val">${rapFmtM(totalDelta)}</div><div class="delta">mot samme uker 2025</div></div>
-      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</div><div class="delta">2025 helår: ${estTotal?rapFmtM(estTotal.helar_2025):'–'}</div></div>
-      <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta">nye / tapte (sesongjustert)</div></div>
+      <div class="rap-kpi"><div class="lbl">Endring</div><div class="val">${rapFmtM(totalDelta)}</div><div class="delta plain">mot samme uker 2025</div></div>
+      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</div><div class="delta plain">2025 helår: ${estTotal?rapFmtM(estTotal.helar_2025):'–'}</div></div>
+      <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta plain">nye / tapte (sesongjustert)</div></div>
     </div>
     ${insight}
-    <div class="panel">
+    <div class="rap-card">
       <h3>Omsetning per konsept</h3>
-      <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
         <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
         <th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Årsestimat</th>
@@ -4111,16 +4168,18 @@ function renderRapTotal(){
 }
 
 function renderRapKonsept(key){
+  const meta=DASH.konsepter.find(k=>k.navn===AN_NAVN_FOR_KEY[key])||{};
   const navn=AN_NAVN_FOR_KEY[key];
   const kons=(DASH.konsepter||[]).find(k=>k.navn===navn)||{y2025:0,y2026:0,vekst:0};
   const est=(DASH.estimat||[]).find(e=>e.navn===navn);
   const rader=(DASH.grossister&&DASH.grossister[key])||[];
   const totalY25=kons.y2025||0, totalY26=kons.y2026||0, totalDelta=totalY26-totalY25;
+  const andre=KONSEPT_ORDER_RAP.filter(k=>k!==key).map(k=>AN_NAVN_FOR_KEY[k]).join(', ');
 
   const rows=rader.map(r=>{
     const delta=r.y2026-r.y2025;
     const vekst=r.y2025?delta/r.y2025:null;
-    const statusHtml=vekst===null?'<span class="rap-status">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
+    const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
     return `<tr>
       <td>${r.kode?r.kode+' ':''}${r.navn}</td>
       <td style="text-align:right">${rapFmtM(r.y2026)}</td>
@@ -4131,7 +4190,7 @@ function renderRapKonsept(key){
     </tr>`;
   }).join('');
 
-  const totalRow=`<tr style="font-weight:700;background:var(--bg)">
+  const totalRow=`<tr class="total">
     <td>TOTAL ${navn.toUpperCase()}</td>
     <td style="text-align:right">${rapFmtM(totalY26)}</td>
     <td style="text-align:right">${rapFmtM(totalY25)}</td>
@@ -4150,6 +4209,7 @@ function renderRapKonsept(key){
   </div>`:'<div class="rap-empty">Ingen grossistdata lastet ennå for dette konseptet.</div>';
 
   return `
+    ${rapHeader('DLVRY · SALESAPP','Konseptrapport',`malen gjenbrukes for ${andre}`,navn,(DASH.meta&&DASH.meta.periode)||'',meta.farge)}
     <div class="rap-kpi-row">
       <div class="rap-kpi"><div class="lbl">2026 YTD</div><div class="val">${rapFmtM(totalY26)}</div></div>
       <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(totalY25)}</div></div>
@@ -4157,27 +4217,139 @@ function renderRapKonsept(key){
       <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${est?rapFmtM(est.estimat_2026):'–'}</div></div>
     </div>
     ${insight}
-    <div class="panel">
+    <div class="rap-card">
       <h3>Grossist-trend (YTD)</h3>
-      <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
         <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til vekst</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
     </div>
-    <div class="rap-note">Malen gjenbrukes for de tre andre konseptene — bytt med knappene over. «Bidrag til vekst» er regnet mot ${navn}s eget 2025-tall, aldri mot en region.</div>
+    <div class="rap-note">«Bidrag til vekst» er regnet mot ${navn}s eget 2025-tall, aldri mot en region.</div>
   `;
 }
 
-function renderRapRegionPlaceholder(){
-  return `<div class="panel">
-    <h3>Regionrapport</h3>
-    <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin:0">
-      Ikke koblet inn ennå. Denne rapporten krever omsetning gruppert på region × konsept
-      (fra <code>kunde_salg_uke</code>), som <code>/api/dashboard-excel</code> ikke eksponerer i dag —
-      trenger en liten, testet backend-utvidelse først. Totalrapport og Konseptrapport over
-      bruker data appen allerede har live.
-    </p>
-  </div>`;
+function rapTrendBlock(labels,values){
+  const max=Math.max(...values,0.0001);
+  const bars=values.map(v=>`<div class="rap-trend-bar" style="height:${Math.max(6,Math.round(v/max*100))}%"></div>`).join('');
+  const head=labels.map(l=>`<td>U${l}</td>`).join('');
+  const vals=values.map(v=>`<td>${v.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}</td>`).join('');
+  return `<div class="rap-trend-row">${bars}</div><table class="rap-trend-table"><tr>${head}</tr><tr>${vals}</tr></table>`;
+}
+
+function renderRapRegion(regionNavn,filter){
+  const rr=DASH.regionrapport;
+  if(!rr||!rr.regioner||!rr.regioner[regionNavn]){
+    return `${rapHeader('DLVRY · SALESAPP','Regionrapport',null,'Region '+regionNavn,(DASH.meta&&DASH.meta.periode)||'')}
+      <div class="rap-card"><div class="rap-empty">Ingen regiondata lastet ennå. Krever opplasting via /last-opp-kundedata (FIKS-14).</div></div>`;
+  }
+  const reg=rr.regioner[regionNavn];
+  const andreRegioner=REGION_ORDER_RAP.filter(r=>r!==regionNavn).join(', ');
+
+  // total for regionen (alle konsepter) — brukes som nevner når filter er ALLE
+  let totY25=0,totY26=0;
+  KONSEPT_ORDER_RAP.forEach(k=>{const v=reg.byKonsept[k]||{y2025:0,y2026:0};totY25+=v.y2025;totY26+=v.y2026;});
+  const totC=rapCalc(totY25,totY26);
+
+  const scopeTot=filter==='ALLE'?{y2025:totY25,y2026:totY26}:(reg.byKonsept[filter]||{y2025:0,y2026:0});
+  const scopeC=rapCalc(scopeTot.y2025,scopeTot.y2026);
+
+  // KPI-rad
+  const kpis=`
+    <div class="rap-kpi-row">
+      <div class="rap-kpi"><div class="lbl">${filter==='ALLE'?'Total 2026 YTD':AN_NAVN_FOR_KEY[filter]+' 2026 YTD'}</div><div class="val">${rapFmtM(scopeTot.y2026)}</div></div>
+      <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(scopeTot.y2025)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Vekst</div><div class="val">${scopeC.pct===null?'lav base':rapFmtPct(scopeC.pct)}</div><div class="delta ${scopeC.up?'up':'down'}">${rapFmtM(scopeC.delta)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Antall grossister</div><div class="val">${reg.grossister.length}</div></div>
+    </div>`;
+
+  // per-konsept-tabell (alltid alle 4, uansett filter)
+  const konseptRows=KONSEPT_ORDER_RAP.map(k=>{
+    const v=reg.byKonsept[k]||{y2025:0,y2026:0};
+    const c=rapCalc(v.y2025,v.y2026);
+    const meta=DASH.konsepter.find(m=>m.navn===AN_NAVN_FOR_KEY[k])||{};
+    return `<tr><td><span class="rap-dot" style="background:${meta.farge||'#999'}"></span>${AN_NAVN_FOR_KEY[k]}</td>
+      <td style="text-align:right">${rapFmtM(v.y2026)}</td><td style="text-align:right">${rapFmtM(v.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+  }).join('');
+  const konseptTotalRow=`<tr class="total"><td>TOTAL REGION</td><td style="text-align:right">${rapFmtM(totY26)}</td><td style="text-align:right">${rapFmtM(totY25)}</td>
+    <td style="text-align:right">${rapFmtM(totC.delta)}</td><td style="text-align:right">${rapStatusCalc(totC)}</td></tr>`;
+
+  // grossist-tabell — filtrert til ett konsept, eller summert over alle
+  let grossistRows;
+  if(filter==='ALLE'){
+    const withTot=reg.grossister.map(g=>{
+      let gy25=0,gy26=0;
+      KONSEPT_ORDER_RAP.forEach(k=>{const v=g.perKonsept[k];if(v){gy25+=v.y2025;gy26+=v.y2026;}});
+      return {navn:g.navn,y2025:gy25,y2026:gy26};
+    }).sort((a,b)=>b.y2026-a.y2026);
+    grossistRows=withTot.map(g=>{
+      const c=rapCalc(g.y2025,g.y2026);
+      return `<tr><td>${g.navn}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
+        <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+    }).join('');
+  } else {
+    const filtered=reg.grossister.map(g=>({navn:g.navn,...(g.perKonsept[filter]||{y2025:0,y2026:0})}))
+      .filter(g=>g.y2025>0||g.y2026>0).sort((a,b)=>b.y2026-a.y2026);
+    grossistRows=filtered.length?filtered.map(g=>{
+      const c=rapCalc(g.y2025,g.y2026);
+      return `<tr><td>${g.navn}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
+        <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+    }).join(''):`<tr><td colspan="5" class="rap-empty">Ingen omsetning for ${AN_NAVN_FOR_KEY[filter]} hos grossistene i denne regionen.</td></tr>`;
+  }
+
+  // 8-ukers trend
+  const trendKonsept=filter==='ALLE'?null:filter;
+  const uker=rr.uker||[];
+  let trendValues;
+  if(trendKonsept){
+    trendValues=uker.map(u=>(reg.trend[trendKonsept]&&reg.trend[trendKonsept][String(u)])||0);
+  } else {
+    trendValues=uker.map(u=>KONSEPT_ORDER_RAP.reduce((sum,k)=>sum+((reg.trend[k]&&reg.trend[k][String(u)])||0),0));
+  }
+
+  let insight1='';
+  const storstGrossist=reg.grossister.length?reg.grossister.map(g=>{
+    let gy26=0; KONSEPT_ORDER_RAP.forEach(k=>{if(g.perKonsept[k])gy26+=g.perKonsept[k].y2026;});
+    return {navn:g.navn,y2026:gy26};
+  }).reduce((a,b)=>b.y2026>a.y2026?b:a):null;
+  if(storstGrossist&&totY26){
+    insight1=`<p>Størst i regionen er <b>${storstGrossist.navn}</b> — ${rapFmtPctAbs(storstGrossist.y2026/totY26)} av ${regionNavn}-total.</p>`;
+  }
+  let sterkest=null,svakest=null;
+  KONSEPT_ORDER_RAP.forEach(k=>{
+    const v=reg.byKonsept[k]||{y2025:0,y2026:0};const c=rapCalc(v.y2025,v.y2026);
+    if(c.pct!==null){if(!sterkest||c.pct>sterkest.pct)sterkest={navn:AN_NAVN_FOR_KEY[k],pct:c.pct};if(!svakest||c.pct<svakest.pct)svakest={navn:AN_NAVN_FOR_KEY[k],pct:c.pct};}
+  });
+  const insight2=sterkest&&svakest?`<p>Sterkest vekst i regionen: <b>${sterkest.navn} (${rapFmtPct(sterkest.pct)})</b>. Svakest: <b>${svakest.navn} (${rapFmtPct(svakest.pct)})</b>.</p>`:'';
+
+  const filterNote=filter!=='ALLE'?`<p class="rap-filternote">Filtrert til <b>${AN_NAVN_FOR_KEY[filter]}</b> — klikk «Alle konsepter» over for full regionvisning.</p>`:'';
+
+  return `
+    ${rapHeader('DLVRY · SALESAPP','Regionrapport',`malen gjenbrukes for ${andreRegioner}`,'Region '+regionNavn,(DASH.meta&&DASH.meta.periode)||'')}
+    ${filterNote}
+    ${kpis}
+    <div class="rap-insight">${insight1}${insight2}</div>
+    <div class="rap-card">
+      <h3>Omsetning per konsept i regionen</h3>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
+      </tr></thead><tbody>${konseptRows}${konseptTotalRow}</tbody></table></div>
+    </div>
+    <div class="rap-card">
+      <h3>Omsetning per grossist${filter==='ALLE'?' (alle konsepter)':' — '+AN_NAVN_FOR_KEY[filter]}</h3>
+      <div class="rap-card-note">«Bidrag til vekst» er ikke vist her — det regnes kun mot et konsepts eller totalens tall, se Konseptrapport/Totalrapport.</div>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
+      </tr></thead><tbody>${grossistRows}</tbody></table></div>
+    </div>
+    <div class="rap-card">
+      <h3>8-ukers trend — ${filter==='ALLE'?'total region':AN_NAVN_FOR_KEY[filter]}</h3>
+      <div class="rap-card-note">Siste 8 ISO-uker t.o.m. cutoff-uke ${rr.cutoff_uke||''}.</div>
+      ${rapTrendBlock(uker,trendValues)}
+    </div>
+  `;
 }
 
 // ============ Views ============
