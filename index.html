@@ -1458,7 +1458,8 @@ function normalizeDash(d){
     regioner:d.regioner||f.regioner,
     toppkunder:d.toppkunder||f.toppkunder,
     toppvinnere:d.toppvinnere||f.toppvinnere,
-    regionrapport:d.regionrapport||null
+    regionrapport:d.regionrapport||null,
+    fikstotal:d.fikstotal||null
   };
 }
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
@@ -4109,23 +4110,86 @@ function renderRapporter(){
 }
 
 function renderRapFiks(){
-  return `${rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',(DASH.meta&&DASH.meta.periode)||'')}
+  const ft=DASH.fikstotal;
+  const head=rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',(DASH.meta&&DASH.meta.periode)||'');
+  if(!ft||!ft.grossister||!ft.grossister.length){
+    return `${head}
     <div class="rap-card">
-      <h3>Ikke koblet til live data ennå</h3>
+      <h3>Venter på FIKS-14-opplasting</h3>
       <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0 0 10px">
-        Denne rapporten sammenligner DLVRYs egen import (La Salumeria + East Essence) mot
-        grossistenes <b>fulle</b> omsetning — alle leverandører, ikke bare DLVRYs konsepter —
-        for å vise reell markedsandel/penetrasjon hos hver grossist.
+        Denne rapporten viser grossistenes <b>fulle</b> omsetning (alle leverandører, ikke bare
+        DLVRYs konsepter) fra «Total 2025/2026»-arkene i FIKS-14, og DLVRYs egen import
+        (La Salumeria + East Essence) som andel av dette = markedsandel/penetrasjon per grossist.
       </p>
       <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0">
-        Kilden for «alt grossisten selger» var et eldre engangsuttrekk (FIKS-14, fanen
-        «Total 2025/2026»). <code>kunde_salg_uke</code> — tabellen appen nå fyller løpende via
-        <code>/last-opp-kundedata</code> — inneholder kun DLVRYs egne fire konsepter, ikke
-        grossistenes fulle omsetning. Denne rapporten kan ikke vise live tall før den brede
-        «alt grossisten selger»-dataen har en egen, løpende opplastingsrute inn i databasen.
-        Designforslaget viser hvordan den skal se ut når den kobles til.
+        Tallene fylles automatisk neste gang FIKS-14-fila lastes opp i <b>Innstillinger</b>
+        (backend leser nå også «Total»-arkene, ikke bare per-konsept-arkene). Last opp fila på
+        nytt for å aktivere rapporten.
       </p>
     </div>`;
+  }
+
+  const gl=ft.grossister.slice();
+  let g26=0,g25=0,lsee=0;
+  gl.forEach(g=>{g26+=g.y2026;g25+=g.y2025;lsee+=g.dlvry_lsee_2026;});
+  const grandC=rapCalc(g25,g26);
+  const andel=g26?lsee/g26:0;
+
+  // per region
+  const regMap={};
+  gl.forEach(g=>{const r=regMap[g.region]||(regMap[g.region]={region:g.region,y2025:0,y2026:0});r.y2025+=g.y2025;r.y2026+=g.y2026;});
+  const regList=Object.values(regMap).sort((a,b)=>b.y2026-a.y2026);
+  const regRows=regList.map(r=>{
+    const c=rapCalc(r.y2025,r.y2026);
+    return `<tr><td>${r.region}</td><td style="text-align:right">${rapFmtM(r.y2026)}</td><td style="text-align:right">${rapFmtM(r.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td>
+      <td style="text-align:right">${rapFmtPP(g25?(r.y2026-r.y2025)/g25:0)}</td></tr>`;
+  }).join('');
+  const regTotal=`<tr class="total"><td>TOTAL ALLE REGIONER</td><td style="text-align:right">${rapFmtM(g26)}</td><td style="text-align:right">${rapFmtM(g25)}</td>
+    <td style="text-align:right">${rapFmtM(grandC.delta)}</td><td style="text-align:right">${rapStatusCalc(grandC)}</td><td style="text-align:right">${rapFmtPP(grandC.pct)}</td></tr>`;
+
+  // per grossist
+  gl.sort((a,b)=>b.y2026-a.y2026);
+  const gRows=gl.map(g=>{
+    const c=rapCalc(g.y2025,g.y2026);
+    const pen=g.y2026?g.dlvry_lsee_2026/g.y2026:0;
+    return `<tr><td>${g.navn}</td><td class="rap-note" style="margin:0">${g.region}</td>
+      <td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td>
+      <td style="text-align:right">${rapFmtPP(g25?(g.y2026-g.y2025)/g25:0)}</td>
+      <td style="text-align:right">${rapFmtPctAbs(pen)}</td></tr>`;
+  }).join('');
+
+  const topPen=gl.slice().filter(g=>g.y2026>0).sort((a,b)=>(b.dlvry_lsee_2026/b.y2026)-(a.dlvry_lsee_2026/a.y2026))[0];
+  const insight=`<div class="rap-insight">
+    <p>Grossistenes samlede omsetning (alle leverandører, alle produkter) er <b>${rapFmtM(g26)}</b> YTD, ${grandC.up?'opp':'ned'} <b>${rapFmtPctAbs(grandC.pct)}</b> mot samme uker 2025 (${rapFmtM(grandC.delta)}).</p>
+    <p>DLVRYs egen import (La Salumeria + East Essence) utgjør <b>${rapFmtPctAbs(andel)}</b> av dette samlet${topPen?` — høyest hos <b>${topPen.navn}</b> (${rapFmtPctAbs(topPen.dlvry_lsee_2026/topPen.y2026)})`:''}.</p>
+  </div>`;
+
+  return `${head}
+    <div class="rap-kpi-row">
+      <div class="rap-kpi"><div class="lbl">Total grossistomsetning 2026 YTD</div><div class="val">${rapFmtM(g26)}</div></div>
+      <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(g25)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Vekst</div><div class="val">${rapFmtPct(grandC.pct)}</div><div class="delta ${grandC.up?'up':'down'}">${rapFmtM(grandC.delta)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Andel LS + EE (egen import)</div><div class="val">${rapFmtPctAbs(andel)}</div><div class="delta plain">av grossistenes samlede omsetning</div></div>
+    </div>
+    ${insight}
+    <div class="rap-card">
+      <h3>Omsetning per region — alle grossister, alle produkter</h3>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Region</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til totalens vekst</th>
+      </tr></thead><tbody>${regRows}${regTotal}</tbody></table></div>
+    </div>
+    <div class="rap-card">
+      <h3>Omsetning per grossist — alle leverandører, med andel LS + EE</h3>
+      <div class="rap-card-note">Andel LS + EE = DLVRYs egen import (La Salumeria + East Essence) som del av grossistens fulle omsetning. Godt Lokalt (norske leverandører) og Wulff (kun delvis DLVRY-import) holdes utenfor.</div>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Grossist</th><th>Region</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Andel LS + EE</th>
+      </tr></thead><tbody>${gRows}</tbody></table></div>
+    </div>
+    <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene (grossistenes fulle omsetning). Pære-mot-pære: 2025 kappet til samme uker som 2026 har data for. D06 Wulff & Co og D24 Foodbroker inngår ikke i denne pivoten (ikke regionsfordelt).</div>`;
 }
 
 // Grossist-trend for ett konsept — gjenbrukt av Ukerapport (LS+EE, som i PDF-en) og Konseptrapport.
