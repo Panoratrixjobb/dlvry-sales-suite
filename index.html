@@ -327,6 +327,34 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .dash-ctrl-btn:hover{background:var(--bg)}
 .dash-topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto}
 
+/* ===== Rapporter ===== */
+.rap-subrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.rap-pill{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 13px;border-radius:999px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.rap-pill:hover{border-color:var(--brand)}
+.rap-pill.aktiv{background:var(--brand);color:#fff;border-color:var(--brand)}
+.rap-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.rap-kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--d-radius,14px);padding:12px 14px}
+.rap-kpi .lbl{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.rap-kpi .val{font-size:20px;font-weight:700;margin-top:5px}
+.rap-kpi .delta{font-size:11px;margin-top:5px;font-weight:600}
+.rap-kpi .delta.up{color:var(--pos)}
+.rap-kpi .delta.down{color:var(--neg)}
+.rap-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.rap-status.up{color:var(--pos);background:var(--green-bg)}
+.rap-status.down{color:var(--neg);background:var(--red-bg)}
+.rap-insight{background:var(--brand-svak,var(--primaer-svak,#fbeae6));border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
+[data-dark] .rap-insight{background:rgba(214,87,66,.1)}
+.rap-insight p{margin:0 0 6px}
+.rap-insight p:last-child{margin-bottom:0}
+.rap-empty{color:var(--muted);font-size:12.5px;padding:14px 0}
+.rap-note{font-size:11px;color:var(--muted);margin:-6px 0 10px;line-height:1.5}
+@media print{
+  .d-sidemeny,.rap-noprint,#mobilHamburger,#mobilOverlay,.recalc-bar,#feedbackFab{display:none!important}
+  .app.d-skall{display:block!important}
+  .main{padding:0!important}
+  body{background:#fff!important}
+}
+
 </style>
 </head>
 <body>
@@ -377,7 +405,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Tilbudsverktøy</a>
       <a class="deaktivert"><span class="ic">📊</span> Kundeanalyse</a>
       <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
-      <a class="deaktivert"><span class="ic">📄</span> Rapporter</a>
+      <a data-view="rapporter" onclick="setView('rapporter')"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
       <a data-view="besoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
@@ -972,6 +1000,30 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <div id="besoksplanListe" style="margin-top:12px"></div>
     </div>
 
+    <!-- ===== RAPPORTER VIEW ===== -->
+    <div id="view-rapporter" style="display:none">
+      <div class="topbar rap-noprint">
+        <button class="dash-ctrl-btn" onclick="toggleSidebar()" title="Kollaps meny" style="flex-shrink:0">☰</button>
+        <div style="flex:1;min-width:0">
+          <h1 style="margin:0">Rapporter</h1>
+          <div class="crumb" id="rapCrumb">Laster…</div>
+        </div>
+        <div class="dash-topbar-right">
+          <button class="dash-ctrl-btn" onclick="window.print()" title="Skriv ut / Last ned PDF">🖨️ Skriv ut / PDF</button>
+        </div>
+      </div>
+
+      <div class="dash-tabs rap-noprint">
+        <button class="dash-tab aktiv" data-raptab="total" onclick="setRapTab('total')">Totalrapport</button>
+        <button class="dash-tab" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
+        <button class="dash-tab" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
+      </div>
+
+      <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
+
+      <div id="rapInnhold" style="margin-top:14px"></div>
+    </div>
+
   </main>
 </div>
 
@@ -1351,7 +1403,10 @@ function normalizeDash(d){
 
   const grossister={...f.grossister,...(d.grossister||{})};
   const kundebevegelse={...f.kundebevegelse,...(d.kundebevegelse||{})};
-  if(!kundebevegelse.alle)kundebevegelse.alle=f.kundebevegelse.alle;
+  // kundebevegelse_alle er et EGET topplevel-felt fra API-et (nasjonalt ny/tapt/venter-øyeblikksbilde
+  // fra «Dashboard»-arkets rad 42) — ikke en del av d.kundebevegelse (som er PER KONSEPT). Uten denne
+  // linjen forblir kundebevegelse.alle alltid fallback-nuller, uansett hva API-et faktisk sender.
+  kundebevegelse.alle=d.kundebevegelse_alle||f.kundebevegelse.alle;
 
   return {
     meta:d.meta||f.meta,
@@ -3948,6 +4003,183 @@ async function slettBruker(id, navn){
   }
 }
 
+// ============ Rapporter ============
+// Bruker samme DASH-objekt som Dashboard-visningen (/api/dashboard-excel) — ingen egen
+// datahenting. Totalrapport + Konseptrapport har alt de trenger i DASH allerede.
+// Regionrapport er bevisst utsatt: krever omsetning gruppert på region × konsept fra
+// kunde_salg_uke, som ikke er eksponert i /api/dashboard-excel ennå.
+const KONSEPT_ORDER_RAP=['la_salumeria','east_essence','godt_lokalt','wulff_co'];
+let rapState={tab:'total',konsept:'la_salumeria'};
+
+function rapFmtM(n){return (isFinite(n)?n:0).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' MNOK';}
+function rapFmtPct(n){const v=(n||0)*100;return (v>=0?'+':'−')+Math.abs(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';}
+function rapFmtPctAbs(n){return Math.abs((n||0)*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';}
+function rapFmtPP(n){const v=(n||0)*100;return (v>=0?'+':'−')+Math.abs(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';}
+function rapArrow(up){return up?'↗':'↘';}
+function rapStatus(up,txt){return `<span class="rap-status ${up?'up':'down'}">${rapArrow(up)} ${txt}</span>`;}
+
+function mountRapporter(){
+  if(!DASH)DASH=DASH_FALLBACK;
+  const crumb=document.getElementById('rapCrumb');
+  if(crumb)crumb.textContent=(DASH.meta&&DASH.meta.periode)||'';
+  document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===rapState.tab));
+  document.getElementById('rapSubKonsept').style.display=rapState.tab==='konsept'?'flex':'none';
+  renderRapporter();
+}
+function setRapTab(tab){
+  rapState.tab=tab;
+  document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===tab));
+  document.getElementById('rapSubKonsept').style.display=tab==='konsept'?'flex':'none';
+  renderRapporter();
+}
+function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
+
+function renderRapporter(){
+  const el=document.getElementById('rapInnhold');
+  if(!el)return;
+  if(rapState.tab==='total'){
+    el.innerHTML=renderRapTotal();
+  } else if(rapState.tab==='konsept'){
+    const sub=document.getElementById('rapSubKonsept');
+    sub.innerHTML=KONSEPT_ORDER_RAP.map(k=>`<button class="rap-pill ${k===rapState.konsept?'aktiv':''}" onclick="setRapKonsept('${k}')">${AN_NAVN_FOR_KEY[k]}</button>`).join('');
+    el.innerHTML=renderRapKonsept(rapState.konsept);
+  } else {
+    el.innerHTML=renderRapRegionPlaceholder();
+  }
+}
+
+function renderRapTotal(){
+  const t=DASH.total||{y2025:0,y2026:0,vekst:0};
+  const kons=DASH.konsepter||[];
+  const est=DASH.estimat||[];
+  const kb=(DASH.kundebevegelse&&DASH.kundebevegelse.alle)||{nye:0,tapt:0,venter:0};
+  const totalY25=t.y2025||0, totalY26=t.y2026||0, totalDelta=totalY26-totalY25;
+  const estTotal=est.find(e=>e.navn==='Total ekstern');
+
+  const rows=kons.map(k=>{
+    const delta=k.y2026-k.y2025;
+    const bidragPP=totalY25?(k.y2026-k.y2025)/totalY25:0;
+    const estK=est.find(e=>e.navn===k.navn);
+    return `<tr>
+      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${k.farge};margin-right:7px"></span>${k.navn}</td>
+      <td style="text-align:right">${rapFmtM(k.y2026)}</td>
+      <td style="text-align:right">${rapFmtM(k.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(delta)}</td>
+      <td style="text-align:right">${rapStatus(k.vekst>=0,rapFmtPct(k.vekst))}</td>
+      <td style="text-align:right">${rapFmtPP(bidragPP)}</td>
+      <td style="text-align:right">${estK?rapFmtM(estK.estimat_2026):'–'}</td>
+    </tr>`;
+  }).join('');
+
+  const totalRow=`<tr style="font-weight:700;background:var(--bg)">
+    <td>TOTAL EKSTERN</td>
+    <td style="text-align:right">${rapFmtM(totalY26)}</td>
+    <td style="text-align:right">${rapFmtM(totalY25)}</td>
+    <td style="text-align:right">${rapFmtM(totalDelta)}</td>
+    <td style="text-align:right">${rapStatus(t.vekst>=0,rapFmtPct(t.vekst))}</td>
+    <td style="text-align:right">${rapFmtPP(t.vekst)}</td>
+    <td style="text-align:right">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</td>
+  </tr>`;
+
+  let strongest=null,weakest=null;
+  kons.forEach(k=>{if(!strongest||k.vekst>strongest.vekst)strongest=k;if(!weakest||k.vekst<weakest.vekst)weakest=k;});
+
+  const insight=kons.length?`<div class="rap-insight">
+    <p>Ekstern omsetning YTD er <b>${rapFmtM(totalY26)}</b>, ${t.vekst>=0?'en oppgang':'en nedgang'} på <b>${rapFmtPctAbs(t.vekst)}</b> mot samme periode i 2025 (${rapFmtM(totalDelta)}).</p>
+    ${strongest&&weakest?`<p>Sterkest vekst: <b>${strongest.navn} (${rapFmtPct(strongest.vekst)})</b>. Svakest: <b>${weakest.navn} (${rapFmtPct(weakest.vekst)})</b>.</p>`:''}
+    ${estTotal?`<p>Årsestimat 2026 (sesong- og grossistvektet): <b>${rapFmtM(estTotal.estimat_2026)}</b> mot 2025-helår ${rapFmtM(estTotal.helar_2025)}.</p>`:''}
+  </div>`:'';
+
+  return `
+    <div class="rap-kpi-row">
+      <div class="rap-kpi"><div class="lbl">Total ekstern YTD</div><div class="val">${rapFmtM(totalY26)}</div><div class="delta ${t.vekst>=0?'up':'down'}">${rapFmtPct(t.vekst)} mot 2025</div></div>
+      <div class="rap-kpi"><div class="lbl">Endring</div><div class="val">${rapFmtM(totalDelta)}</div><div class="delta">mot samme uker 2025</div></div>
+      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</div><div class="delta">2025 helår: ${estTotal?rapFmtM(estTotal.helar_2025):'–'}</div></div>
+      <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta">nye / tapte (sesongjustert)</div></div>
+    </div>
+    ${insight}
+    <div class="panel">
+      <h3>Omsetning per konsept</h3>
+      <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+        <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
+        <th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Årsestimat</th>
+      </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen data lastet ennå.</td></tr>'}${kons.length?totalRow:''}</tbody></table></div>
+    </div>
+    <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Metode: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for.</div>
+  `;
+}
+
+function renderRapKonsept(key){
+  const navn=AN_NAVN_FOR_KEY[key];
+  const kons=(DASH.konsepter||[]).find(k=>k.navn===navn)||{y2025:0,y2026:0,vekst:0};
+  const est=(DASH.estimat||[]).find(e=>e.navn===navn);
+  const rader=(DASH.grossister&&DASH.grossister[key])||[];
+  const totalY25=kons.y2025||0, totalY26=kons.y2026||0, totalDelta=totalY26-totalY25;
+
+  const rows=rader.map(r=>{
+    const delta=r.y2026-r.y2025;
+    const vekst=r.y2025?delta/r.y2025:null;
+    const statusHtml=vekst===null?'<span class="rap-status">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
+    return `<tr>
+      <td>${r.kode?r.kode+' ':''}${r.navn}</td>
+      <td style="text-align:right">${rapFmtM(r.y2026)}</td>
+      <td style="text-align:right">${rapFmtM(r.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(delta)}</td>
+      <td style="text-align:right">${statusHtml}</td>
+      <td style="text-align:right">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
+    </tr>`;
+  }).join('');
+
+  const totalRow=`<tr style="font-weight:700;background:var(--bg)">
+    <td>TOTAL ${navn.toUpperCase()}</td>
+    <td style="text-align:right">${rapFmtM(totalY26)}</td>
+    <td style="text-align:right">${rapFmtM(totalY25)}</td>
+    <td style="text-align:right">${rapFmtM(totalDelta)}</td>
+    <td style="text-align:right">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
+    <td style="text-align:right">${rapFmtPP(kons.vekst)}</td>
+  </tr>`;
+
+  let best=null,worst=null;
+  rader.forEach(r=>{if(best===null||r.bidrag_pp>best.bidrag_pp)best=r;if(worst===null||r.bidrag_pp<worst.bidrag_pp)worst=r;});
+  const storst=rader.length?rader.reduce((a,b)=>b.y2026>a.y2026?b:a):null;
+
+  const insight=rader.length?`<div class="rap-insight">
+    ${best&&worst?`<p>Beste bidrag fra <b>${best.navn}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${worst.navn}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`:''}
+    ${storst&&totalY26?`<p>Størst grossist er <b>${storst.navn}</b> — ${rapFmtPctAbs(storst.y2026/totalY26)} av ${navn}-total.</p>`:''}
+  </div>`:'<div class="rap-empty">Ingen grossistdata lastet ennå for dette konseptet.</div>';
+
+  return `
+    <div class="rap-kpi-row">
+      <div class="rap-kpi"><div class="lbl">2026 YTD</div><div class="val">${rapFmtM(totalY26)}</div></div>
+      <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(totalY25)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Vekst</div><div class="val">${rapFmtPct(kons.vekst)}</div><div class="delta ${kons.vekst>=0?'up':'down'}">${rapFmtM(totalDelta)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${est?rapFmtM(est.estimat_2026):'–'}</div></div>
+    </div>
+    ${insight}
+    <div class="panel">
+      <h3>Grossist-trend (YTD)</h3>
+      <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+        <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til vekst</th>
+      </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+    </div>
+    <div class="rap-note">Malen gjenbrukes for de tre andre konseptene — bytt med knappene over. «Bidrag til vekst» er regnet mot ${navn}s eget 2025-tall, aldri mot en region.</div>
+  `;
+}
+
+function renderRapRegionPlaceholder(){
+  return `<div class="panel">
+    <h3>Regionrapport</h3>
+    <p style="font-size:12.5px;color:var(--muted);line-height:1.6;margin:0">
+      Ikke koblet inn ennå. Denne rapporten krever omsetning gruppert på region × konsept
+      (fra <code>kunde_salg_uke</code>), som <code>/api/dashboard-excel</code> ikke eksponerer i dag —
+      trenger en liten, testet backend-utvidelse først. Totalrapport og Konseptrapport over
+      bruker data appen allerede har live.
+    </p>
+  </div>`;
+}
+
 // ============ Views ============
 function setView(v){
   lukkMobilmeny();
@@ -3957,6 +4189,7 @@ function setView(v){
   document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
   document.getElementById('view-konkurrenter').style.display=v==='konkurrenter'?'':'none';
   document.getElementById('view-besoksplan').style.display=v==='besoksplan'?'':'none';
+  document.getElementById('view-rapporter').style.display=v==='rapporter'?'':'none';
   document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
   document.querySelector('.recalc-bar').style.display=v==='kalkulator'?'flex':'none';
   if(v==='kunder'&&!state.custId){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
@@ -3971,6 +4204,7 @@ function setView(v){
   if(v==='brukere'){mountBrukere();if(state.brukerId)Steg4.monterBrukerkort(state.brukerId,document.getElementById('brukerkort-steg4'),CURRENT_USER?.rolle);}
   if(v==='konkurrenter')mountKonkurrenter();
   if(v==='besoksplan')mountBesoksplan();
+  if(v==='rapporter')mountRapporter();
 }
 
 // ============ Init ============
