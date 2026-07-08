@@ -1049,7 +1049,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
 
       <div class="rap-subrow rap-noprint" style="margin-top:0">
-        <button class="rap-pill aktiv" data-raptab="total" onclick="setRapTab('total')">Totalrapport (konsepter)</button>
+        <button class="rap-pill aktiv" data-raptab="total" onclick="setRapTab('total')">Ukerapport (alle konsepter)</button>
         <button class="rap-pill" data-raptab="fiks" onclick="setRapTab('fiks')">Totalrapport (grossist — FIKS)</button>
         <button class="rap-pill" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
         <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
@@ -4128,6 +4128,51 @@ function renderRapFiks(){
     </div>`;
 }
 
+// Grossist-trend for ett konsept — gjenbrukt av Ukerapport (LS+EE, som i PDF-en) og Konseptrapport.
+// Returnerer {card, innsikt} der innsikt er én <p>-linje pluss «største grossist»-linje (som i PDF-ens INNSIKT-seksjon).
+function rapGrossistTrend(key){
+  const navn=AN_NAVN_FOR_KEY[key];
+  const kortnavn={la_salumeria:'LS',east_essence:'EE',godt_lokalt:'GL',wulff_co:'Wulff'}[key]||navn;
+  const kons=(DASH.konsepter||[]).find(k=>k.navn===navn)||{y2025:0,y2026:0,vekst:0};
+  const rader=(DASH.grossister&&DASH.grossister[key])||[];
+  const totalY26=kons.y2026||0;
+
+  const rows=rader.map(r=>{
+    const delta=r.y2026-r.y2025;
+    const vekst=r.y2025?delta/r.y2025:null;
+    const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
+    return `<tr>
+      <td>${r.kode?r.kode+' ':''}${r.navn}</td>
+      <td style="text-align:right">${rapFmtM(r.y2026)}</td>
+      <td style="text-align:right">${rapFmtM(r.y2025)}</td>
+      <td style="text-align:right">${rapFmtM(delta)}</td>
+      <td style="text-align:right">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
+      <td style="text-align:right">${statusHtml}</td>
+    </tr>`;
+  }).join('');
+  const totalRow=`<tr class="total"><td>TOTAL ${navn.toUpperCase()}</td>
+    <td style="text-align:right">${rapFmtM(kons.y2026)}</td><td style="text-align:right">${rapFmtM(kons.y2025)}</td>
+    <td style="text-align:right">${rapFmtM((kons.y2026||0)-(kons.y2025||0))}</td>
+    <td style="text-align:right">${rapFmtPP(kons.vekst)}</td>
+    <td style="text-align:right">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td></tr>`;
+
+  const card=`<div class="rap-card">
+    <h3><span class="rap-dot" style="background:${kons.farge}"></span>${navn} — grossist-trend (YTD)</h3>
+    <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+      <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
+      <th style="text-align:right">Endring</th><th style="text-align:right">Bidrag til vekst</th><th style="text-align:right">Status</th>
+    </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+  </div>`;
+
+  let best=null,worst=null;
+  rader.forEach(r=>{if(best===null||r.bidrag_pp>best.bidrag_pp)best=r;if(worst===null||r.bidrag_pp<worst.bidrag_pp)worst=r;});
+  const storst=rader.length?rader.reduce((a,b)=>b.y2026>a.y2026?b:a):null;
+  let innsikt='';
+  if(best&&worst)innsikt+=`<p><b>${kortnavn}:</b> Beste bidrag fra <b>${best.navn}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${worst.navn}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`;
+  if(storst&&totalY26)innsikt+=`<p><b>${kortnavn}:</b> Største grossist er <b>${storst.navn}</b> (${rapFmtM(storst.y2026)}, ${rapFmtPctAbs(storst.y2026/totalY26)} av ${kortnavn}-total).</p>`;
+  return {card,innsikt};
+}
+
 function renderRapTotal(){
   const t=DASH.total||{y2025:0,y2026:0,vekst:0};
   const kons=DASH.konsepter||[];
@@ -4170,8 +4215,15 @@ function renderRapTotal(){
     ${estTotal?`<p>Årsestimat 2026 (sesong- og grossistvektet): <b>${rapFmtM(estTotal.estimat_2026)}</b> mot 2025-helår ${rapFmtM(estTotal.helar_2025)}.</p>`:''}
   </div>`:'';
 
+  // Grossist-trend for LS + EE og samlet INNSIKT — som i UKE-PDF-en (Ukerapport-fanen).
+  const ls=rapGrossistTrend('la_salumeria');
+  const ee=rapGrossistTrend('east_essence');
+  const grossistInnsikt=(ls.innsikt||ee.innsikt)?`<div class="rap-card"><h3>Innsikt — grossist-trender</h3><div class="rap-insight" style="margin:0">${ls.innsikt}${ee.innsikt}</div></div>`:'';
+  const kbLinje=kb.venter!=null?`<div class="rap-card"><h3>Kundebevegelse YTD (alle konsepter)</h3>
+    <p style="font-size:12.5px;margin:0;color:var(--ink)">👥 <b>${(kb.nye||0).toLocaleString('nb-NO')}</b> nye · <b>${(kb.tapt||0).toLocaleString('nb-NO')}</b> tapte (sesongjustert) · <b>${(kb.venter||0).toLocaleString('nb-NO')}</b> sesongkunder venter</p></div>`:'';
+
   return `
-    ${rapHeader('DLVRY · SALESAPP','Ukerapport · Alle konsepter',null,'Totalrapport',(DASH.meta&&DASH.meta.periode)||'')}
+    ${rapHeader('DLVRY · SALESAPP','Ukerapport · Alle konsepter',null,'Ukerapport — konseptstatus',(DASH.meta&&DASH.meta.periode)||'')}
     <div class="rap-kpi-row">
       <div class="rap-kpi"><div class="lbl">Total ekstern YTD</div><div class="val">${rapFmtM(totalY26)}</div><div class="delta ${t.vekst>=0?'up':'down'}">${rapFmtPct(t.vekst)} mot 2025</div></div>
       <div class="rap-kpi"><div class="lbl">Endring</div><div class="val">${rapFmtM(totalDelta)}</div><div class="delta plain">mot samme uker 2025</div></div>
@@ -4180,14 +4232,18 @@ function renderRapTotal(){
     </div>
     ${insight}
     <div class="rap-card">
-      <h3>Omsetning per konsept</h3>
+      <h3>1. Hovedtall — omsetning per konsept</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
         <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
         <th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Årsestimat</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen data lastet ennå.</td></tr>'}${kons.length?totalRow:''}</tbody></table></div>
     </div>
-    <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Metode: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for.</div>
+    ${ls.card}
+    ${ee.card}
+    ${grossistInnsikt}
+    ${kbLinje}
+    <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Metode: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for. Samme innhold som «Ukerapport»-fanen i KONSEPT_DASHBOARD_MASTER.</div>
   `;
 }
 
