@@ -1048,10 +1048,11 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </div>
 
-      <div class="dash-tabs rap-noprint">
-        <button class="dash-tab aktiv" data-raptab="total" onclick="setRapTab('total')">Totalrapport</button>
-        <button class="dash-tab" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
-        <button class="dash-tab" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
+      <div class="rap-subrow rap-noprint" style="margin-top:0">
+        <button class="rap-pill aktiv" data-raptab="total" onclick="setRapTab('total')">Totalrapport (konsepter)</button>
+        <button class="rap-pill" data-raptab="fiks" onclick="setRapTab('fiks')">Totalrapport (grossist — FIKS)</button>
+        <button class="rap-pill" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
+        <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
       </div>
 
       <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
@@ -4089,11 +4090,14 @@ function renderRapporter(){
   if(rapState.tab==='total'){
     sub.style.display='none';
     el.innerHTML=renderRapTotal();
+  } else if(rapState.tab==='fiks'){
+    sub.style.display='none';
+    el.innerHTML=renderRapFiks();
   } else if(rapState.tab==='konsept'){
     sub.style.display='flex';
     sub.innerHTML=KONSEPT_ORDER_RAP.map(k=>`<button class="rap-pill ${k===rapState.konsept?'aktiv':''}" onclick="setRapKonsept('${k}')">${AN_NAVN_FOR_KEY[k]}</button>`).join('');
     el.innerHTML=renderRapKonsept(rapState.konsept);
-  } else {
+  } else if(rapState.tab==='region'){
     sub.style.display='flex';
     sub.innerHTML=`<span class="rap-sublbl">Region</span>`+
       REGION_ORDER_RAP.map(r=>`<button class="rap-pill ${r===rapState.region?'aktiv':''}" onclick="setRapRegion('${r}')">${r}</button>`).join('')+
@@ -4102,6 +4106,26 @@ function renderRapporter(){
         `<button class="rap-pill small ${k===rapState.regionFilter?'aktiv':''}" onclick="setRapRegionFilter('${k}')">${navn}</button>`).join('');
     el.innerHTML=renderRapRegion(rapState.region,rapState.regionFilter);
   }
+}
+
+function renderRapFiks(){
+  return `${rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',(DASH.meta&&DASH.meta.periode)||'')}
+    <div class="rap-card">
+      <h3>Ikke koblet til live data ennå</h3>
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0 0 10px">
+        Denne rapporten sammenligner DLVRYs egen import (La Salumeria + East Essence) mot
+        grossistenes <b>fulle</b> omsetning — alle leverandører, ikke bare DLVRYs konsepter —
+        for å vise reell markedsandel/penetrasjon hos hver grossist.
+      </p>
+      <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0">
+        Kilden for «alt grossisten selger» var et eldre engangsuttrekk (FIKS-14, fanen
+        «Total 2025/2026»). <code>kunde_salg_uke</code> — tabellen appen nå fyller løpende via
+        <code>/last-opp-kundedata</code> — inneholder kun DLVRYs egne fire konsepter, ikke
+        grossistenes fulle omsetning. Denne rapporten kan ikke vise live tall før den brede
+        «alt grossisten selger»-dataen har en egen, løpende opplastingsrute inn i databasen.
+        Designforslaget viser hvordan den skal se ut når den kobles til.
+      </p>
+    </div>`;
 }
 
 function renderRapTotal(){
