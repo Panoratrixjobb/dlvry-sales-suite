@@ -608,7 +608,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <div class="crumb" id="crumb">Ingen kalkyle valgt</div>
       <div id="velgKundeBanner" style="display:none;background:var(--gul-lys,#fff8e1);border:1px solid var(--gul,#f5c518);border-radius:6px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
         <span style="font-size:13px;color:var(--ink)">Ingen kunde tilknyttet — tilknytt for å sende tilbud:</span>
-        <input id="velgKundeInput" list="velgKundeListe" placeholder="Søk kundnavn…" style="flex:1;max-width:260px;height:32px;padding:0 8px;border:1px solid var(--d-ramme,#ccc);border-radius:5px;font-size:13px" oninput="filtrerVelgKunde(this.value)">
+        <input id="velgKundeInput" list="velgKundeListe" placeholder="Søk navn / org.nr (kunder + leads)…" style="flex:1;max-width:320px;height:32px;padding:0 8px;border:1px solid var(--d-ramme,#ccc);border-radius:5px;font-size:13px" oninput="filtrerVelgKunde(this.value)">
         <datalist id="velgKundeListe"></datalist>
         <button class="d-knapp primar sm" onclick="bekreftVelgKunde()">Tilknytt</button>
       </div>
@@ -2582,26 +2582,52 @@ function oppdaterVelgKundeBanner(){
     if(dl)dl.innerHTML=custCache.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
   }
 }
-function filtrerVelgKunde(q){
+// Kundevelger i tilbudsverktøyet: søker BACKEND (/api/kunder?q=) som dekker BÅDE
+// kundelista og leadslista (leads er kunde-rader) og treffer på navn/orgnr/kundeid.
+// Kort søk faller tilbake til lokal custCache.
+let _velgKundeTreff=[], _velgKundeLabels={}, _velgKundeTimer=null;
+function _velgKundeLabel(c){
+  return (c.navn||'')+(c.orgnr?(' · '+c.orgnr):'')+(c.status==='Lead'?' · Lead':'');
+}
+function _velgKundeSettListe(rows){
   var dl=document.getElementById('velgKundeListe');
-  if(!dl)return;
-  var low=q.toLowerCase();
-  var treff=custCache.filter(function(c){return(c.navn||'').toLowerCase().indexOf(low)>=0;}).slice(0,40);
-  dl.innerHTML=treff.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
+  _velgKundeTreff=rows; _velgKundeLabels={};
+  rows.forEach(function(c){ _velgKundeLabels[_velgKundeLabel(c)]=c; });
+  if(dl) dl.innerHTML=rows.map(function(c){
+    return '<option value="'+esc(_velgKundeLabel(c))+'" data-id="'+c.id+'"></option>';
+  }).join('');
+}
+function filtrerVelgKunde(q){
+  clearTimeout(_velgKundeTimer);
+  _velgKundeTimer=setTimeout(function(){ velgKundeSok(q); },250);
+}
+async function velgKundeSok(q){
+  q=(q||'').trim();
+  if(q.length<2){
+    // Kort/blankt søk → vis lokale kunder (som før), ingen backend-kall.
+    _velgKundeSettListe(custCache.map(function(c){return{id:c.id,navn:c.navn,orgnr:c.orgnr,status:c.status};}));
+    return;
+  }
+  try{
+    var rows=await api('/api/kunder?q='+encodeURIComponent(q)+'&limit=25')||[];
+    _velgKundeSettListe(rows.map(function(c){return{id:c.id,navn:c.navn,orgnr:c.orgnr,status:c.status};}));
+  }catch(e){ _velgKundeSettListe([]); }
 }
 async function bekreftVelgKunde(){
   var inp=document.getElementById('velgKundeInput');
   var val=(inp?inp.value:'').trim();
-  if(!val){toast('Skriv inn kundenavn');return;}
-  var c=custCache.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();});
+  if(!val){toast('Skriv inn kundenavn eller org.nr');return;}
+  var c=_velgKundeLabels[val]
+     || _velgKundeTreff.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();})
+     || custCache.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();});
   if(!c){toast('Fant ikke kunde — velg fra listen');return;}
   if(!state.calcId){toast('Ingen kalkyle åpen');return;}
   try{
     await api('/api/kalkyler/'+state.calcId,{method:'PATCH',body:{kunde_id:c.id}});
     state.custId=c.id;
     inp.value='';
-    document.getElementById('kundenavn').value=c.navn;
-    document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn)+'</b> · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
+    var kn=document.getElementById('kundenavn'); if(kn) kn.value=c.navn;
+    document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn)+'</b>'+(c.orgnr?' · '+esc(c.orgnr):'')+' · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
     oppdaterVelgKundeBanner();
     toast('Kunde tilknyttet');
   }catch(e){toast('Feil: '+e.message);}

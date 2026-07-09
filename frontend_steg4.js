@@ -963,8 +963,9 @@ const Steg4 = (() => {
       /* ===== KPI-STRIP ===== */
       `<div class="d-kk-kpi">${kpi}</div>`,
 
-      /* ===== EDIT-PANEL (skjult til blyant trykkes) ===== */
-      '<div id="ki-edit" style="display:none;border-top:1px solid var(--d-ramme);padding:var(--s5) var(--s6);background:var(--bg)">',
+      /* ===== EDIT-PANEL (åpent som standard — redigerbart uten å trykke «Rediger»;
+              ✎-knappen kan kollapse det. Felt autolagres på blur/endring) ===== */
+      '<div id="ki-edit" style="display:block;border-top:1px solid var(--d-ramme);padding:var(--s5) var(--s6);background:var(--bg)">',
 
       /* BRREG-rad */
       '<div style="display:flex;align-items:flex-end;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)">',
@@ -1341,7 +1342,10 @@ const Steg4 = (() => {
     });
 
     /* Lagre kundeinfo */
-    el.querySelector("#ki-lagre-btn").addEventListener("click", async () => {
+    /* Lagre kundeinfo. Autolagres på blur/endring av hvert felt (bruker slipper å
+       trykke «Rediger»/«Lagre»). Eksplisitt knapp beholdt som fallback. */
+    async function lagreKundeinfo(opts) {
+      opts = opts || {};
       const st = el.querySelector("#ki-lagre-status");
       const btn = el.querySelector("#ki-lagre-btn");
       const statusVal = el.querySelector("#ki-status").value;
@@ -1350,11 +1354,11 @@ const Steg4 = (() => {
       if (statusVal === "Ikke aktuell" && !forklaring) {
         st.textContent = "Forklaring er påkrevd for «Ikke aktuell»";
         st.style.color = "var(--d-roed)";
-        el.querySelector("#ki-forklaring").focus();
+        if (!opts.auto) el.querySelector("#ki-forklaring").focus();
         return;
       }
 
-      btn.disabled = true;
+      if (btn) btn.disabled = true;
       st.textContent = "Lagrer…";
       st.style.color = "var(--d-tekst-3)";
 
@@ -1382,14 +1386,27 @@ const Steg4 = (() => {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        st.textContent = "Lagret ✓ — oppdaterer…";
+        // Autolagring: oppdater i ro (ikke remount → beholder fokus/flyt mellom felt).
+        // Eksplisitt lagring (knapp): full oppfriskning av kortet.
+        st.textContent = opts.auto ? "Lagret ✓" : "Lagret ✓ — oppdaterer…";
         st.style.color = "var(--d-gronn)";
-        setTimeout(() => monterKundekort(kundeId, el), 600);
+        if (!opts.auto) setTimeout(() => monterKundekort(kundeId, el), 600);
       } catch (e) {
         st.textContent = "Feil: " + e.message;
         st.style.color = "var(--d-roed)";
-        btn.disabled = false;
+      } finally {
+        if (btn) btn.disabled = false;
       }
+    }
+
+    el.querySelector("#ki-lagre-btn").addEventListener("click", () => lagreKundeinfo());
+
+    /* Save-on-blur: `change` fyres på blur for tekstfelt og umiddelbart for
+       select/checkbox/radio — altså «lagre på blur». Debounces litt. */
+    let _kiAutoTimer = null;
+    editPanel.addEventListener("change", () => {
+      clearTimeout(_kiAutoTimer);
+      _kiAutoTimer = setTimeout(() => lagreKundeinfo({ auto: true }), 250);
     });
 
     /* Faner */
