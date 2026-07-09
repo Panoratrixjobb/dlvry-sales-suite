@@ -13,7 +13,7 @@ const Steg4 = (() => {
   let token = "";
 
   async function api(sti, opt = {}) {
-    const r = await fetch(API + sti, {
+    const utfor = () => fetch(API + sti, {
       ...opt,
       headers: {
         "Content-Type": "application/json",
@@ -21,6 +21,20 @@ const Steg4 = (() => {
         ...(opt.headers || {}),
       },
     });
+    // Azure App Service kald-start / deploy-rullering gjør at fetch() kan REJEKTERE
+    // (TypeError: Failed to fetch) før serveren svarer — da må vi prøve igjen, ellers
+    // blir f.eks. «Per selger»-fanen helt blank. HTTP-feilstatuser (4xx/5xx) prøver vi
+    // IKKE på nytt (de har et svar), de kastes med status som før.
+    const PAUSER = [400, 1200, 2500];
+    let r, sisteFeil;
+    for (let i = 0; i <= PAUSER.length; i++) {
+      try { r = await utfor(); break; }
+      catch (e) {
+        sisteFeil = e;
+        if (i < PAUSER.length) { await new Promise((res) => setTimeout(res, PAUSER[i])); continue; }
+        throw new Error("Får ikke kontakt med server — prøv igjen om litt. (" + (sisteFeil.message || "nettverksfeil") + ")");
+      }
+    }
     if (!r.ok) throw new Error(`${r.status} ${sti}`);
     return r.status === 204 ? null : r.json();
   }
