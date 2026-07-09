@@ -833,6 +833,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button id="leadsSelAll" class="d-knapp subtil sm" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
           <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
           <button id="leadsTildel" class="d-knapp primar" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
+          <button id="leadsPlukk" class="d-knapp primar" style="display:none" onclick="plukkValgte()" disabled>Plukk valgte (0) til meg</button>
           <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/leads.xlsx','leads.csv')">⤓ Eksporter</button>
         </div>
 
@@ -2956,16 +2957,20 @@ function setKunderSub(sub){
   if(sub==='kunder'){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
 }
 
+// Roller som ser HELE mengden uten selger_id-filter (speiler backend ADMIN_TRACK_SER_ALT).
+// Kun disse kan masse-tildele leads til andre; alle andre plukker til seg selv.
+const SER_ALT_ROLLER=['leder','admin','superadmin','salgsdirektor','regionansvarlig','kommersiell_direktor','ceo'];
+function brukerSerAlt(){ return !!(CURRENT_USER && SER_ALT_ROLLER.includes(CURRENT_USER.rolle)); }
+
 async function mountLeads(){
   if(!leadsMounted){
     leadsMounted=true;
     const erSelger = CURRENT_USER && CURRENT_USER.rolle==='selger';
-    if(erSelger){
-      // Masse-tildel er leder/admin-only — skjul handlinger + avkrysning for selger
-      document.getElementById('leadsActions').style.display='none';
-      const th=document.getElementById('leadsHead').querySelector('th');
-      if(th) th.style.visibility='hidden';
-    }
+    // Masse-tildel til ANDRE er kun for ser_alt-roller (leder/admin/…). Alle andre
+    // (selger/salgsjef/regionsalgsleder/konsept) plukker leads til seg selv i stedet.
+    const kanTildelAndre = brukerSerAlt();
+    document.getElementById('leadsTildel').style.display = kanTildelAndre ? '' : 'none';
+    document.getElementById('leadsPlukk').style.display  = kanTildelAndre ? 'none' : '';
     try{ leadsGrossister = await api('/api/grossister')||[]; }catch(e){ leadsGrossister=[]; }
     const gOpt = leadsGrossister.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
     document.getElementById('leadsGrossist').innerHTML='<option value="">Alle grossister</option>'+gOpt;
@@ -3093,7 +3098,7 @@ async function loadLeads(){
 function renderLeads(){
   const body=document.getElementById('leadsBody');
   const dash='–';
-  const showChk = !(CURRENT_USER && CURRENT_USER.rolle==='selger');
+  const showChk = true;  // alle roller kan velge leads (ser_alt tildeler andre, resten plukker til seg selv)
   if(!leadsCache.length){
     body.innerHTML='<tr><td colspan="13" style="padding:14px;color:var(--muted)">Ingen leads matcher filteret.</td></tr>';
     document.getElementById('leadsCount').textContent='0 leads';
@@ -3202,6 +3207,8 @@ function updateLeadsBar(){
   const tBtn=document.getElementById('leadsTildel');
   tBtn.textContent='Tildel valgte ('+n+')';
   tBtn.disabled = n===0;
+  const pBtn=document.getElementById('leadsPlukk');
+  if(pBtn){ pBtn.textContent='Plukk valgte ('+n+') til meg'; pBtn.disabled = n===0; }
   document.getElementById('leadsClear').style.display = n>0 ? '' : 'none';
   const selAll=document.getElementById('leadsSelAll');
   // Treffet strekker seg over flere sider → tilby «Velg alle treff» (på tvers av sider).
@@ -3680,6 +3687,29 @@ async function bekreftTildel(){
     leadsNullstill();
     loadLeads();
   }catch(e){ st.textContent='Feil: '+e.message; st.style.color='var(--red)'; }
+  finally{ btn.disabled=false; }
+}
+
+// Selvbetjent lead-plukk: tildeler valgte (uklargede) leads til innlogget bruker selv.
+// Backend håndhever at man kun kan ta leads i eget scope (region/konsept).
+async function plukkValgte(){
+  const ids = leadsAllFilter ? leadsAllIds.slice() : Array.from(leadsSel);
+  if(!ids.length) return;
+  const btn=document.getElementById('leadsPlukk'); btn.disabled=true; btn.textContent='Plukker…';
+  try{
+    let total=0; const CH=200;
+    for(let i=0;i<ids.length;i+=CH){
+      const chunk=ids.slice(i,i+CH);
+      const res=await api('/api/kunder/plukk-leads',{method:'PATCH',body:{kunde_ids:chunk}});
+      total += (res&&res.antall)||0;
+      btn.textContent='Plukker… '+total+'/'+ids.length;
+    }
+    const utenfor=ids.length-total;
+    toast('Plukket '+total+' lead'+(total===1?'':'s')+' til deg'
+      +(utenfor>0?' ('+utenfor+' var alt tatt eller utenfor ditt område)':''));
+    leadsNullstill();   // -> renderLeads -> updateLeadsBar (resetter knappetekst)
+    loadLeads();
+  }catch(e){ toast('Feil: '+e.message); updateLeadsBar(); }
   finally{ btn.disabled=false; }
 }
 
