@@ -103,8 +103,14 @@ table,input,button,.d-select,.tabs button,.nav a{font-size:15px}
 .btn-lg{padding:11px 20px;font-size:13.5px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
-.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line)}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:1080px}
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line);max-width:100%}
+/* Ingen global min-width — den tvang alle tabeller bredere enn siden (horisontal
+   scroll «flere steder»). Tette tabeller setter egen min-width inline og scroller
+   inne i .table-wrap; enkle tabeller krymper nå til å passe skjermen (responsivt). */
+table{width:100%;border-collapse:collapse;font-size:12px}
+/* Sikkerhetsnett: hovedinnholdet skal aldri gi horisontal side-scroll — brede
+   elementer scroller inne i sin egen .table-wrap i stedet. */
+.main{overflow-x:hidden}
 thead th{background:#fafbfe;color:var(--muted);font-weight:600;text-align:right;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--line);font-size:11.5px}
 thead th:nth-child(1),thead th:nth-child(2){text-align:left}
 tbody td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
@@ -768,9 +774,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <span id="klRisikoChip" style="display:none"></span>
           </div>
           <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
-            <table class="d-tabell" style="min-width:600px">
+            <table class="d-tabell" style="min-width:760px">
               <thead><tr>
-                <th style="width:28px"></th><th>Kundenavn</th><th>Org.nr</th><th>Kalkyler</th><th>Status</th>
+                <th style="width:28px"></th><th>Kundenavn</th><th>Org.nr</th>
+                <th>Grossist</th><th>Region</th><th>Selger</th><th>Kalkyler</th><th>Status</th>
               </tr></thead>
               <tbody id="klBody"></tbody>
             </table>
@@ -2904,7 +2911,7 @@ async function klLastOgVis(){
   await klMountFiltre();
   const body=document.getElementById('klBody');
   if(!body)return;
-  body.innerHTML='<tr><td colspan="4" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
+  body.innerHTML='<tr><td colspan="8" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
   const url='/api/kunder?'+kunderParams().toString();
   let data=[], total=0;
   try{
@@ -2918,21 +2925,27 @@ async function klLastOgVis(){
   klTotal=total;
   document.getElementById('klCount').textContent=total.toLocaleString('nb-NO')+' kunder';
   if(!data.length){
-    body.innerHTML='<tr><td colspan="5" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
+    body.innerHTML='<tr><td colspan="8" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
     document.getElementById('klPager').style.display='none';
     return;
   }
+  const dash='<span style="color:var(--d-tekst-3)">—</span>';
   body.innerHTML=data.map(c=>{
     const risikoDeler=[];
     if(c.konkurs_flagg) risikoDeler.push('Konkurs registrert i BRREG');
     if(c.under_avvikling) risikoDeler.push('Under avvikling i BRREG');
     if(c.under_tvangsavvikling) risikoDeler.push('Under tvangsavvikling i BRREG');
     const risikoIkon=risikoDeler.length?'<span class="d-badge roed flat" title="'+esc(risikoDeler.join(' · '))+'">⚠</span>':'';
+    const grossist=c.grossister||c.grossist_navn;
+    const regionCell=c.region?('<span class="d-badge flat bla">'+esc(c.region)+'</span>'+(c.region_delt?' <span class="d-badge flat gul" title="Postnr delt mellom to regioner">Delt</span>':'')):dash;
     return `
     <tr style="cursor:pointer" onclick="klVelgKunde('${c.id}')">
       <td>${risikoIkon}</td>
       <td class="d-navn">${esc(c.navn||'—')}</td>
       <td style="color:var(--d-tekst-3)">${esc(c.orgnr||'—')}</td>
+      <td>${grossist?esc(grossist):dash}</td>
+      <td>${regionCell}</td>
+      <td>${c.selger_navn?esc(c.selger_navn):dash}</td>
       <td style="text-align:right">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
       <td><span class="d-badge ${statusFarge(c.status||'')} flat">${esc(c.status||'Kunde')}</span></td>
     </tr>`;}).join('');
