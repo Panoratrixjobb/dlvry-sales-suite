@@ -1490,7 +1490,7 @@ function setAnalyseGrossist(v){analyseState.grossist=v;renderAnalyse();}
 function setAnalyseWeek(v){analyseState.week=Number(v);renderAnalyse();}
 function resetAnalyseFilters(){
   analyseState={concept:'all',region:'all',grossist:'',week:DASH?DASH.cutoff_uke:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
-  kbState={region:'',grossist:''};
+  kbState={region:'',grossist:'',konsept:''};
   renderAnalyse();
 }
 function toggleAnalyseExpand(which){
@@ -1767,21 +1767,25 @@ function anRenderGrossistTabell(D,s,kilde){
 // /api/dashboard-excel/kundebevegelse-reell (org.nr-nivå fra kunde_salg_uke, rollestyrt
 // server-side av deps.synlig_kundebevegelse_filter — klienten kan ikke utvide egen tilgang).
 let kbScope=null;              // siste scope-meta fra backend ({type, valgbare_regioner, valgbare_grossister, ...})
-let kbState={region:'',grossist:''};
+// kbState har egne region/grossist/konsept-slicere for kundebevegelse-seksjonen,
+// UAVHENGIG av den globale filterbaren øverst (analyseState) — konsept-slicer er
+// nødvendig fordi kundebevegelse regnes på org.nr-nivå: uten konsept-filter blandes
+// samme org.nr på tvers av konsepter, og ny/tapt/venter (spesielt «på vent») blir vrengt.
+let kbState={region:'',grossist:'',konsept:''};
 const kbCache={};
 
-function kbNokkel(s){
-  return [(s.concept==='all'?'':s.concept),kbState.region,kbState.grossist].join('|');
+function kbNokkel(){
+  return [kbState.konsept,kbState.region,kbState.grossist].join('|');
 }
 function setKbRegion(v){kbState.region=v;kbState.grossist='';renderAnalyseKundebevegelse();}
 function setKbGrossist(v){kbState.grossist=v;renderAnalyseKundebevegelse();}
+function setKbKonsept(v){kbState.konsept=v;renderAnalyseKundebevegelse();}
 
-async function kbHent(s){
-  const nokkel=kbNokkel(s);
+async function kbHent(){
+  const nokkel=kbNokkel();
   if(kbCache[nokkel])return kbCache[nokkel];
-  const konsept=s.concept==='all'?'':s.concept;
   const qs=new URLSearchParams();
-  if(konsept)qs.set('konsept',konsept);
+  if(kbState.konsept)qs.set('konsept',kbState.konsept);
   if(kbState.region)qs.set('region',kbState.region);
   if(kbState.grossist)qs.set('grossist_id',kbState.grossist);
   const data=await api('/api/dashboard-excel/kundebevegelse-reell'+(qs.toString()?'?'+qs:''));
@@ -1804,9 +1808,10 @@ function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt){
   </div>`;
 }
 
-function kbTegnStatisk(s,isAllKonsept){
+function kbTegnStatisk(isAllKonsept){
+  const s=analyseState;  // for expand-flaggene (expandNew/Lost/Wait)
   const alle=DASH.kundebevegelse.alle||{};
-  const kb=isAllKonsept?null:DASH.kundebevegelse[s.concept];
+  const kb=isAllKonsept?null:DASH.kundebevegelse[kbState.konsept];
   document.getElementById('anKundebevegelse').innerHTML=isAllKonsept?
     kbKort('Nye kunder','var(--green)',alle.nye||0,null,[],'new',s.expandNew)+
     kbKort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
@@ -1817,13 +1822,24 @@ function kbTegnStatisk(s,isAllKonsept){
     kbKort('Sesongkunder på vent','#c9930f',kb.venter.antall,null,kb.venter.liste,'wait',s.expandWait,'kundenr');
 }
 
+// Konsept-slicer for kundebevegelse — alltid tilgjengelig (uavhengig av rollescope),
+// slik at man kan skjære ny/tapt/venter per konsept i stedet for blandet på org.nr-nivå.
+function kbKonseptSelectHtml(){
+  const konsepter=(DASH&&DASH.konsepter)?DASH.konsepter.map(k=>({key:AN_KEY_FOR_NAVN[k.navn],navn:k.navn})):[];
+  return `<select class="d-select" style="min-width:150px" onchange="setKbKonsept(this.value)" title="Velg konsept — uten dette blandes konsepter på org.nr-nivå og ny/tapt/på vent blir vrengt">`
+    +`<option value="">Alle konsepter</option>`
+    +konsepter.filter(k=>k.key).map(k=>`<option value="${k.key}"${kbState.konsept===k.key?' selected':''}>${esc(k.navn)}</option>`).join('')
+    +`</select>`;
+}
+
 function kbRenderFilterUI(){
   const el=document.getElementById('kbFilterRow');
   if(!el)return;
-  if(!kbScope||kbScope.type==='ingen'){el.innerHTML='';return;}
+  const kSel=kbKonseptSelectHtml();
+  if(!kbScope||kbScope.type==='ingen'){el.innerHTML=kSel;return;}
   if(kbScope.type==='grossist'){
-    el.innerHTML=(kbScope.grossist_navn&&kbScope.grossist_navn.length)?
-      `<span style="font-size:11.5px;color:var(--d-tekst-3)">${kbScope.grossist_navn.join(', ')}</span>`:'';
+    el.innerHTML=kSel+((kbScope.grossist_navn&&kbScope.grossist_navn.length)?
+      `<span style="font-size:11.5px;color:var(--d-tekst-3)">${kbScope.grossist_navn.join(', ')}</span>`:'');
     return;
   }
   const grossistKilde=kbScope.valgbare_grossister||[];
@@ -1843,21 +1859,21 @@ function kbRenderFilterUI(){
   if(kbState.region||kbState.grossist){
     html+=`<button class="an-reset-btn" onclick="setKbRegion('')">Nullstill</button>`;
   }
-  el.innerHTML=html;
+  el.innerHTML=kSel+html;
 }
 
 async function renderAnalyseKundebevegelse(){
   if(!DASH)return;
-  const s=analyseState;
-  const isAllKonsept=s.concept==='all';
-  const nokkelVedStart=kbNokkel(s);
+  const s=analyseState;  // for expand-flaggene
+  const isAllKonsept=kbState.konsept==='';
+  const nokkelVedStart=kbNokkel();
 
   document.getElementById('anKundebevegelseSub').textContent=
-    'YTD t.o.m. uke '+DASH.cutoff_uke+' · '+(isAllKonsept?'alle konsepter':AN_NAVN_FOR_KEY[s.concept]);
+    'YTD t.o.m. uke '+DASH.cutoff_uke+' · '+(isAllKonsept?'alle konsepter':AN_NAVN_FOR_KEY[kbState.konsept]);
 
   const kanBrukeStatiskSnapshot=kbScope&&kbScope.type==='alle'&&!kbState.region&&!kbState.grossist;
   if(kanBrukeStatiskSnapshot){
-    kbTegnStatisk(s,isAllKonsept);
+    kbTegnStatisk(isAllKonsept);
   }else if(!kbScope){
     document.getElementById('anKundebevegelse').innerHTML=
       '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-tekst-3);padding:20px 0">Henter kundebevegelse…</div>';
@@ -1865,19 +1881,19 @@ async function renderAnalyseKundebevegelse(){
 
   let data;
   try{
-    data=await kbHent(s);
+    data=await kbHent();
   }catch(e){
     document.getElementById('anKundebevegelse').innerHTML=
       '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-roed)">Kunne ikke hente kundebevegelse: '+e.message+'</div>';
     return;
   }
-  if(kbNokkel(analyseState)!==nokkelVedStart)return; // filter endret mens vi ventet — utdatert svar, dropp
+  if(kbNokkel()!==nokkelVedStart)return; // filter endret mens vi ventet — utdatert svar, dropp
 
   kbScope=data.scope;
   kbRenderFilterUI();
 
   if(kbScope.type==='alle'&&!kbState.region&&!kbState.grossist){
-    kbTegnStatisk(s,isAllKonsept);
+    kbTegnStatisk(isAllKonsept);
     return;
   }
   document.getElementById('anKundebevegelse').innerHTML=
