@@ -613,6 +613,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="d-knapp primar sm" onclick="bekreftVelgKunde()">Tilknytt</button>
       </div>
 
+      <!-- Kundeinfo som havner på tilbudet (navn, org.nr, adresse, kontakt) -->
+      <div id="tilbudKundeInfo" style="display:none;background:var(--panel,#f7f8fb);border:1px solid var(--d-ramme,#e5e7eb);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px"></div>
+
       <div class="grid4">
         <section class="d-panel">
           <h3>Kundeinformasjon</h3>
@@ -2444,6 +2447,7 @@ async function openCalc(id){
   document.getElementById('scenBesk').value=k.scen_besk||'';
   document.getElementById('crumb').innerHTML=(k.kunde_id?('Kunde: <b>'+esc(c?c.navn:'?')+'</b> · '):'')+'Kalkyle: <b>'+esc(k.navn)+'</b>';
   oppdaterVelgKundeBanner();
+  visKundeInfoITilbud();
   state.dirty=false;setSaved(true);setView('kalkulator');setKalkSub('editor');render();
 }
 
@@ -2578,6 +2582,7 @@ function oppdaterVelgKundeBanner(){
   if(!banner)return;
   banner.style.display=(!state.custId&&state.calcId)?'flex':'none';
   if(!state.custId){
+    var box=document.getElementById('tilbudKundeInfo'); if(box){box.style.display='none';box.innerHTML='';}
     var dl=document.getElementById('velgKundeListe');
     if(dl)dl.innerHTML=custCache.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
   }
@@ -2617,20 +2622,72 @@ async function bekreftVelgKunde(){
   var inp=document.getElementById('velgKundeInput');
   var val=(inp?inp.value:'').trim();
   if(!val){toast('Skriv inn kundenavn eller org.nr');return;}
+  if(!state.calcId){toast('Ingen kalkyle åpen');return;}
+  var digits=val.replace(/\D/g,'');
   var c=_velgKundeLabels[val]
      || _velgKundeTreff.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();})
+     || (digits.length===9 && _velgKundeTreff.find(function(x){return(x.orgnr||'')===digits;}))
      || custCache.find(function(x){return(x.navn||'').toLowerCase()===val.toLowerCase();});
-  if(!c){toast('Fant ikke kunde — velg fra listen');return;}
-  if(!state.calcId){toast('Ingen kalkyle åpen');return;}
+  if(c){ return tilknyttKunde(c); }
+  // Ingen treff i kunde-/leadslista — er det et 9-sifret org.nr? Hent fra BRREG og opprett.
+  if(digits.length===9){ return opprettFraBrregOgTilknytt(digits); }
+  toast('Fant ikke kunde — velg fra listen, eller skriv et 9-sifret org.nr for BRREG-oppslag');
+}
+
+async function tilknyttKunde(c){
   try{
     await api('/api/kalkyler/'+state.calcId,{method:'PATCH',body:{kunde_id:c.id}});
     state.custId=c.id;
-    inp.value='';
-    var kn=document.getElementById('kundenavn'); if(kn) kn.value=c.navn;
-    document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn)+'</b>'+(c.orgnr?' · '+esc(c.orgnr):'')+' · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
+    var inp=document.getElementById('velgKundeInput'); if(inp) inp.value='';
+    var kn=document.getElementById('kundenavn'); if(kn) kn.value=c.navn||'';
+    var ki=document.getElementById('kundeid'); if(ki && c.kundeid!=null) ki.value=c.kundeid||'';
+    document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn||'')+'</b>'+(c.orgnr?' · '+esc(c.orgnr):'')+' · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
     oppdaterVelgKundeBanner();
+    await visKundeInfoITilbud();
     toast('Kunde tilknyttet');
   }catch(e){toast('Feil: '+e.message);}
+}
+
+// Ukjent 9-sifret org.nr → slå opp i BRREG, opprett kunde, og tilknytt tilbudet.
+async function opprettFraBrregOgTilknytt(orgnr){
+  toast('Henter '+orgnr+' fra BRREG…');
+  try{
+    var d=await api('/api/brreg/'+encodeURIComponent(orgnr));
+    var body={navn:d.navn||('Org '+orgnr), orgnr:orgnr};
+    if(d.forretningsadresse){ body.leveringsadresse=d.forretningsadresse; body.fakturaadresse=d.forretningsadresse; body.faktura_samme_som_levering=true; }
+    var ny=await api('/api/kunder',{method:'POST',body:body});
+    await tilknyttKunde({id:ny.id,navn:ny.navn,orgnr:ny.orgnr,kundeid:ny.kundeid});
+    toast('Opprettet «'+(ny.navn||orgnr)+'» fra BRREG og tilknyttet');
+  }catch(e){
+    var kod=(e.message.match(/^(\d+)/)||[])[1];
+    if(kod==='404') toast('Fant ikke org.nr '+orgnr+' i BRREG');
+    else if(kod==='400') toast('Ugyldig org.nr (må være 9 siffer)');
+    else if(kod==='502') toast('BRREG utilgjengelig — prøv igjen om litt');
+    else toast('Feil: '+e.message);
+  }
+}
+
+// Info-blokk øverst i tilbudet: navn, org.nr, adresse, kontakt — det som havner på PDF-en.
+async function visKundeInfoITilbud(){
+  var box=document.getElementById('tilbudKundeInfo');
+  if(!box) return;
+  if(!state.custId){ box.style.display='none'; box.innerHTML=''; return; }
+  try{
+    var k=await api('/api/kunder/'+state.custId);
+    var kp=await api('/api/kunder/'+state.custId+'/kontaktpersoner')||[];
+    var pri=kp.find(function(x){return x.er_primaer;})||kp[0];
+    var kontakt=pri?(esc(pri.navn||'')+(pri.telefon?(' · '+esc(pri.telefon)):'')+(pri.epost?(' · '+esc(pri.epost)):'')):'';
+    var adr=k.leveringsadresse||k.forretningsadresse||'';
+    var poststed=((k.postnr?k.postnr+' ':'')+(k.poststed||'')).trim();
+    var rader=[];
+    rader.push('<b>'+esc(k.navn||'—')+'</b>'+(k.orgnr?(' <span style="color:var(--muted)">· org.nr '+esc(k.orgnr)+'</span>'):''));
+    if(adr||poststed) rader.push('<span style="color:var(--muted)">Adresse:</span> '+esc(adr)+(adr&&poststed?', ':'')+esc(poststed));
+    if(kontakt) rader.push('<span style="color:var(--muted)">Kontakt:</span> '+kontakt);
+    box.innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">'
+      +'<div style="line-height:1.5">'+rader.join('<br>')+'</div>'
+      +'<span style="font-size:11px;color:var(--muted);white-space:nowrap">Vises på tilbudet</span></div>';
+    box.style.display='';
+  }catch(e){ box.style.display='none'; }
 }
 
 // ===== Nytt møte (dashboard, "+ Nytt møte") =====
@@ -4869,12 +4926,15 @@ async function skrivUtTilbud(){
   if(!r.lines.length){toast('Legg til produkter før du lager tilbud.');return;}
   if(!state.calcId){toast('Lagre kalkylen først.');return;}
   if(!state.custId){toast('Tilknytt en kunde før tilbudet kan skrives ut.');return;}
-  let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', adresse:'', kontakt:''};
+  let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', orgnr:'', adresse:'', poststed:'', kontakt:''};
   kunde.navn=kunde.navn.replace('Kunde','').trim()||'Kunde';
   if(state.custId){
     try{
       const k=await api('/api/kunder/'+state.custId);
-      kunde.navn=k.navn||kunde.navn; kunde.adresse=k.leveringsadresse||'';
+      kunde.navn=k.navn||kunde.navn;
+      kunde.orgnr=k.orgnr||'';
+      kunde.adresse=k.leveringsadresse||k.forretningsadresse||'';
+      kunde.poststed=((k.postnr?k.postnr+' ':'')+(k.poststed||'')).trim();
       const kp=await api('/api/kunder/'+state.custId+'/kontaktpersoner')||[];
       const pri=kp.find(x=>x.er_primaer)||kp[0];
       if(pri)kunde.kontakt=pri.navn+(pri.telefon?(' · '+pri.telefon):'')+(pri.epost?(' · '+pri.epost):'');
@@ -4899,7 +4959,9 @@ function byggTilbudPdf(r, kunde){
   doc.setFontSize(9); doc.text('Dato: '+idag, 196, 24, {align:'right'});
   doc.setFontSize(11); doc.text('Til:', 14, 38);
   doc.setFontSize(10); let y=44; doc.text(String(kunde.navn), 14, y);
+  if(kunde.orgnr){y+=5; doc.text('Org.nr: '+String(kunde.orgnr),14,y);}
   if(kunde.adresse){y+=5; doc.text(String(kunde.adresse),14,y);}
+  if(kunde.poststed){y+=5; doc.text(String(kunde.poststed),14,y);}
   if(kunde.kontakt){y+=5; doc.text('Kontakt: '+kunde.kontakt,14,y);}
   const body=r.lines.map(x=>[
     x.l.navn, fmtNum(x.l.antall), fmtKr2(x.l.listepris),
