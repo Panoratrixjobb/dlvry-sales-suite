@@ -1991,7 +1991,7 @@ let CURRENT_USER=null;
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
 // Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
-const _COLD_DELAYS=[2000,5000,10000,20000]; // ~37s total → dekker Render cold start
+const _COLD_DELAYS=[2000,5000,10000,20000]; // ~37s total → dekker cold start på serveren
 const _RETRY_STATUS=new Set([502,503,504]);
 
 async function api(path,{method='GET',body=null,onResponse=null}={}){
@@ -3902,7 +3902,7 @@ async function sjekkBrregNa(){
   try{
     await api('/api/brreg/refresh-na',{method:'POST'});
     st.style.color='var(--d-gronn)';
-    st.textContent='Startet — jobben kjører i bakgrunnen på serveren og kan ta noen minutter for mange kunder. Oppdaterte tall vises i Dashboard («Kunder i risiko») og Kundeliste når den er ferdig. Detaljert logg (inkl. konkurs/avvikling-endringer) føres i Render-loggen.';
+    st.textContent='Startet — jobben kjører i bakgrunnen på serveren og kan ta noen minutter for mange kunder. Oppdaterte tall vises i Dashboard («Kunder i risiko») og Kundeliste når den er ferdig. Detaljert logg (inkl. konkurs/avvikling-endringer) føres i serverloggen.';
     toast('BRREG-oppdatering startet i bakgrunnen');
   }catch(e){
     st.style.color='var(--d-roed)';
