@@ -1906,10 +1906,11 @@ async function renderAnalyseKundebevegelse(){
     kbTegnStatisk(isAllKonsept);
     return;
   }
+  // navn kommer fra Excel-kundekontoen (autoritativt); kundenr er fallback hvis navnet mangler.
   document.getElementById('anKundebevegelse').innerHTML=
-    kbKort('Nye kunder','var(--green)',data.ny.antall,data.ny.sum_kr,data.ny.liste,'new',s.expandNew,'orgnr')+
-    kbKort('Tapte kunder (sesongjustert)','var(--red)',data.tapt.antall,data.tapt.sum_kr,data.tapt.liste,'lost',s.expandLost,'orgnr')+
-    kbKort('Sesongkunder på vent','#c9930f',data.venter.antall,null,data.venter.liste,'wait',s.expandWait,'orgnr');
+    kbKort('Nye kunder','var(--green)',data.ny.antall,data.ny.sum_kr,data.ny.liste,'new',s.expandNew,'kundenr')+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',data.tapt.antall,data.tapt.sum_kr,data.tapt.liste,'lost',s.expandLost,'kundenr')+
+    kbKort('Sesongkunder på vent','#c9930f',data.venter.antall,null,data.venter.liste,'wait',s.expandWait,'kundenr');
 }
 
 function anDrawDonut(kons){
