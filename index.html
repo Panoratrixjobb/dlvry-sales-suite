@@ -3918,8 +3918,13 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
   const btn=document.getElementById(btnId);
   const fil=input.files[0];
   if(!fil){st.style.color='var(--d-roed)';st.textContent='Velg en .xlsx-fil først.';return;}
-  btn.disabled=true;const opprinneligTekst=btn.textContent;btn.textContent='Laster opp…';
-  st.style.color='var(--d-tekst-3)';st.textContent='';
+  btn.disabled=true;const opprinneligTekst=btn.textContent;
+  // Masterfila er ~51 MB og opplastingen tar ~1 min uten annen tilbakemelding — vis medgått
+  // tid, ellers ser knappen ut som den har hengt seg opp.
+  const start=Date.now();
+  const tikk=()=>{const s=Math.round((Date.now()-start)/1000);btn.textContent='Laster opp… '+(s<60?s+' s':Math.floor(s/60)+' min '+(s%60)+' s');};
+  tikk();const timer=setInterval(tikk,1000);
+  st.style.color='var(--d-tekst-3)';st.textContent='Store filer kan ta et minutt eller to. Ikke lukk fanen.';
   try{
     const fd=new FormData();fd.append('fil',fil);
     const r=await fetch(API_BASE+endepunkt,{method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd});
@@ -3928,16 +3933,18 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
       const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);
       throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));
     }
+    const brukt=Math.round((Date.now()-start)/1000);
     st.style.color='var(--d-gronn)';
-    st.textContent='OK — '+feltNavn+': '+JSON.stringify(data);
+    st.textContent='OK etter '+brukt+' s — '+feltNavn+': '+JSON.stringify(data);
     if(typeof toast==='function')toast('Opplasting fullført');
     input.value='';
     await loadDash();
     if(document.getElementById('view-dashboard').style.display!=='none')renderAnalyse();
   }catch(e){
     st.style.color='var(--d-roed)';
-    st.textContent='Feil: '+e.message;
+    st.textContent='Feil etter '+Math.round((Date.now()-start)/1000)+' s: '+e.message;
   }finally{
+    clearInterval(timer);
     btn.disabled=false;btn.textContent=opprinneligTekst;
   }
 }
