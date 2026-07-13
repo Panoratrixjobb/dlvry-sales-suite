@@ -3332,7 +3332,7 @@ function renderLeads(){
     if(k.epost) lenker.push('<a href="mailto:'+esc(k.epost)+'" title="'+esc(k.epost)+'" onclick="event.stopPropagation()">✉️</a>');
     if(k.hjemmeside){ const url=/^https?:/i.test(k.hjemmeside)?k.hjemmeside:'https://'+k.hjemmeside;
       lenker.push('<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(k.hjemmeside)+'" onclick="event.stopPropagation()">🌐</a>'); }
-    if(k.orgnr) lenker.push('<a href="https://www.proff.no/selskap/'+esc(k.orgnr)+'" target="_blank" rel="noopener" title="Åpne i Proff.no" onclick="event.stopPropagation()" style="font-weight:700;text-decoration:none;color:var(--primaer)">P</a>');
+    if(k.orgnr) lenker.push('<a href="https://www.proff.no/bransjes%C3%B8k?q='+esc(k.orgnr)+'" target="_blank" rel="noopener" title="Åpne i Proff.no" onclick="event.stopPropagation()" style="font-weight:700;text-decoration:none;color:var(--primaer)">P</a>');
     const kontaktCell = lenker.length ? '<span style="display:inline-flex;gap:7px;font-size:14px">'+lenker.join('')+'</span>' : dash;
     return '<tr data-leadrow="'+k.id+'" style="cursor:pointer">'
       + chk

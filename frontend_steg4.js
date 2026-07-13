@@ -1140,7 +1140,7 @@ const Steg4 = (() => {
         }
         if (kunde.orgnr)
           r += '<div class="d-kk-rad"><span class="k">Oppslag</span><span class="v" style="display:flex;gap:10px">'
-            + '<a href="https://www.proff.no/selskap/'+esc(kunde.orgnr)+'" target="_blank" rel="noopener">Proff.no</a>'
+            + '<a href="https://www.proff.no/bransjes%C3%B8k?q='+esc(kunde.orgnr)+'" target="_blank" rel="noopener">Proff.no</a>'
             + '<a href="https://virksomhet.brreg.no/nb/oppslag/enheter/'+esc(kunde.orgnr)+'" target="_blank" rel="noopener">BRREG</a>'
             + '</span></div>';
         if (kunde.telefon)
