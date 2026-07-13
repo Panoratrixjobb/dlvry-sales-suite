@@ -1108,10 +1108,41 @@ const Steg4 = (() => {
       /* Leads-info (nye felt fra leads-import) */
       (function() {
         var har = kunde.telefon || kunde.epost || kunde.postnr || kunde.bransje || kunde.lead_score != null
-          || kunde.naermeste_grossist || kunde.markedskjede || kunde.innkjopssamarbeid || kunde.besoksfrekvens_uker;
+          || kunde.naermeste_grossist || kunde.markedskjede || kunde.innkjopssamarbeid || kunde.besoksfrekvens_uker
+          || kunde.kunderelasjon || kunde.kategori || kunde.kjokkensegment || kunde.okonomi
+          || kunde.est_omsetning || kunde.score_nasjonal != null || kunde.ansatte != null || kunde.hjemmeside;
         if (!har) return '';
         var r = '<div><span class="d-kk-sek-tit">Leads-info</span>';
         r += '<div style="margin-top:var(--s3);display:flex;flex-direction:column;gap:9px">';
+        if (kunde.kunderelasjon) {
+          var relFarge = kunde.kunderelasjon === 'Aktiv kunde' ? 'gronn'
+            : kunde.kunderelasjon === 'Sovende kunde' ? 'gul'
+            : kunde.kunderelasjon === 'Liten kunde' ? 'bla' : 'graa';
+          r += '<div class="d-kk-rad"><span class="k">Relasjon</span><span class="v"><span class="d-badge '+relFarge+'" title="Fra nasjonal leads-database (matchet mot egne kunder på org.nr)">'+esc(kunde.kunderelasjon)+'</span></span></div>';
+        }
+        if (kunde.kategori)
+          r += '<div class="d-kk-rad"><span class="k">Kategori</span><span class="v"><span class="d-badge flat graa">'+esc(kunde.kategori)+'</span></span></div>';
+        if (kunde.kjokkensegment)
+          r += '<div class="d-kk-rad"><span class="k">Segment</span><span class="v"><span class="d-badge flat graa">'+esc(kunde.kjokkensegment)+'</span></span></div>';
+        if (kunde.score_nasjonal != null)
+          r += '<div class="d-kk-rad"><span class="k">Nasjonal score</span><span class="v"><span class="d-badge flat '+(kunde.score_nasjonal>=9?'gronn':kunde.score_nasjonal>=6?'bla':'graa')+'" title="0–12, fra nasjonal leads-database">'+kunde.score_nasjonal+' / 12</span></span></div>';
+        if (kunde.okonomi)
+          r += '<div class="d-kk-rad"><span class="k">Økonomi</span><span class="v"><span class="d-badge '+(kunde.okonomi==='Grønn'?'gronn':kunde.okonomi==='Gul'?'gul':'roed')+'" title="Økonomisk helse (regnskapstall)">'+esc(kunde.okonomi)+'</span></span></div>';
+        if (kunde.est_omsetning)
+          r += '<div class="d-kk-rad"><span class="k">Est. omsetning</span><span class="v">'+esc(kunde.est_omsetning)+'</span></div>';
+        if (kunde.omsetning_2026 != null && kunde.omsetning_2026 > 0)
+          r += '<div class="d-kk-rad"><span class="k">Oms. i år (grossist)</span><span class="v">'+Math.round(kunde.omsetning_2026).toLocaleString('nb-NO')+' kr</span></div>';
+        if (kunde.ansatte != null)
+          r += '<div class="d-kk-rad"><span class="k">Ansatte</span><span class="v">'+kunde.ansatte+'</span></div>';
+        if (kunde.hjemmeside) {
+          var hjUrl = /^https?:/i.test(kunde.hjemmeside) ? kunde.hjemmeside : 'https://' + kunde.hjemmeside;
+          r += '<div class="d-kk-rad"><span class="k">Hjemmeside</span><span class="v"><a href="'+esc(hjUrl)+'" target="_blank" rel="noopener">'+esc(kunde.hjemmeside)+'</a></span></div>';
+        }
+        if (kunde.orgnr)
+          r += '<div class="d-kk-rad"><span class="k">Oppslag</span><span class="v" style="display:flex;gap:10px">'
+            + '<a href="https://www.proff.no/selskap/'+esc(kunde.orgnr)+'" target="_blank" rel="noopener">Proff.no</a>'
+            + '<a href="https://virksomhet.brreg.no/nb/oppslag/enheter/'+esc(kunde.orgnr)+'" target="_blank" rel="noopener">BRREG</a>'
+            + '</span></div>';
         if (kunde.telefon)
           r += '<div class="d-kk-rad"><span class="k">Telefon</span><span class="v"><a href="tel:'+esc(kunde.telefon)+'">'+esc(kunde.telefon)+'</a></span></div>';
         if (kunde.epost)

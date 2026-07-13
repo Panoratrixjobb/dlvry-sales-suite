@@ -808,23 +808,32 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Undervisning: Leads (prospekt-tabell m/ filtre + masse-tildel) -->
       <div id="sub-leads" style="display:none">
-        <div class="crumb">Prospekter (status = Lead). Søk, filtrer og masse-tildel grossist/selger.</div>
+        <div class="crumb">Prospekter og vinn-tilbake. Søk, filtrer, sortér — og masse-tildel grossist/selger.</div>
 
-        <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+        <div id="leadsFilter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">
           <div class="d-sok" style="flex:1;min-width:200px">
             <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
             <input id="leadsSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="onLeadsSearch(this.value)">
           </div>
+          <select id="leadsType" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:150px" title="Nye prospekter, eller sovende kunder som kan vinnes tilbake">
+            <option value="Lead">Prospekter</option>
+            <option value="Sovende">Vinn tilbake (sovende)</option>
+          </select>
           <select id="leadsGrossist" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:150px"></select>
           <select id="leadsSelger" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:140px"></select>
-          <div id="leadsRegionWrap"></div>
-          <div id="leadsBransjegruppeWrap"></div>
-          <div id="leadsBransjeWrap"></div>
-          <select id="leadsScore" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
+          <select id="leadsScore" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px" title="Nasjonal score 0–12 (ny leads-database) eller klassisk 0–100">
             <option value="">Alle score</option>
-            <option value="80">Score ≥ 80</option>
-            <option value="60">Score ≥ 60</option>
-            <option value="40">Score ≥ 40</option>
+            <optgroup label="Nasjonal (0–12)">
+              <option value="n10">Score ≥ 10</option>
+              <option value="n8">Score ≥ 8</option>
+              <option value="n6">Score ≥ 6</option>
+              <option value="n4">Score ≥ 4</option>
+            </optgroup>
+            <optgroup label="Klassisk (0–100)">
+              <option value="k80">Score ≥ 80</option>
+              <option value="k60">Score ≥ 60</option>
+              <option value="k40">Score ≥ 40</option>
+            </optgroup>
           </select>
           <select id="leadsTemperatur" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
             <option value="">Alle temp.</option>
@@ -835,6 +844,17 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <select id="leadsKilde" class="d-select" onchange="leadsResetAndLoad()" style="width:auto;min-width:130px">
             <option value="">Alle kilder</option>
           </select>
+        </div>
+        <div id="leadsFilter2" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
+          <div id="leadsRegionWrap"></div>
+          <div id="leadsFylkeWrap"></div>
+          <div id="leadsKategoriWrap"></div>
+          <div id="leadsSegmentWrap"></div>
+          <div id="leadsOkonomiWrap"></div>
+          <div id="leadsEstOmsWrap"></div>
+          <div id="leadsBransjegruppeWrap"></div>
+          <div id="leadsBransjeWrap"></div>
+          <button class="d-knapp subtil sm" onclick="leadsNullstillFilter()" title="Nullstill alle filtre" style="height:40px">Nullstill filtre</button>
         </div>
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -851,11 +871,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <table class="d-tabell" style="min-width:1400px">
             <thead><tr id="leadsHead">
               <th style="width:34px"><input type="checkbox" id="leadsCheckAll" onclick="leadsToggleSide(this.checked)"></th>
-              <th>Bransjegruppe</th><th>Segment</th><th>Bedriftsnavn</th><th>Org.nr</th>
-              <th>Poststed</th><th>Region</th><th>Tlf</th>
-              <th style="cursor:pointer" onclick="leadsToggleScoreSort()" title="Sorter etter score">Score ▾</th>
-              <th>Kilde</th><th>Temp</th>
-              <th>Nærmeste grossist</th><th>Tildelt</th>
+              <th style="cursor:pointer" onclick="leadsSettSort('navn')" title="Sortér på navn">Bedriftsnavn <span data-sort-ind="navn"></span></th>
+              <th>Kategori</th><th>Segment</th><th>Fylke</th><th>Region</th>
+              <th style="cursor:pointer" onclick="leadsSettSort('score_nasjonal_desc')" title="Sortér på score (nasjonal 0–12, deretter klassisk)">Score <span data-sort-ind="score_nasjonal_desc"></span></th>
+              <th>Økonomi</th>
+              <th style="cursor:pointer" onclick="leadsSettSort('omsetning_2026_desc')" title="Sortér på estimert omsetning / omsetning hittil i år">Est. oms. <span data-sort-ind="omsetning_2026_desc"></span></th>
+              <th style="cursor:pointer" onclick="leadsSettSort('ansatte_desc')" title="Sortér på antall ansatte">Ansatte <span data-sort-ind="ansatte_desc"></span></th>
+              <th>Kontakt</th><th>Temp</th><th>Tildelt</th>
             </tr></thead>
             <tbody id="leadsBody"></tbody>
           </table>
@@ -997,6 +1019,24 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="d-knapp primar sm" style="margin-left:8px" id="bulkImportForhandsvisBtn" onclick="bulkImportForhandsvis()">Forhåndsvis (tørrkjøring)</button>
         <button class="d-knapp fare sm" style="margin-left:8px;display:none" id="bulkImportBekreftBtn" onclick="bulkImportBekreft()">Bekreft import</button>
         <div id="bulkImportRapport" style="margin-top:14px"></div>
+      </div>
+
+      <!-- Nasjonal leads-import (Excel) -->
+      <div class="d-panel" style="margin-top:18px" id="leadsImportPanel">
+        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Nasjonal leads-database (Excel)</h3>
+        <p class="sub" style="margin:0 0 10px">
+          Last opp «leads_nasjonal.xlsx» (sammenslått fastfood + restaurant, matchet mot egne
+          kunder på org.nr). Matcher på org.nr: nye prospekter opprettes som leads, eksisterende
+          leads og kunder berikes med kategori/segment, score, økonomi, est. omsetning,
+          kontaktinfo, ansatte og hjemmeside — eksisterende data overskrives aldri, kun tomme
+          felt fylles. Leads som viser seg å være aktive kunder får status «Kunde», sovende
+          kunder får «Sovende» (Vinn tilbake-fanen). Kjør «Forhåndsvis» først — ingenting
+          skrives før du trykker «Bekreft import».
+        </p>
+        <input type="file" id="leadsImportFil" accept=".xlsx">
+        <button class="d-knapp primar sm" style="margin-left:8px" id="leadsImportForhandsvisBtn" onclick="leadsImportForhandsvis()">Forhåndsvis (tørrkjøring)</button>
+        <button class="d-knapp fare sm" style="margin-left:8px;display:none" id="leadsImportBekreftBtn" onclick="leadsImportBekreft()">Bekreft import</button>
+        <div id="leadsImportRapport" style="margin-top:14px"></div>
       </div>
     </div>
 
@@ -3102,11 +3142,21 @@ async function mountLeads(){
     // Multi-filter dropdowns
     document.getElementById('leadsRegionWrap').innerHTML=mfBygd('leadsRegion','Region',['Øst','Vest','Nord','Sør','Uten region'],'leadsResetAndLoad()');
     document.getElementById('leadsBransjegruppeWrap').innerHTML=mfBygd('leadsBransjegruppe','Bransjegruppe',['HORECA','KBS','ØVRIG'],'leadsResetAndLoad()');
-    // Bransje — dynamisk fra DB
-    try{
-      const bransjer=await api('/api/kunder/bransjer')||[];
-      document.getElementById('leadsBransjeWrap').innerHTML=mfBygd('leadsBransje','Bransje',bransjer,'leadsResetAndLoad()');
-    }catch(e){ document.getElementById('leadsBransjeWrap').innerHTML=''; }
+    document.getElementById('leadsOkonomiWrap').innerHTML=mfBygd('leadsOkonomi','Økonomi',['Grønn','Gul','Rød'],'leadsResetAndLoad()');
+    // Dynamiske filtre fra DB — hentes parallelt (feiler mykt hver for seg)
+    const dynFilter=[
+      ['/api/kunder/bransjer','leadsBransjeWrap','leadsBransje','Bransje'],
+      ['/api/kunder/fylker','leadsFylkeWrap','leadsFylke','Fylke'],
+      ['/api/kunder/kategorier','leadsKategoriWrap','leadsKategori','Kategori'],
+      ['/api/kunder/segmenter','leadsSegmentWrap','leadsSegment','Segment'],
+      ['/api/kunder/est-omsetninger','leadsEstOmsWrap','leadsEstOms','Est. omsetning'],
+    ];
+    await Promise.all(dynFilter.map(async ([url,wrapId,mfId,label])=>{
+      try{
+        const verdier=await api(url)||[];
+        document.getElementById(wrapId).innerHTML=verdier.length?mfBygd(mfId,label,verdier,'leadsResetAndLoad()'):'';
+      }catch(e){ document.getElementById(wrapId).innerHTML=''; }
+    }));
     // Kilde — fra konfig-tabell i backend
     try{
       const kilder=await api('/api/rapport/lead-kilder')||[];
@@ -3120,7 +3170,7 @@ async function mountLeads(){
 
 function leadsParams(extra){
   const p=new URLSearchParams();
-  p.set('status','Lead');
+  p.set('status',document.getElementById('leadsType').value||'Lead');
   const q=document.getElementById('leadsSearch').value.trim();
   if(q) p.set('q',q);
   const g=document.getElementById('leadsGrossist').value; if(g) p.set('grossist_id',g);
@@ -3128,12 +3178,37 @@ function leadsParams(extra){
   const reg=mfValgte('leadsRegion'); if(reg) p.set('region',reg);
   const bg=mfValgte('leadsBransjegruppe'); if(bg) p.set('bransjegruppe',bg);
   const br=mfValgte('leadsBransje'); if(br) p.set('bransje',br);
-  const sc=document.getElementById('leadsScore').value; if(sc) p.set('lead_score_min',sc);
+  const fy=mfValgte('leadsFylke'); if(fy) p.set('fylke',fy);
+  const kat=mfValgte('leadsKategori'); if(kat) p.set('kategori',kat);
+  const seg=mfValgte('leadsSegment'); if(seg) p.set('kjokkensegment',seg);
+  const oko=mfValgte('leadsOkonomi'); if(oko) p.set('okonomi',oko);
+  const eo=mfValgte('leadsEstOms'); if(eo) p.set('est_omsetning',eo);
+  // Score-filter: 'nX' = nasjonal (0–12), 'kX' = klassisk lead_score (0–100)
+  const sc=document.getElementById('leadsScore').value;
+  if(sc){
+    if(sc[0]==='n') p.set('score_nasjonal_min',sc.slice(1));
+    else p.set('lead_score_min',sc.slice(1));
+  }
   const tmp=document.getElementById('leadsTemperatur').value; if(tmp) p.set('lead_temperatur',tmp);
   const kld=document.getElementById('leadsKilde').value; if(kld) p.set('lead_kilde',kld);
-  if(_leadsSortScore) p.set('sort','lead_score_desc');
+  if(_leadsSort) p.set('sort',_leadsSort);
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
+}
+
+function leadsNullstillFilter(){
+  document.getElementById('leadsSearch').value='';
+  document.getElementById('leadsType').value='Lead';
+  document.getElementById('leadsGrossist').value='';
+  document.getElementById('leadsSelger').value='';
+  document.getElementById('leadsScore').value='';
+  document.getElementById('leadsTemperatur').value='';
+  document.getElementById('leadsKilde').value='';
+  ['leadsRegion','leadsBransjegruppe','leadsBransje','leadsFylke','leadsKategori','leadsSegment','leadsOkonomi','leadsEstOms'].forEach(id=>{
+    document.querySelectorAll('#'+id+' input:checked').forEach(c=>{c.checked=false;});
+    mfOppdaterBtn(id);
+  });
+  leadsResetAndLoad();
 }
 
 /* ── Multi-filter helpers ── */
@@ -3167,11 +3242,13 @@ function mfBygd(id, label, valg, onchange){
     +'</div>';
 }
 
-var _leadsSortScore=false;
-function leadsToggleScoreSort(){
-  _leadsSortScore=!_leadsSortScore;
-  const th=document.querySelector('#leadsHead th[onclick*="ScoreSort"]');
-  if(th) th.textContent='Score '+(_leadsSortScore?'▲':'▾');
+// Sortering: '' = navn (standard). Klikk på samme kolonne slår av igjen.
+var _leadsSort='';
+function leadsSettSort(nokkel){
+  _leadsSort = (_leadsSort===nokkel) ? '' : nokkel;
+  document.querySelectorAll('#leadsHead [data-sort-ind]').forEach(el=>{
+    el.textContent = el.dataset.sortInd===_leadsSort ? '▾' : '';
+  });
   leadsResetAndLoad();
 }
 
@@ -3223,32 +3300,56 @@ function renderLeads(){
     const checkedAttr = sel ? 'checked' : '';
     let chk='<td></td>';
     if(showChk) chk='<td><input type="checkbox" data-lead="'+k.id+'" '+checkedAttr+' onclick="leadsRowToggle(\''+k.id+'\',this.checked)"></td>';
-    const tildelt = k.grossist_navn ? esc(k.grossist_navn) : dash;
+    // Tildelt: grossist + selger. Nærmeste grossist som hover-hint.
+    let tildelt = [k.grossist_navn, k.selger_navn].filter(Boolean).map(esc).join(' · ') || dash;
+    if(k.naermeste_grossist) tildelt='<span title="Nærmeste grossist: '+esc(k.naermeste_grossist)+'">'+tildelt+'</span>';
+    // Navn + org.nr/poststed som sub-linje
+    const sted=[k.postnr,k.poststed].filter(Boolean).join(' ');
+    const navnCell='<div class="d-navn">'+esc(k.navn||dash)+'</div>'
+      +'<div class="d-sub" style="font-size:11.5px;color:var(--muted)">'+esc(k.orgnr||'')+(sted?' · '+esc(sted):'')+'</div>';
+    // Kategori (nasjonal fil) med bransje (gammelt register) som fallback
+    const katCell = k.kategori ? '<span class="d-badge flat graa">'+esc(k.kategori)+'</span>'
+      : (k.bransje ? '<span class="d-badge flat graa" title="Bransje (register)">'+esc(k.bransje)+'</span>' : dash);
     const segCell = k.kjokkensegment
       ? '<span class="d-badge flat graa">'+esc(k.kjokkensegment)+'</span>'
       : dash;
-    const bransjeBadge = k.bransjegruppe
-      ? '<span class="d-badge flat graa">'+esc(k.bransjegruppe)+'</span>'
+    // Score: nasjonal 0–12 (farget) prioriteres, klassisk 0–100 som fallback
+    let scoreCell=dash;
+    if(k.score_nasjonal!=null)
+      scoreCell='<span class="d-badge flat '+(k.score_nasjonal>=9?'gronn':k.score_nasjonal>=6?'bla':'graa')+'" title="Nasjonal score (0–12)">'+k.score_nasjonal+'</span>';
+    else if(k.lead_score!=null)
+      scoreCell='<span class="d-badge flat '+(k.lead_score>=80?'bla':'graa')+'" title="Klassisk lead score (0–100)">'+k.lead_score+'</span>';
+    const okoCell = k.okonomi
+      ? '<span class="d-badge '+(k.okonomi==='Grønn'?'gronn':k.okonomi==='Gul'?'gul':'roed')+'" title="Økonomisk helse (regnskapstall)">'+esc(k.okonomi)+'</span>'
       : dash;
-    const scoreCell = k.lead_score != null
-      ? '<span class="d-badge flat '+(k.lead_score>=80?'bla':k.lead_score>=60?'graa':'graa')+'" title="Lead Score">'+k.lead_score+'</span>'
-      : dash;
+    // Est. omsetning-intervall; for eksisterende/sovende vis faktisk omsetning i år i tillegg
+    let omsCell = k.est_omsetning ? esc(k.est_omsetning) : dash;
+    if(k.omsetning_2026!=null && k.omsetning_2026>0)
+      omsCell += '<div class="d-sub" style="font-size:11px;color:var(--muted)" title="Omsetning hittil i år (grossistdata)">'+Math.round(k.omsetning_2026/1000).toLocaleString('no')+' kkr i år</div>';
+    // Kontaktikoner — stopPropagation så radklikk ikke åpner kortet
+    const lenker=[];
+    if(k.telefon) lenker.push('<a href="tel:'+esc(k.telefon)+'" title="'+esc(k.telefon)+'" onclick="event.stopPropagation()">📞</a>');
+    if(k.epost) lenker.push('<a href="mailto:'+esc(k.epost)+'" title="'+esc(k.epost)+'" onclick="event.stopPropagation()">✉️</a>');
+    if(k.hjemmeside){ const url=/^https?:/i.test(k.hjemmeside)?k.hjemmeside:'https://'+k.hjemmeside;
+      lenker.push('<a href="'+esc(url)+'" target="_blank" rel="noopener" title="'+esc(k.hjemmeside)+'" onclick="event.stopPropagation()">🌐</a>'); }
+    if(k.orgnr) lenker.push('<a href="https://www.proff.no/selskap/'+esc(k.orgnr)+'" target="_blank" rel="noopener" title="Åpne i Proff.no" onclick="event.stopPropagation()" style="font-weight:700;text-decoration:none;color:var(--primaer)">P</a>');
+    const kontaktCell = lenker.length ? '<span style="display:inline-flex;gap:7px;font-size:14px">'+lenker.join('')+'</span>' : dash;
     return '<tr data-leadrow="'+k.id+'" style="cursor:pointer">'
       + chk
-      + '<td>'+bransjeBadge+'</td>'
+      + '<td>'+navnCell+'</td>'
+      + '<td>'+katCell+'</td>'
       + '<td>'+segCell+'</td>'
-      + '<td class="d-navn">'+esc(k.navn||dash)+'</td>'
-      + '<td class="d-sub">'+esc(k.orgnr||dash)+'</td>'
-      + '<td>'+esc((k.postnr?k.postnr+' ':'')+''+(k.poststed||'')||dash)+'</td>'
+      + '<td>'+esc(k.fylke||dash)+'</td>'
       + '<td>'+(k.region ? (esc(k.region)+(k.region_delt ? ' <span class="d-badge flat gul" title="Delt postnr">Delt</span>' : '')) : dash)+'</td>'
-      + '<td>'+esc(k.telefon||dash)+'</td>'
       + '<td>'+scoreCell+'</td>'
-      + '<td>'+(k.lead_kilde ? '<span class="d-badge flat graa">'+esc(k.lead_kilde)+'</span>' : dash)+'</td>'
+      + '<td>'+okoCell+'</td>'
+      + '<td>'+omsCell+'</td>'
+      + '<td style="text-align:right;padding-right:18px">'+(k.ansatte!=null?k.ansatte:dash)+'</td>'
+      + '<td>'+kontaktCell+'</td>'
       + '<td>'+(k.lead_temperatur === 'Hot' ? '<span class="d-badge flat roed" title="Hot">🔴</span>'
                : k.lead_temperatur === 'Warm' ? '<span class="d-badge flat gul" title="Warm">🟡</span>'
                : k.lead_temperatur === 'Cold' ? '<span class="d-badge flat bla" title="Cold">🔵</span>'
                : dash)+'</td>'
-      + '<td>'+esc(k.naermeste_grossist||dash)+'</td>'
       + '<td>'+tildelt+'</td>'
       + '</tr>';
   }).join('');
@@ -4033,6 +4134,72 @@ function renderBulkImportRapport(data, commit){
   el.innerHTML=html;
 }
 
+// ============ Nasjonal leads-import (Excel) ============
+async function leadsImportKjor(commit){
+  const input=document.getElementById('leadsImportFil');
+  const rapportEl=document.getElementById('leadsImportRapport');
+  const btnForhandsvis=document.getElementById('leadsImportForhandsvisBtn');
+  const btnBekreft=document.getElementById('leadsImportBekreftBtn');
+  const fil=input.files[0];
+  if(!fil){rapportEl.innerHTML='<span style="color:var(--d-roed)">Velg en .xlsx-fil først.</span>';return;}
+  btnForhandsvis.disabled=true; btnBekreft.disabled=true;
+  const oF=btnForhandsvis.textContent, oB=btnBekreft.textContent;
+  const start=Date.now();
+  const btn=commit?btnBekreft:btnForhandsvis;
+  const tikk=()=>{const s=Math.round((Date.now()-start)/1000);btn.textContent=(commit?'Skriver… ':'Analyserer… ')+s+' s';};
+  tikk();const timer=setInterval(tikk,1000);
+  rapportEl.innerHTML='<span class="sub">12 000+ rader avstemmes mot databasen — kan ta et minutt. Ikke lukk fanen.</span>';
+  try{
+    const fd=new FormData();fd.append('fil',fil);
+    const r=await fetch(API_BASE+'/api/import/leads-nasjonal?commit='+(commit?'true':'false'),{
+      method:'POST',headers:{'Authorization':'Bearer '+TOKEN},body:fd
+    });
+    const txt=await r.text();let data=null;try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
+    if(!r.ok){
+      const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);
+      throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));
+    }
+    renderLeadsImportRapport(data, commit);
+    btnBekreft.style.display = (!commit && (data.ny+data.lead_beriket+data.kunde_beriket+data.reaktivert)>0) ? '' : 'none';
+    if(commit){
+      if(typeof toast==='function')toast('Leads-import fullført');
+      leadsMounted=false; // tving re-lasting av filternedtrekk (nye fylker/kategorier)
+    }
+  }catch(e){
+    rapportEl.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{
+    clearInterval(timer);
+    btnForhandsvis.disabled=false; btnBekreft.disabled=false;
+    btnForhandsvis.textContent=oF; btnBekreft.textContent=oB;
+  }
+}
+function leadsImportForhandsvis(){return leadsImportKjor(false);}
+function leadsImportBekreft(){
+  if(!confirm('Skrive endringene til databasen nå? Nye leads opprettes og eksisterende leads/kunder berikes.'))return;
+  return leadsImportKjor(true);
+}
+function renderLeadsImportRapport(d, commit){
+  const el=document.getElementById('leadsImportRapport');
+  const tall=(v,farge)=>'<span style="font-weight:700'+(farge?';color:'+farge:'')+'">'+(v||0).toLocaleString('no')+'</span>';
+  let html='<div style="font-size:13px;line-height:1.9">'
+    +(commit?'<strong style="color:var(--d-gronn)">Skrevet til database.</strong><br>':'<strong>Tørrkjøring — ingenting skrevet ennå.</strong><br>')
+    +'Rader i fila: '+tall(d.totalt)
+    +' · Nye opprettet: '+tall(d.ny,'var(--d-gronn)')
+    +' · Leads beriket: '+tall(d.lead_beriket)
+    +' · Kunder beriket: '+tall(d.kunde_beriket)
+    +' · Reaktivert (var slettet): '+tall(d.reaktivert)
+    +' · Status korrigert (lead var kunde/sovende): '+tall(d.status_korrigert)
+    +' · Feil-rader: '+tall(d.feil_rader,d.feil_rader?'var(--d-roed)':null)
+    +'<br>Leads i appen som IKKE er i fila (røres ikke): '+tall(d.app_leads_ikke_i_fila)
+    +'</div>';
+  if(d.feil&&d.feil.length){
+    html+='<div style="margin-top:10px;font-size:12.5px;color:var(--d-roed)"><strong>Feil-rader (inntil 100):</strong><br>'
+      +d.feil.map(f=>'rad '+f.radnr+': '+esc(f.navn||'(uten navn)')+' — '+esc((f.feil||[]).join('; '))).join('<br>')
+      +'</div>';
+  }
+  el.innerHTML=html;
+}
+
 function oppdaterInvGrossistFelt(){
   const rolle = document.getElementById('invRolle').value;
   document.getElementById('invGrossistFelt').style.display = rolle==='selger' ? '' : 'none';
@@ -4774,6 +4941,8 @@ async function showApp(){
   exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
   const dashUploadPanel=document.getElementById('dashUploadPanel');
   if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
+  const leadsImportPanel=document.getElementById('leadsImportPanel');
+  if(leadsImportPanel)leadsImportPanel.style.display=erAdmin?'':'none';
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
