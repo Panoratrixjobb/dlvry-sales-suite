@@ -1520,7 +1520,7 @@ function barList(id,arr,key,fmt,col,pct){
   const el=document.getElementById(id);if(!el)return;
   const max=Math.max(...arr.map(a=>a[key]),0.0001);
   el.innerHTML=arr.map(a=>`<div class="bl-row">
-    <span class="bl-name">${a.navn}</span>
+    <span class="bl-name">${esc(a.navn)}</span>
     <div class="bl-track"><div class="bl-bar" style="width:${a[key]/max*100}%;background:${col}"></div></div>
     <span class="bl-val">${fmt(a[key])}</span></div>`).join('');
 }
@@ -1620,7 +1620,7 @@ function renderAnalyse(){
   const grossistSel=document.getElementById('anGrossistSelect');
   grossistSel.disabled=grossistKilde.length===0;
   grossistSel.innerHTML='<option value="">'+(grossistKilde.length?'Velg grossist…':'Ingen grossistdata')+'</option>'+
-    grossistKilde.map(g=>`<option value="${g.kode||g.navn}"${s.grossist===(g.kode||g.navn)?' selected':''}>${g.navn}</option>`).join('');
+    grossistKilde.map(g=>`<option value="${esc(g.kode||g.navn)}"${s.grossist===(g.kode||g.navn)?' selected':''}>${esc(g.navn)}</option>`).join('');
 
   // ---- Uke-slider ----
   document.getElementById('anWeekSlider').max=D.cutoff_uke;
@@ -1773,9 +1773,9 @@ function anRenderGrossistTabell(D,s,kilde){
   document.getElementById('anGrossistTabell').innerHTML=kilde.length?kilde.slice(0,visAntall).map(g=>{
     const growth=g.y2025?(g.y2026-g.y2025)/g.y2025:0;
     const nokkel=g.kode||g.navn;const selected=s.grossist===nokkel;
-    return `<div class="an-grossist-row${selected?' aktiv':''}" onclick="setAnalyseGrossist('${s.grossist===nokkel?'':nokkel}')">
+    return `<div class="an-grossist-row${selected?' aktiv':''}" onclick="setAnalyseGrossist('${s.grossist===nokkel?'':escJsAttr(nokkel)}')">
       <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px">
-        <span style="font-weight:${selected?700:500}">${g.navn}</span>
+        <span style="font-weight:${selected?700:500}">${esc(g.navn)}</span>
         <span style="display:flex;gap:10px"><b>${mnok(g.y2026)}</b><span style="color:${growth>=0?'var(--green)':'var(--red)'};min-width:52px;text-align:right">${(growth>=0?'+':'')+(growth*100).toFixed(0)} %</span></span>
       </div>
       <div class="bl-track"><div class="bl-bar" style="width:${Math.max(3,g.y2026/maxV*100)}%;background:${isAll?'#3b5bdb':(D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===s.concept)||{}).farge||'#3b5bdb'}"></div></div>
@@ -1794,7 +1794,7 @@ function anRenderGrossistTabell(D,s,kilde){
   panel.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div><div style="font-size:11px;font-weight:700;color:var(--d-tekst-3);letter-spacing:.03em">GROSSIST-DETALJ</div>
-      <div style="font-size:17px;font-weight:700;color:var(--d-tekst);margin-top:2px">${funnet.navn}</div></div>
+      <div style="font-size:17px;font-weight:700;color:var(--d-tekst);margin-top:2px">${esc(funnet.navn)}</div></div>
       <div style="cursor:pointer;color:var(--d-tekst-3);font-size:12.5px" onclick="setAnalyseGrossist('')">Lukk ×</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:16px">
@@ -1846,7 +1846,7 @@ async function kbHent(){
 function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt){
   const visAntall=expandFlag?liste.length:Math.min(10,liste.length);
   const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px">
-    <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.navn||k[navnFelt]||''}</span>
+    <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.navn||k[navnFelt]||'')}</span>
     <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}</span></div>`).join('');
   const expandLbl=liste.length<=10?'':(expandFlag?'Vis færre':'Vis flere (av '+liste.length+')');
   return `<div class="d-panel">
@@ -1889,7 +1889,7 @@ function kbRenderFilterUI(){
   if(!kbScope||kbScope.type==='ingen'){el.innerHTML=kSel;return;}
   if(kbScope.type==='grossist'){
     el.innerHTML=kSel+((kbScope.grossist_navn&&kbScope.grossist_navn.length)?
-      `<span style="font-size:11.5px;color:var(--d-tekst-3)">${kbScope.grossist_navn.join(', ')}</span>`:'');
+      `<span style="font-size:11.5px;color:var(--d-tekst-3)">${esc(kbScope.grossist_navn.join(', '))}</span>`:'');
     return;
   }
   const grossistKilde=kbScope.valgbare_grossister||[];
@@ -1904,7 +1904,7 @@ function kbRenderFilterUI(){
   }
   html+=`<select class="d-select" style="min-width:200px" onchange="setKbGrossist(this.value)">`+
     `<option value="">${kbScope.type==='alle'?'Alle grossister':'Velg grossist…'}</option>`+
-    grossistOpts.map(g=>`<option value="${g.id}"${kbState.grossist===g.id?' selected':''}>${g.navn}</option>`).join('')+
+    grossistOpts.map(g=>`<option value="${g.id}"${kbState.grossist===g.id?' selected':''}>${esc(g.navn)}</option>`).join('')+
     `</select>`;
   if(kbState.region||kbState.grossist){
     html+=`<button class="an-reset-btn" onclick="setKbRegion('')">Nullstill</button>`;
@@ -1934,7 +1934,7 @@ async function renderAnalyseKundebevegelse(){
     data=await kbHent();
   }catch(e){
     document.getElementById('anKundebevegelse').innerHTML=
-      '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-roed)">Kunne ikke hente kundebevegelse: '+e.message+'</div>';
+      '<div style="grid-column:1/-1;font-size:12.5px;color:var(--d-roed)">Kunne ikke hente kundebevegelse: '+esc(e.message)+'</div>';
     return;
   }
   if(kbNokkel()!==nokkelVedStart)return; // filter endret mens vi ventet — utdatert svar, dropp
@@ -2190,7 +2190,7 @@ function render(){
       : (kf>=60 ? '<span style="color:#2f9e63">'+kf+'%</span>'
                 : '<span style="color:#B45309">'+kf+'% ⚠</span>');
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
-      <td><div class="pname">${x.l.navn}</div><button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;margin-top:2px;opacity:0.6">⇄ Bytt</button></td>
+      <td><div class="pname">${esc(x.l.navn)}</div><button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;margin-top:2px;opacity:0.6">⇄ Bytt</button></td>
       <td>${x.l.matchkonfidens!=null?(x.l.matchkonfidens+'%'+(x.l.matchkonfidens<60?' ⚠':'')):'—'}</td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
@@ -2299,7 +2299,7 @@ function onSearch(q){
   curResults=res;hlIdx=-1;
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
-    <div class="nm">${p.navn}</div>
+    <div class="nm">${esc(p.navn)}</div>
     <div class="meta"><span>Art ${p.art}</span><span>${p.enhet||''}</span><span>${fmtKr2(p.listepris)}</span>${p.fbkostpris!=null?'<span style="color:var(--brand)">FB-import</span>':''}</div></div>`).join('');
   box.classList.add('open');
 }
@@ -2394,7 +2394,7 @@ async function refreshCusts(q=''){
   try{
     custCache=(await api(url)||[]).sort((a,b)=>(a.navn||'').localeCompare(b.navn||'','nb'));
   }catch(e){
-    if(list)list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+e.message+'</span></div>';
+    if(list)list.innerHTML='<div style="padding:8px 10px;font-size:12px;color:var(--red)">Klarte ikke hente kunder<br><span style="font-size:11px">'+esc(e.message)+'</span></div>';
     return;
   }
   if(!list)return;
@@ -2923,6 +2923,11 @@ async function deleteCalc(id){
 }
 
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+// For verdier som settes inn i en inline onclick="...'${...}'..."-håndterer: HTML-attributt-
+// dekoding skjer FØR JS-strengen tolkes, så esc() alene stopper ikke en ' fra å bryte ut av
+// JS-strengen (den avkodes tilbake til ' igjen). Escaper backslash+' for JS-strengen FØRST,
+// deretter esc() for selve HTML-attributten.
+const escJsAttr=s=>esc(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 
 // ============ Dirty / saved indikator ============
 function markDirty(){state.dirty=true;setSaved(false);}
@@ -4471,7 +4476,7 @@ function renderRapFiks(){
   const gRows=gl.map(g=>{
     const c=rapCalc(g.y2025,g.y2026);
     const pen=g.y2026?g.dlvry_lsee_2026/g.y2026:0;
-    return `<tr><td>${g.navn}</td><td class="rap-note" style="margin:0">${g.region}</td>
+    return `<tr><td>${esc(g.navn)}</td><td class="rap-note" style="margin:0">${esc(g.region)}</td>
       <td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
       <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td>
       <td style="text-align:right">${rapFmtPP(g25?(g.y2026-g.y2025)/g25:0)}</td>
@@ -4481,7 +4486,7 @@ function renderRapFiks(){
   const topPen=gl.slice().filter(g=>g.y2026>0).sort((a,b)=>(b.dlvry_lsee_2026/b.y2026)-(a.dlvry_lsee_2026/a.y2026))[0];
   const insight=`<div class="rap-insight">
     <p>Grossistenes samlede omsetning (alle leverandører, alle produkter) er <b>${rapFmtM(g26)}</b> YTD, ${grandC.up?'opp':'ned'} <b>${rapFmtPctAbs(grandC.pct)}</b> mot samme uker 2025 (${rapFmtM(grandC.delta)}).</p>
-    <p>DLVRYs egen import (La Salumeria + East Essence) utgjør <b>${rapFmtPctAbs(andel)}</b> av dette samlet${topPen?` — høyest hos <b>${topPen.navn}</b> (${rapFmtPctAbs(topPen.dlvry_lsee_2026/topPen.y2026)})`:''}.</p>
+    <p>DLVRYs egen import (La Salumeria + East Essence) utgjør <b>${rapFmtPctAbs(andel)}</b> av dette samlet${topPen?` — høyest hos <b>${esc(topPen.navn)}</b> (${rapFmtPctAbs(topPen.dlvry_lsee_2026/topPen.y2026)})`:''}.</p>
   </div>`;
 
   return `${head}
@@ -4524,7 +4529,7 @@ function rapGrossistTrend(key){
     const vekst=r.y2025?delta/r.y2025:null;
     const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
     return `<tr>
-      <td>${r.kode?r.kode+' ':''}${r.navn}</td>
+      <td>${r.kode?esc(r.kode)+' ':''}${esc(r.navn)}</td>
       <td style="text-align:right">${rapFmtM(r.y2026)}</td>
       <td style="text-align:right">${rapFmtM(r.y2025)}</td>
       <td style="text-align:right">${rapFmtM(delta)}</td>
@@ -4550,8 +4555,8 @@ function rapGrossistTrend(key){
   rader.forEach(r=>{if(best===null||r.bidrag_pp>best.bidrag_pp)best=r;if(worst===null||r.bidrag_pp<worst.bidrag_pp)worst=r;});
   const storst=rader.length?rader.reduce((a,b)=>b.y2026>a.y2026?b:a):null;
   let innsikt='';
-  if(best&&worst)innsikt+=`<p><b>${kortnavn}:</b> Beste bidrag fra <b>${best.navn}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${worst.navn}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`;
-  if(storst&&totalY26)innsikt+=`<p><b>${kortnavn}:</b> Største grossist er <b>${storst.navn}</b> (${rapFmtM(storst.y2026)}, ${rapFmtPctAbs(storst.y2026/totalY26)} av ${kortnavn}-total).</p>`;
+  if(best&&worst)innsikt+=`<p><b>${kortnavn}:</b> Beste bidrag fra <b>${esc(best.navn)}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${esc(worst.navn)}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`;
+  if(storst&&totalY26)innsikt+=`<p><b>${kortnavn}:</b> Største grossist er <b>${esc(storst.navn)}</b> (${rapFmtM(storst.y2026)}, ${rapFmtPctAbs(storst.y2026/totalY26)} av ${kortnavn}-total).</p>`;
   return {card,innsikt};
 }
 
@@ -4643,7 +4648,7 @@ function renderRapKonsept(key){
     const vekst=r.y2025?delta/r.y2025:null;
     const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
     return `<tr>
-      <td>${r.kode?r.kode+' ':''}${r.navn}</td>
+      <td>${r.kode?esc(r.kode)+' ':''}${esc(r.navn)}</td>
       <td style="text-align:right">${rapFmtM(r.y2026)}</td>
       <td style="text-align:right">${rapFmtM(r.y2025)}</td>
       <td style="text-align:right">${rapFmtM(delta)}</td>
@@ -4666,8 +4671,8 @@ function renderRapKonsept(key){
   const storst=rader.length?rader.reduce((a,b)=>b.y2026>a.y2026?b:a):null;
 
   const insight=rader.length?`<div class="rap-insight">
-    ${best&&worst?`<p>Beste bidrag fra <b>${best.navn}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${worst.navn}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`:''}
-    ${storst&&totalY26?`<p>Størst grossist er <b>${storst.navn}</b> — ${rapFmtPctAbs(storst.y2026/totalY26)} av ${navn}-total.</p>`:''}
+    ${best&&worst?`<p>Beste bidrag fra <b>${esc(best.navn)}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${esc(worst.navn)}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`:''}
+    ${storst&&totalY26?`<p>Størst grossist er <b>${esc(storst.navn)}</b> — ${rapFmtPctAbs(storst.y2026/totalY26)} av ${navn}-total.</p>`:''}
   </div>`:'<div class="rap-empty">Ingen grossistdata lastet ennå for dette konseptet.</div>';
 
   return `
@@ -4746,7 +4751,7 @@ function renderRapRegion(regionNavn,filter){
     }).sort((a,b)=>b.y2026-a.y2026);
     grossistRows=withTot.map(g=>{
       const c=rapCalc(g.y2025,g.y2026);
-      return `<tr><td>${g.navn}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
+      return `<tr><td>${esc(g.navn)}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
         <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
     }).join('');
   } else {
@@ -4754,7 +4759,7 @@ function renderRapRegion(regionNavn,filter){
       .filter(g=>g.y2025>0||g.y2026>0).sort((a,b)=>b.y2026-a.y2026);
     grossistRows=filtered.length?filtered.map(g=>{
       const c=rapCalc(g.y2025,g.y2026);
-      return `<tr><td>${g.navn}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
+      return `<tr><td>${esc(g.navn)}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
         <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
     }).join(''):`<tr><td colspan="5" class="rap-empty">Ingen omsetning for ${AN_NAVN_FOR_KEY[filter]} hos grossistene i denne regionen.</td></tr>`;
   }
@@ -4775,7 +4780,7 @@ function renderRapRegion(regionNavn,filter){
     return {navn:g.navn,y2026:gy26};
   }).reduce((a,b)=>b.y2026>a.y2026?b:a):null;
   if(storstGrossist&&totY26){
-    insight1=`<p>Størst i regionen er <b>${storstGrossist.navn}</b> — ${rapFmtPctAbs(storstGrossist.y2026/totY26)} av ${regionNavn}-total.</p>`;
+    insight1=`<p>Størst i regionen er <b>${esc(storstGrossist.navn)}</b> — ${rapFmtPctAbs(storstGrossist.y2026/totY26)} av ${regionNavn}-total.</p>`;
   }
   let sterkest=null,svakest=null;
   KONSEPT_ORDER_RAP.forEach(k=>{
@@ -4969,7 +4974,7 @@ async function importFaktura(ev){
     const d=await r.json();
     renderFaktura(d);
     if(d.leverandor) autoOpprettKonkurrent(d.leverandor);
-  }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+e.message+'</p>'; }
+  }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+esc(e.message)+'</p>'; }
 }
 // --- Fase 2: enkel fuzzy match faktura→produkt (token-overlap, ingen AI/tokens) ---
 let _dbTokens=null,_fakturaForslag=[];
