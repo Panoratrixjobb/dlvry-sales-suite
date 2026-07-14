@@ -56,7 +56,7 @@
     <h1>Sett nytt passord</h1>
     <p class="sub">For <strong id="epostVis"></strong></p>
 
-    <label>Nytt passord * (min. 8 tegn)</label>
+    <label>Nytt passord * (min. 12 tegn)</label>
     <input id="passord" type="password" placeholder="Velg et sikkert passord" autocomplete="new-password">
 
     <label>Gjenta passord *</label>
@@ -121,7 +121,7 @@ async function settNyttPassord(){
   const errEl = document.getElementById('skjemaErr');
   errEl.textContent='';
 
-  if(!passord||passord.length<8){ errEl.textContent='Passord må være minst 8 tegn.'; return; }
+  if(!passord||passord.length<12){ errEl.textContent='Passord må være minst 12 tegn.'; return; }
   if(passord!==gjenta){ errEl.textContent='Passordene er ikke like.'; return; }
 
   const btn = document.getElementById('resetBtn');

@@ -64,7 +64,7 @@
     <label>Fullt navn *</label>
     <input id="navn" type="text" placeholder="Fornavn Etternavn" autocomplete="name">
 
-    <label>Passord * (min. 8 tegn)</label>
+    <label>Passord * (min. 12 tegn)</label>
     <input id="passord" type="password" placeholder="Velg et sikkert passord" autocomplete="new-password">
 
     <label>Telefon</label>
@@ -132,7 +132,7 @@ async function registrer(){
   errEl.textContent='';
 
   if(!navn){ errEl.textContent='Fyll inn fullt navn.'; return; }
-  if(!passord||passord.length<8){ errEl.textContent='Passord må være minst 8 tegn.'; return; }
+  if(!passord||passord.length<12){ errEl.textContent='Passord må være minst 12 tegn.'; return; }
 
   const btn = document.getElementById('regBtn');
   btn.disabled=true; btn.textContent='Oppretter konto…';

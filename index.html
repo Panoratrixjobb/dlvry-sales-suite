@@ -1133,7 +1133,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
   <div class="modal">
     <h2>Sett nytt passord</h2>
     <p class="sub">Du må velge et nytt passord før du fortsetter.</p>
-    <div class="d-felt" style="margin-bottom:10px"><label>Nytt passord (min. 8 tegn)</label><input id="pwNy1" type="password" class="d-input"></div>
+    <div class="d-felt" style="margin-bottom:10px"><label>Nytt passord (min. 12 tegn)</label><input id="pwNy1" type="password" class="d-input"></div>
     <div class="d-felt" style="margin-bottom:10px"><label>Gjenta passord</label><input id="pwNy2" type="password" class="d-input"></div>
     <div id="pwByttErr" style="font-size:12px;color:var(--d-roed);min-height:16px"></div>
     <div class="modal-actions"><button class="d-knapp primar" onclick="lagreNyttPassord()">Lagre og fortsett</button></div>
@@ -4317,10 +4317,11 @@ function visPassordbytte(){
 }
 async function lagreNyttPassord(){
   const a=document.getElementById('pwNy1').value, b=document.getElementById('pwNy2').value, e=document.getElementById('pwByttErr');
-  if(a.length<8){e.textContent='Minst 8 tegn.';return;}
+  if(a.length<12){e.textContent='Minst 12 tegn.';return;}
   if(a!==b){e.textContent='Passordene er ikke like.';return;}
   try{
-    await api('/api/auth/bytt-passord',{method:'POST',body:{nytt_passord:a}});
+    const svar = await api('/api/auth/bytt-passord',{method:'POST',body:{nytt_passord:a}});
+    setToken(svar.access_token);
     CURRENT_USER.ma_bytte_passord=false;
     document.getElementById('pwByttModal').classList.remove('open');
     showApp();
