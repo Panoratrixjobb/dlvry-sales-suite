@@ -4232,6 +4232,7 @@ async function lastBrukere(){
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Rolle</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist / Region</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Aktiv</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Passord</th>'
       +'<th></th>'
       +'</tr></thead><tbody>'
       + brukere.map(b=>
@@ -4241,6 +4242,7 @@ async function lastBrukere(){
         +'<td style="padding:7px 8px"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">'+esc(b.rolle)+'</span></td>'
         +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : (b.region?esc(b.region):'<span style="color:var(--muted)">—</span>'))+'</td>'
         +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
+        +'<td style="padding:7px 8px">'+(b.ma_bytte_passord?'<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">Må bytte</span>':'<span style="color:var(--muted)">byttet</span>')+'</td>'
         +'<td style="padding:7px 8px">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
         +'</tr>'
       ).join('')
