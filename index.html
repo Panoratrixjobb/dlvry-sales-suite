@@ -1005,6 +1005,16 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </div>
 
+      <!-- Fase 0 formel-migrering: paritet Excel vs appens egne beregninger -->
+      <div class="d-panel" style="margin-top:18px" id="paritetPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Paritet: Excel vs appens egne beregninger</h3>
+          <button class="d-knapp primar sm" onclick="sjekkParitet()" id="paritetBtn">Sjekk paritet</button>
+        </div>
+        <p class="sub" style="margin:0">Fase 0 i formel-migreringen (MIGRERINGSPLAN-formler-til-app.md): appen regner total/konsepter/grossister selv fra kundedata-pivoten og sammenligner med masterfilas ferdigtall. Avvik her endrer ingenting i dashbordet — de viser hva som må forklares før appen kan overta formlene.</p>
+        <div id="paritetResultat" style="font-size:13px;margin-top:10px"></div>
+      </div>
+
       <!-- Bulk-importer brukere (Excel) -->
       <div class="d-panel" style="margin-top:18px" id="bulkImportPanel">
         <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Bulk-importer brukere (Excel)</h3>
@@ -4057,6 +4067,48 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
 
+// ============ Paritet Excel vs app (fase 0 formel-migrering) ============
+async function sjekkParitet(){
+  const el=document.getElementById('paritetResultat');
+  const btn=document.getElementById('paritetBtn');
+  btn.disabled=true;el.textContent='Regner…';
+  try{
+    const d=await api('/api/dashboard-excel/paritet');
+    const fmtV=v=>v==null?'–':(v*100).toFixed(1)+' %';
+    const avvikCelle=a=>{
+      const ok=Math.abs(a)<0.1;
+      return `<td style="text-align:right;font-weight:600;color:${ok?'var(--d-gronn)':'var(--d-roed)'}">${a>0?'+':''}${a.toFixed(2)}</td>`;
+    };
+    const rad=(navn,p)=>`<tr><td>${esc(navn)}</td>
+      <td style="text-align:right">${p.excel.y2026?.toFixed(2)??'–'}</td>
+      <td style="text-align:right">${p.app.y2026?.toFixed(2)??'–'}</td>
+      ${avvikCelle(p.avvik_y2026)}
+      <td style="text-align:right">${fmtV(p.excel.vekst)}</td>
+      <td style="text-align:right">${fmtV(p.app.vekst)}</td></tr>`;
+    let html='<div class="table-wrap"><table class="d-tabell" style="min-width:520px"><thead><tr>'
+      +'<th>Konsept</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App 2026</th>'
+      +'<th style="text-align:right">Avvik</th><th style="text-align:right">Excel vekst</th><th style="text-align:right">App vekst</th></tr></thead><tbody>'
+      +d.konsepter.map(k=>rad(k.navn,k)).join('')
+      +rad('Total',d.total).replace('<tr>','<tr class="total">')
+      +'</tbody></table></div>';
+    const g=Object.values(d.grossister||{});
+    const gAvvik=g.reduce((s,x)=>s+x.antall_avvik,0);
+    html+=`<p class="sub" style="margin:10px 0 4px">Grossist-tabeller: ${gAvvik===0?'ingen avvik':gAvvik+' koder med avvik'} (uke 1–${esc(String(d.cutoff_uke))}).</p>`;
+    for(const x of g){
+      if(!x.antall_avvik&&!x.kun_i_excel.length&&!x.kun_i_app.length)continue;
+      html+=`<div style="margin:4px 0"><b>${esc(x.navn)}</b>: `;
+      if(x.storste_avvik.length)html+=x.storste_avvik.map(a=>`${esc(a.kode)} ${a.avvik>0?'+':''}${a.avvik.toFixed(3)}`).join(' · ');
+      if(x.kun_i_excel.length)html+=` — kun i Excel: ${x.kun_i_excel.map(esc).join(', ')}`;
+      if(x.kun_i_app.length)html+=` — kun i app: ${x.kun_i_app.map(esc).join(', ')}`;
+      html+='</div>';
+    }
+    html+=`<p class="sub" style="margin-top:10px">${esc(d.merknad)}</p>`;
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}
+
 // ============ Bulk-import brukere (Excel) ============
 async function bulkImportKjor(commit){
   const input=document.getElementById('bulkImportFil');
@@ -4949,6 +5001,8 @@ async function showApp(){
   exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
   const dashUploadPanel=document.getElementById('dashUploadPanel');
   if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
+  const paritetPanel=document.getElementById('paritetPanel');
+  if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
   const leadsImportPanel=document.getElementById('leadsImportPanel');
   if(leadsImportPanel)leadsImportPanel.style.display=erAdmin?'':'none';
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
