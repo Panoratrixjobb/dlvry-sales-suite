@@ -4746,7 +4746,8 @@ function renderPrognose(d){
   const m=d.modell||{};
   h+=`<p class="sub" style="margin-top:8px">Modell: ${m.vekstvindu_uker} ukers vekstvindu`
     +`${m.helligdagsjustert?', helligdagsjustert (påsken flytter seg)':''}`
-    +`${m.backtest_snittavvik_pst?` · målt treffsikkerhet i backtest: ±${String(m.backtest_snittavvik_pst).replace('.',',')} %`:''}.</p>`;
+    +`${m.uker_igjen?` · ${m.uker_igjen} uker igjen av året`:''}`
+    +`${m.usikkerhet_gulv_pst?` · minste usikkerhetsspenn ±${String(m.usikkerhet_gulv_pst).replace('.',',')} % (vokser med horisonten)`:''}.</p>`;
   return h;
 }
 
