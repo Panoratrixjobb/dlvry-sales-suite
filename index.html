@@ -4104,6 +4104,9 @@ async function sjekkParitet(){
     const g=Object.values(d.grossister||{});
     const gAvvik=g.reduce((s,x)=>s+x.antall_avvik,0);
     html+=`<p class="sub" style="margin:10px 0 4px">Grossist-tabeller: ${gAvvik===0?'ingen avvik':gAvvik+' koder med avvik'} (uke 1–${esc(String(d.cutoff_uke))}).</p>`;
+    if(d.sammenlignet_til_uke){
+      html+=`<p class="sub" style="margin:4px 0 0">Konsept-/totaltallene er sammenlignet t.o.m. <b>uke ${esc(String(d.sammenlignet_til_uke))}</b> i begge år (siste komplette uke — inneværende uke er delvis og ville gitt feil vekst).</p>`;
+    }
     for(const x of g){
       if(!x.antall_avvik&&!x.kun_i_excel.length&&!x.kun_i_app.length)continue;
       html+=`<div style="margin:4px 0"><b>${esc(x.navn)}</b>: `;
