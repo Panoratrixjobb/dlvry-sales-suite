@@ -4112,6 +4112,14 @@ async function sjekkParitet(){
       if(x.kun_i_app.length)html+=` — kun i app: ${x.kun_i_app.map(esc).join(', ')}`;
       html+='</div>';
     }
+    if(d.kilde){
+      const fraGrossistark = d.kilde==='konsept_grossist_uke';
+      html+=`<p class="sub" style="margin:8px 0 0">Appens tall er regnet fra <b>${esc(d.kilde)}</b>`
+        +(fraGrossistark
+          ? ' (grossistnivå — får med D06/D24, som modellen ikke kan levere på kundenivå).'
+          : ' (kundenivå). Last opp «Konsept grossist 2026/2025»-arkene for å få med grossister modellen ikke leverer på kundenivå.')
+        +'</p>';
+    }
     if(d.intern_ekskludert){
       const ie=d.intern_ekskludert;
       html+=`<p class="sub" style="margin:8px 0 0">Intern-regler (fase 1): ${ie.regler} regel${ie.regler===1?'':'er'} — ekskludert ${ie.ekskludert_y2026.toFixed(2)} MNOK 2026 (${ie.ekskludert_rader_2026} rader) fra konsept-/totaltallene.</p>`;
