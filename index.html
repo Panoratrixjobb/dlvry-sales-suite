@@ -1015,6 +1015,16 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="paritetResultat" style="font-size:13px;margin-top:10px"></div>
       </div>
 
+      <!-- Fase 1 formel-migrering: konfigurasjon (intern-regler, sesongvekter, uke→måned) -->
+      <div class="d-panel" style="margin-top:18px" id="formelkonfigPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Formel-konfig (fase 1)</h3>
+          <button class="d-knapp subtil sm" onclick="lastFormelkonfig()" id="fkLastBtn">↻ Last konfig</button>
+        </div>
+        <p class="sub" style="margin:0">Konfigurasjonen appen trenger for å overta Excel-formlene (MIGRERINGSPLAN fase 1): intern-regler (hvilken omsetning som holdes utenfor «Total ekstern» — brukes av paritetssjekken over), sesongvekter for årsestimatet og uke→måned-kalender for månedsgrafen (begge tas i bruk i fase 2).</p>
+        <div id="fkInnhold" style="font-size:13px;margin-top:12px"></div>
+      </div>
+
       <!-- Bulk-importer brukere (Excel) -->
       <div class="d-panel" style="margin-top:18px" id="bulkImportPanel">
         <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Bulk-importer brukere (Excel)</h3>
@@ -4102,11 +4112,121 @@ async function sjekkParitet(){
       if(x.kun_i_app.length)html+=` — kun i app: ${x.kun_i_app.map(esc).join(', ')}`;
       html+='</div>';
     }
+    if(d.intern_ekskludert){
+      const ie=d.intern_ekskludert;
+      html+=`<p class="sub" style="margin:8px 0 0">Intern-regler (fase 1): ${ie.regler} regel${ie.regler===1?'':'er'} — ekskludert ${ie.ekskludert_y2026.toFixed(2)} MNOK 2026 (${ie.ekskludert_rader_2026} rader) fra konsept-/totaltallene.</p>`;
+    }
     html+=`<p class="sub" style="margin-top:10px">${esc(d.merknad)}</p>`;
     el.innerHTML=html;
   }catch(e){
     el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
   }finally{btn.disabled=false;}
+}
+
+// ============ Formel-konfig (fase 1 formel-migrering) ============
+let _fkData=null;
+async function lastFormelkonfig(){
+  const el=document.getElementById('fkInnhold');
+  const btn=document.getElementById('fkLastBtn');
+  btn.disabled=true;el.textContent='Laster…';
+  try{
+    _fkData=await api('/api/formelkonfig');
+    renderFormelkonfig();
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}
+function renderFormelkonfig(){
+  const d=_fkData;
+  const el=document.getElementById('fkInnhold');
+  // — Intern-regler —
+  let html='<h4 style="margin:0 0 6px;font-size:13px">Intern-regler (holdes utenfor «Total ekstern»)</h4>';
+  if(d.intern.length){
+    html+='<table style="border-collapse:collapse;font-size:12.5px;margin-bottom:8px">'
+      +'<thead><tr><th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted)">Grossist</th><th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted)">Kundenr</th><th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted)">Kommentar</th><th></th></tr></thead><tbody>'
+      +d.intern.map(r=>'<tr>'
+        +'<td style="padding:3px 10px 3px 0;font-weight:600">'+esc(r.grossist_kode)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+(r.kundenr?esc(r.kundenr):'<i>hele grossisten</i>')+'</td>'
+        +'<td style="padding:3px 10px 3px 0;color:var(--muted)">'+esc(r.kommentar)+'</td>'
+        +'<td><button class="d-knapp subtil sm" onclick="slettInternRegel(\''+esc(r.id)+'\')">Fjern</button></td>'
+        +'</tr>').join('')
+      +'</tbody></table>';
+  }else{
+    html+='<p class="sub" style="margin:0 0 8px">Ingen regler.</p>';
+  }
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">'
+    +'<input id="fkNyKode" class="d-input" style="width:80px" placeholder="Dxx">'
+    +'<input id="fkNyKundenr" class="d-input" style="width:130px" placeholder="Kundenr (tom = alle)">'
+    +'<input id="fkNyKommentar" class="d-input" style="width:260px" placeholder="Kommentar">'
+    +'<button class="d-knapp primar sm" onclick="leggTilInternRegel()">+ Legg til</button>'
+    +'<span id="fkInternStatus" class="sub"></span></div>';
+  // — Sesongvekter —
+  const antallUker=(d.kalender['2026']||d.kalender['2025']||[]).length||52;
+  const vektVed={};(d.sesongvekter||[]).forEach(v=>vektVed[v.uke]=v.vekt);
+  html+='<h4 style="margin:0 0 6px;font-size:13px">Sesongvekter (årsestimat — fase 2)</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">'+(d.sesongvekter.length
+    ?d.sesongvekter.length+' uker har vekt.'
+    :'Tom — årsestimatet kan ikke overtas av appen før vektene er lagt inn (hentes fra masterfilas Dashboard-ark, grunnlaget for kolonne G).')+'</p>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+  for(let u=1;u<=antallUker;u++){
+    html+='<label style="display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)">'+u
+      +'<input type="number" step="any" min="0" id="fkVekt_'+u+'" value="'+(vektVed[u]!=null?vektVed[u]:'')+'" style="width:52px;padding:2px 4px;font-size:12px" class="d-input"></label>';
+  }
+  html+='</div><button class="d-knapp primar sm" onclick="lagreSesongvekter('+antallUker+')">Lagre sesongvekter</button> <span id="fkVektStatus" class="sub"></span>';
+  // — Uke→måned-kalender —
+  html+='<h4 style="margin:16px 0 6px;font-size:13px">Uke→måned-kalender (månedsgraf — fase 2)</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">Forhåndsutfylt med ISO-ukens torsdag (dominerende måned). Juster kun uker regnearket mapper annerledes.</p>';
+  for(const ar of Object.keys(d.kalender).sort()){
+    html+='<div style="margin-bottom:6px"><b style="font-size:12.5px">'+esc(ar)+'</b></div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+    for(const r of d.kalender[ar]){
+      html+='<label style="display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)">'+r.uke
+        +'<input type="number" min="1" max="12" id="fkMnd_'+ar+'_'+r.uke+'" value="'+r.maaned+'" style="width:44px;padding:2px 4px;font-size:12px" class="d-input"></label>';
+    }
+    html+='</div><button class="d-knapp subtil sm" onclick="lagreKalender('+esc(ar)+','+d.kalender[ar].length+')">Lagre '+esc(ar)+'</button> <span id="fkKalStatus_'+esc(ar)+'" class="sub"></span><div style="margin-bottom:10px"></div>';
+  }
+  el.innerHTML=html;
+}
+async function leggTilInternRegel(){
+  const st=document.getElementById('fkInternStatus');
+  const kode=document.getElementById('fkNyKode').value.trim();
+  const kundenr=document.getElementById('fkNyKundenr').value.trim();
+  const kommentar=document.getElementById('fkNyKommentar').value.trim();
+  if(!kode){st.textContent='Oppgi grossist-kode (Dxx).';return;}
+  try{
+    await api('/api/formelkonfig/intern',{method:'POST',body:{grossist_kode:kode,kundenr:kundenr||null,kommentar:kommentar||null}});
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
+}
+async function slettInternRegel(id){
+  if(!confirm('Fjerne intern-regelen? Omsetningen telles da med i appens «Total ekstern».'))return;
+  try{
+    await api('/api/formelkonfig/intern/'+id,{method:'DELETE'});
+    await lastFormelkonfig();
+  }catch(e){alert('Feil: '+e.message);}
+}
+async function lagreSesongvekter(antallUker){
+  const st=document.getElementById('fkVektStatus');
+  const vekter=[];
+  for(let u=1;u<=antallUker;u++){
+    const v=document.getElementById('fkVekt_'+u).value;
+    if(v!=='')vekter.push({uke:u,vekt:parseFloat(v)});
+  }
+  try{
+    const r=await api('/api/formelkonfig/sesongvekter',{method:'PUT',body:vekter});
+    st.textContent='Lagret ('+r.antall+' uker).';
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
+}
+async function lagreKalender(ar,antallUker){
+  const st=document.getElementById('fkKalStatus_'+ar);
+  const rader=[];
+  for(let u=1;u<=antallUker;u++){
+    const el2=document.getElementById('fkMnd_'+ar+'_'+u);
+    if(el2&&el2.value!=='')rader.push({uke:u,maaned:parseInt(el2.value,10)});
+  }
+  try{
+    const r=await api('/api/formelkonfig/kalender/'+ar,{method:'PUT',body:rader});
+    st.textContent='Lagret ('+r.antall+' uker).';
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
 }
 
 // ============ Bulk-import brukere (Excel) ============
@@ -5003,6 +5123,8 @@ async function showApp(){
   if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
   const paritetPanel=document.getElementById('paritetPanel');
   if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
+  const formelkonfigPanel=document.getElementById('formelkonfigPanel');
+  if(formelkonfigPanel)formelkonfigPanel.style.display=erAdmin?'':'none';
   const leadsImportPanel=document.getElementById('leadsImportPanel');
   if(leadsImportPanel)leadsImportPanel.style.display=erAdmin?'':'none';
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
