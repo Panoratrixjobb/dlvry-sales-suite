@@ -4168,6 +4168,22 @@ function renderFormelkonfig(){
     +'<input id="fkNyKommentar" class="d-input" style="width:260px" placeholder="Kommentar">'
     +'<button class="d-knapp primar sm" onclick="leggTilInternRegel()">+ Legg til</button>'
     +'<span id="fkInternStatus" class="sub"></span></div>';
+  // — Grossist → region —
+  html+='<h4 style="margin:0 0 6px;font-size:13px">Region per grossist</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">Appen bestemmer regionen ut fra grossist-koden — region skal derfor IKKE ligge som radfelt i pivotfila. Tom region = holdes utenfor regionrapporten (interne grossister). «Wulff-egen» er D06s egen bøtte og slås aldri sammen med Øst.</p>';
+  const regs=d.gyldige_regioner||[];
+  html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">';
+  for(const r of (d.grossist_regioner||[])){
+    html+='<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:3px 7px">'
+      +'<b>'+esc(r.grossist_kode)+'</b>'
+      +'<span class="sub" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(r.navn||'')+'</span>'
+      +'<select class="d-select" style="width:auto;padding:2px 4px;font-size:12px" id="fkReg_'+esc(r.grossist_kode)+'">'
+      +'<option value=""'+(r.region?'':' selected')+'>(ingen)</option>'
+      +regs.map(x=>'<option value="'+esc(x)+'"'+(r.region===x?' selected':'')+'>'+esc(x)+'</option>').join('')
+      +'</select></label>';
+  }
+  html+='</div><button class="d-knapp primar sm" onclick="lagreGrossistRegioner()">Lagre regioner</button> <span id="fkRegStatus" class="sub"></span>';
+  html+='<p class="sub" style="margin:6px 0 16px">Endringer slår inn ved neste kundedata-opplasting.</p>';
   // — Sesongvekter —
   const antallUker=(d.kalender['2026']||d.kalender['2025']||[]).length||52;
   const vektVed={};(d.sesongvekter||[]).forEach(v=>vektVed[v.uke]=v.vekt);
@@ -4211,6 +4227,18 @@ async function slettInternRegel(id){
     await api('/api/formelkonfig/intern/'+id,{method:'DELETE'});
     await lastFormelkonfig();
   }catch(e){alert('Feil: '+e.message);}
+}
+async function lagreGrossistRegioner(){
+  const st=document.getElementById('fkRegStatus');
+  const rader=(_fkData.grossist_regioner||[]).map(r=>({
+    grossist_kode:r.grossist_kode,
+    region:document.getElementById('fkReg_'+r.grossist_kode).value||null,
+  }));
+  try{
+    const res=await api('/api/formelkonfig/grossist-regioner',{method:'PUT',body:rader});
+    st.textContent='Lagret ('+res.antall+' grossister). Slår inn ved neste kundedata-opplasting.';
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
 }
 async function lagreSesongvekter(antallUker){
   const st=document.getElementById('fkVektStatus');
