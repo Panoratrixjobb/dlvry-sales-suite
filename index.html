@@ -4168,6 +4168,20 @@ function renderFormelkonfig(){
     +'<input id="fkNyKommentar" class="d-input" style="width:260px" placeholder="Kommentar">'
     +'<button class="d-knapp primar sm" onclick="leggTilInternRegel()">+ Legg til</button>'
     +'<span id="fkInternStatus" class="sub"></span></div>';
+  // — Låste (avsluttede) perioder —
+  html+='<h4 style="margin:0 0 6px;font-size:13px">Låste perioder</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">Avsluttede perioder lastes opp én gang og røres ikke etterpå: opplastingen hopper over disse ukene, så pivotfila kan begrense seg til inneværende periode (mindre fil, raskere opplasting) — og en feilrefresh i Excel kan ikke ødelegge verifisert historikk. 53 = hele året låst. Tom = ingen lås.</p>';
+  const laas={}; (d.periode_laas||[]).forEach(r=>laas[r.ar]=r);
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px">';
+  for(const ar of [2025,2026]){
+    const r=laas[ar]||{};
+    html+='<label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>'+ar+'</b>'
+      +'<input type="number" min="1" max="53" class="d-input" style="width:110px" id="fkLaas_'+ar+'" '
+      +'value="'+(r.til_og_med_uke!=null?r.til_og_med_uke:'')+'" placeholder="t.o.m. uke"></label>';
+  }
+  html+='<button class="d-knapp primar sm" onclick="lagrePeriodeLaas()">Lagre låser</button>'
+    +'<span id="fkLaasStatus" class="sub"></span></div>';
+  html+='<p class="sub" style="margin:0 0 16px">Forslag: 2025 = 53 (året er avsluttet), 2026 = 13 når Q1 er ferdig avstemt.</p>';
   // — Grossist → region —
   html+='<h4 style="margin:0 0 6px;font-size:13px">Region per grossist</h4>';
   html+='<p class="sub" style="margin:0 0 8px">Appen bestemmer regionen ut fra grossist-koden — region skal derfor IKKE ligge som radfelt i pivotfila. Tom region = holdes utenfor regionrapporten (interne grossister). «Wulff-egen» er D06s egen bøtte og slås aldri sammen med Øst.</p>';
@@ -4227,6 +4241,18 @@ async function slettInternRegel(id){
     await api('/api/formelkonfig/intern/'+id,{method:'DELETE'});
     await lastFormelkonfig();
   }catch(e){alert('Feil: '+e.message);}
+}
+async function lagrePeriodeLaas(){
+  const st=document.getElementById('fkLaasStatus');
+  const rader=[2025,2026].map(ar=>{
+    const v=document.getElementById('fkLaas_'+ar).value.trim();
+    return {ar:ar, til_og_med_uke: v===''?null:parseInt(v,10)};
+  });
+  try{
+    await api('/api/formelkonfig/periode-laas',{method:'PUT',body:rader});
+    st.textContent='Lagret.';
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
 }
 async function lagreGrossistRegioner(){
   const st=document.getElementById('fkRegStatus');
