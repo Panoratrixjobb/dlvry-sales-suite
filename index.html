@@ -1125,6 +1125,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
         <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
         <button class="rap-pill" data-raptab="prognose" onclick="setRapTab('prognose')">Prognose (årsestimat)</button>
+        <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
       </div>
 
       <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
@@ -4673,7 +4674,78 @@ function renderRapporter(){
     sub.style.display='none';
     if(_prognose){ el.innerHTML=renderPrognose(_prognose); }
     else { el.innerHTML='<div class="rap-card"><p class="sub">Laster prognose…</p></div>'; lastPrognose(); }
+  } else if(rapState.tab==='tiltak'){
+    sub.style.display='none';
+    if(_tiltak){ el.innerHTML=renderTiltak(_tiltak); }
+    else { el.innerHTML='<div class="rap-card"><p class="sub">Regner ut tiltak…</p></div>'; lastTiltak(); }
   }
+}
+
+// ============ Tiltak: vei til mål ============
+// Gapet regnes live mot prognosen, så det krymper av seg selv når nye kunder kommer inn.
+let _tiltak=null;
+async function lastTiltak(){
+  try{ _tiltak=await api('/api/prognose/tiltak'); }
+  catch(e){
+    document.getElementById('rapInnhold').innerHTML=
+      '<div class="rap-card"><h3>Tiltak er ikke klar</h3><p class="sub">'+esc(e.message)+'</p></div>';
+    return;
+  }
+  if(rapState.tab==='tiltak')document.getElementById('rapInnhold').innerHTML=renderTiltak(_tiltak);
+}
+async function lagreMal(konsept){
+  const inp=document.getElementById('malInp_'+konsept);
+  const v=inp.value.trim();
+  try{
+    await api('/api/prognose/mal',{method:'PUT',body:[{konsept:konsept, mal_mnok: v===''?null:parseFloat(v.replace(',','.'))}]});
+    _tiltak=null; _prognose=null; await lastTiltak();
+  }catch(e){ alert('Kunne ikke lagre mål: '+e.message); }
+}
+function renderTiltak(d){
+  let h=rapHeader('DLVRY · SALESAPP','Tiltak · Vei til mål',null,
+    'Gapet fordeles etter hvor pengene ligger — ikke etter grossistens størrelse',
+    `${d.uker_igjen} uker igjen av året`);
+  for(const k of (d.konsepter||[])){
+    const gap=k.gap, harMal=k.mal!=null;
+    const farge=gap==null?'':(gap<=0?'var(--d-gronn)':'var(--d-roed)');
+    h+=`<div class="rap-card"><h3>${esc(k.navn)}</h3>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+        <div><div class="sub">Hittil i år</div><div style="font-size:18px;font-weight:600">${_pm(k.ytd)}</div></div>
+        <div><div class="sub">Prognose</div><div style="font-size:22px;font-weight:700">${_pm(k.estimat)}</div></div>
+        <div><div class="sub">Mål (MNOK)</div>
+          <input id="malInp_${esc(k.navn)}" class="d-input" style="width:90px;font-size:16px;font-weight:600"
+                 value="${harMal?k.mal:''}" placeholder="sett mål">
+          <button class="d-knapp primar sm" style="margin-left:6px" onclick="lagreMal('${esc(k.navn)}')">Lagre</button></div>
+        ${harMal?`<div><div class="sub">${gap>0?'Mangler':'Over målet'}</div>
+          <div style="font-size:22px;font-weight:700;color:${farge}">${gap>0?'':'+'}${_pm(Math.abs(gap))}</div></div>`:''}
+      </div>`;
+    if(!harMal){
+      h+='<p class="sub" style="margin:0">Sett et mål for å se hva som skal til.</p></div>';
+      continue;
+    }
+    if(gap<=0){
+      h+='<p class="sub" style="margin:0;color:var(--d-gronn)">Prognosen ligger allerede over målet.</p></div>';
+      continue;
+    }
+    const dekning=k.gap_dekket_av_potensial;
+    h+=`<p class="sub" style="margin:0 0 10px">Identifisert potensial: <b>${_pm(k.potensial_totalt)} MNOK</b>`
+      +(dekning!=null?` — ${dekning>=100?'mer enn nok til å dekke gapet':'dekker '+dekning+' % av gapet'}.`:'.')
+      +(dekning!=null&&dekning<100?' Resten må komme fra helt nye kunder.':'')+`</p>
+      <div class="table-wrap"><table class="d-tabell" style="min-width:680px"><thead><tr>
+        <th>Grossist</th><th>Region</th>
+        <th style="text-align:right">Tapte kunder</th><th style="text-align:right">Kjøper mindre</th>
+        <th style="text-align:right">Potensial</th><th style="text-align:right">Må hente</th></tr></thead><tbody>`;
+    for(const l of (k.linjer||[])){
+      h+=`<tr><td>${esc(l.grossist)}</td><td>${esc(l.region||'')}</td>
+        <td style="text-align:right">${_pm(l.tapt)} <span class="sub">(${l.tapt_antall})</span></td>
+        <td style="text-align:right">${_pm(l.fallende)} <span class="sub">(${l.fallende_antall})</span></td>
+        <td style="text-align:right">${_pm(l.potensial)}</td>
+        <td style="text-align:right;font-weight:700">${_pm(l.ma_hente)}</td></tr>`;
+    }
+    h+='</tbody></table></div></div>';
+  }
+  h+=`<p class="sub" style="margin-top:8px">${esc(d.merknad||'')}</p>`;
+  return h;
 }
 
 // ============ Prognose (årsestimat) — se PROGNOSE-spesifikasjon.md ============
