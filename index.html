@@ -1560,9 +1560,21 @@ function normalizeDash(d){
   const kundebevegelse={...f.kundebevegelse,...(d.kundebevegelse||{})};
   if(!kundebevegelse.alle)kundebevegelse.alle=f.kundebevegelse.alle;
 
+  // Fase 4: backend sender BEGGE periodevariantene når kilden er appen — «t.o.m. i dag»
+  // (med den påbegynte uka) og «bare hele uker». Vi tar vare på begge, så bryteren i
+  // dashbordet er et klikk og ikke et nytt kall.
+  const hel=(d.periode&&d.total_hele_uker)?{
+    total:d.total_hele_uker, konsepter:d.konsepter_hele_uker,
+    monthly:d.monthly_hele_uker?{months:d.monthly_hele_uker.months,
+      data:d.monthly_hele_uker.data.map((m,i)=>({navn:m.navn,farge:m.farge||f.konsepter[i%4].farge,
+        vals:m.vals,vals_2025:m.vals_2025,vekst_pct:m.vekst_pct}))}:null,
+  }:null;
+
   return {
     meta:d.meta||f.meta,
     cutoff_uke:d.cutoff_uke||f.cutoff_uke,
+    periode:d.periode||null,
+    heleUker:hel,
     total:d.total||f.total,
     konsepter,
     estimat,
@@ -1602,7 +1614,7 @@ function setAnalyseRegion(v){analyseState.region=v;renderAnalyse();}
 function setAnalyseGrossist(v){analyseState.grossist=v;renderAnalyse();}
 function setAnalyseWeek(v){analyseState.week=Number(v);renderAnalyse();}
 function resetAnalyseFilters(){
-  analyseState={concept:'all',region:'all',grossist:'',week:DASH?DASH.cutoff_uke:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
+  analyseState={concept:'all',region:'all',grossist:'',week:DASH?DASH.cutoff_uke:null,visHeleUker:false,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
   kbState={region:'',grossist:'',konsept:''};
   renderAnalyse();
 }
@@ -1690,7 +1702,15 @@ function renderAnalyse(){
   document.getElementById('anWeekSlider').value=s.week;
   const wpm=52/12;
   const maaneder=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
-  document.getElementById('anWeekLabel').innerHTML=`<b>Uke ${s.week}</b> <span style="color:var(--d-tekst-3);font-weight:500">(${maaneder[Math.min(11,Math.floor((s.week-1)/wpm))]})</span>`;
+  const pd=D.periode;
+  const delvisNaa=!!(pd&&pd.delvis)&&!s.visHeleUker;
+  document.getElementById('anWeekLabel').innerHTML=`<b>Uke ${s.week}</b> `
+    +`<span style="color:var(--d-tekst-3);font-weight:500">(${maaneder[Math.min(11,Math.floor((s.week-1)/wpm))]})</span>`
+    +(pd&&pd.delvis?` <span class="sub" style="margin-left:8px">${delvisNaa
+        ? `uke ${pd.siste_uke_med_data} pågår (${Math.round(pd.andel_siste_uke*100)} % av salgsdagene) — fjoråret er skalert likt`
+        : `t.o.m. siste hele uke ${pd.siste_hele_uke}`}</span>`
+      +` <button class="d-knapp subtil sm" style="margin-left:8px" onclick="byttPeriodemodus()">`
+      +`${delvisNaa?'Vis kun hele uker':'Ta med uke '+pd.siste_uke_med_data}</button>`:'');
 
   // ---- KPI-kort ----
   const allKpi=anComputeKpi(D,'all',s.week);
@@ -4119,6 +4139,26 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
 }
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
+
+// Bytter mellom «t.o.m. i dag» (med den påbegynte uka) og «bare hele uker».
+// Begge er riktige — de svarer på ulike spørsmål: hva har vi solgt, kontra hva kan
+// sammenlignes rent mot i fjor. Backend sender begge, så byttet koster ingen runde.
+function byttPeriodemodus(){
+  const s=analyseState;
+  if(!DASH||!DASH.heleUker)return;
+  s.visHeleUker=!s.visHeleUker;
+  if(!DASH._tilIDag){
+    DASH._tilIDag={total:DASH.total,konsepter:DASH.konsepter,monthly:DASH.monthly,cutoff_uke:DASH.cutoff_uke};
+  }
+  const kilde=s.visHeleUker?DASH.heleUker:DASH._tilIDag;
+  DASH.total=kilde.total; DASH.konsepter=kilde.konsepter;
+  if(kilde.monthly)DASH.monthly=kilde.monthly;
+  const nyCutoff=s.visHeleUker?(DASH.periode?DASH.periode.siste_hele_uke:DASH.cutoff_uke)
+                              :(DASH._tilIDag.cutoff_uke||DASH.cutoff_uke);
+  DASH.cutoff_uke=nyCutoff;
+  if(s.week==null||s.week>nyCutoff||!s.visHeleUker)s.week=nyCutoff;
+  renderAnalyse();
+}
 
 // ============ Dashboardets kilde per felt (fase 4) ============
 const KILDE_FELT={
