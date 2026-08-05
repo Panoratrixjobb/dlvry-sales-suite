@@ -4701,10 +4701,38 @@ async function lagreMal(konsept){
     _tiltak=null; _prognose=null; await lastTiltak();
   }catch(e){ alert('Kunne ikke lagre mål: '+e.message); }
 }
+async function lagreTreffrate(){
+  const t=parseFloat(document.getElementById('trTapt').value);
+  const f=parseFloat(document.getElementById('trFallende').value);
+  try{
+    await api('/api/prognose/treffrate',{method:'PUT',body:{tapt:t,fallende:f}});
+    _tiltak=null; await lastTiltak();
+  }catch(e){ alert('Kunne ikke lagre treffrate: '+e.message); }
+}
+async function tiltakAapneKunde(id){
+  // Samme navigasjon som resten av appen bruker for å åpne et kundekort.
+  setView('kunder'); setKunderSub('kunder'); await klVelgKunde(id);
+}
+function visKunder(id,btn){
+  const el=document.getElementById(id);
+  const apen=el.style.display!=='none';
+  el.style.display=apen?'none':'';
+  btn.textContent=apen?'Vis kunder':'Skjul kunder';
+}
 function renderTiltak(d){
   let h=rapHeader('DLVRY · SALESAPP','Tiltak · Vei til mål',null,
     'Gapet fordeles etter hvor pengene ligger — ikke etter grossistens størrelse',
     `${d.uker_igjen} uker igjen av året`);
+  const tr=d.treffrate||{};
+  h+=`<div class="rap-card rap-noprint"><h3>Treffrate</h3>
+    <p class="sub" style="margin:0 0 8px">Potensialet er et teoretisk tak — det forutsetter at HVER tapt kunde vinnes tilbake og HVER fallende løftes til fjorårets nivå. Sett hvor stor andel som realistisk kan hentes, så viser tabellene «realistisk» ved siden av potensialet.</p>
+    <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap">
+      <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px">Tapte kunder (%)
+        <input id="trTapt" type="number" min="0" max="100" class="d-input" style="width:90px" value="${tr.tapt??30}"></label>
+      <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px">Kjøper mindre (%)
+        <input id="trFallende" type="number" min="0" max="100" class="d-input" style="width:90px" value="${tr.fallende??50}"></label>
+      <button class="d-knapp primar sm" onclick="lagreTreffrate()">Lagre</button>
+    </div></div>`;
   for(const k of (d.konsepter||[])){
     const gap=k.gap, harMal=k.mal!=null;
     const farge=gap==null?'':(gap<=0?'var(--d-gronn)':'var(--d-roed)');
@@ -4727,20 +4755,43 @@ function renderTiltak(d){
       h+='<p class="sub" style="margin:0;color:var(--d-gronn)">Prognosen ligger allerede over målet.</p></div>';
       continue;
     }
-    const dekning=k.gap_dekket_av_potensial;
-    h+=`<p class="sub" style="margin:0 0 10px">Identifisert potensial: <b>${_pm(k.potensial_totalt)} MNOK</b>`
-      +(dekning!=null?` — ${dekning>=100?'mer enn nok til å dekke gapet':'dekker '+dekning+' % av gapet'}.`:'.')
-      +(dekning!=null&&dekning<100?' Resten må komme fra helt nye kunder.':'')+`</p>
-      <div class="table-wrap"><table class="d-tabell" style="min-width:680px"><thead><tr>
+    const dekning=k.gap_dekket_av_potensial, real=k.gap_dekket_realistisk;
+    h+=`<div style="display:flex;gap:24px;flex-wrap:wrap;margin:0 0 10px">
+        <div><div class="sub">Teoretisk potensial</div><div style="font-size:16px;font-weight:600">${_pm(k.potensial_totalt)} <span class="sub">(${dekning??'–'} % av gapet)</span></div></div>
+        <div><div class="sub">Realistisk med treffrate</div><div style="font-size:16px;font-weight:700">${_pm(k.realistisk_totalt)} <span class="sub">(${real??'–'} % av gapet)</span></div></div>
+        <div><div class="sub">Må komme fra nysalg</div><div style="font-size:16px;font-weight:700;color:${(k.ma_fra_nysalg||0)>0?'var(--d-roed)':'var(--d-gronn)'}">${_pm(k.ma_fra_nysalg)}</div></div>
+      </div>`;
+    if((k.ma_fra_nysalg||0)>0){
+      h+=`<p class="sub" style="margin:0 0 10px">Selv om alt som kan hentes tilbake hentes, mangler <b>${_pm(k.ma_fra_nysalg)} MNOK</b> som må komme fra kunder dere ikke har i dag.</p>`;
+    }
+    h+=`<div class="table-wrap"><table class="d-tabell" style="min-width:760px"><thead><tr>
         <th>Grossist</th><th>Region</th>
-        <th style="text-align:right">Tapte kunder</th><th style="text-align:right">Kjøper mindre</th>
-        <th style="text-align:right">Potensial</th><th style="text-align:right">Må hente</th></tr></thead><tbody>`;
+        <th style="text-align:right">Tapte</th><th style="text-align:right">Kjøper mindre</th>
+        <th style="text-align:right">Potensial</th><th style="text-align:right">Realistisk</th>
+        <th style="text-align:right">Må hente</th><th class="rap-noprint"></th></tr></thead><tbody>`;
     for(const l of (k.linjer||[])){
+      const id='kl_'+esc(k.navn).replace(/\W/g,'')+'_'+esc(l.kode);
       h+=`<tr><td>${esc(l.grossist)}</td><td>${esc(l.region||'')}</td>
         <td style="text-align:right">${_pm(l.tapt)} <span class="sub">(${l.tapt_antall})</span></td>
         <td style="text-align:right">${_pm(l.fallende)} <span class="sub">(${l.fallende_antall})</span></td>
         <td style="text-align:right">${_pm(l.potensial)}</td>
-        <td style="text-align:right;font-weight:700">${_pm(l.ma_hente)}</td></tr>`;
+        <td style="text-align:right;font-weight:600">${_pm(l.realistisk)}</td>
+        <td style="text-align:right;font-weight:700">${_pm(l.ma_hente)}</td>
+        <td class="rap-noprint"><button class="d-knapp subtil sm" onclick="visKunder('${id}',this)">Vis kunder</button></td></tr>
+        <tr id="${id}" style="display:none"><td colspan="8" style="background:var(--d-flate-2,#fafafa);padding:8px 12px">
+          <div class="sub" style="margin-bottom:6px">${l.antall_kunder} kunder med potensial — viser de ${Math.min(l.antall_kunder,(d.maks_kunder_per_grossist||15))} største</div>
+          <table class="d-tabell" style="min-width:520px"><thead><tr>
+            <th>Kunde</th><th>Type</th><th style="text-align:right">I fjor</th>
+            <th style="text-align:right">Hittil</th><th style="text-align:right">Verdi</th><th>Siste kjøp</th></tr></thead><tbody>`;
+      for(const ku of (l.kunder||[])){
+        const navn=ku.kunde_id?`<a href="#" onclick="tiltakAapneKunde('${ku.kunde_id}');return false">${esc(ku.navn)}</a>`:esc(ku.navn);
+        const merke=ku.type==='tapt'?'<span style="color:var(--d-roed)">Tapt</span>':'<span style="color:var(--d-oransje,#e8590c)">Kjøper mindre</span>';
+        h+=`<tr><td>${navn} <span class="sub">${esc(ku.kundenr)}</span></td><td>${merke}</td>
+          <td style="text-align:right">${_pm(ku.i_fjor)}</td><td style="text-align:right">${_pm(ku.hittil)}</td>
+          <td style="text-align:right;font-weight:600">${_pm(ku.verdi)}</td>
+          <td>${ku.siste_uke?('uke '+ku.siste_uke):'<span class="sub">ingen i år</span>'}</td></tr>`;
+      }
+      h+='</tbody></table></td></tr>';
     }
     h+='</tbody></table></div></div>';
   }
