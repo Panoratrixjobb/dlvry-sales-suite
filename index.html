@@ -1011,7 +1011,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3 style="margin:0;font-size:14px;font-weight:600">Paritet: Excel vs appens egne beregninger</h3>
           <button class="d-knapp primar sm" onclick="sjekkParitet()" id="paritetBtn">Sjekk paritet</button>
         </div>
-        <p class="sub" style="margin:0">Fase 0 i formel-migreringen (MIGRERINGSPLAN-formler-til-app.md): appen regner total/konsepter/grossister selv fra kundedata-pivoten og sammenligner med masterfilas ferdigtall. Avvik her endrer ingenting i dashbordet — de viser hva som må forklares før appen kan overta formlene.</p>
+        <p class="sub" style="margin:0">Formel-migreringen (MIGRERINGSPLAN-formler-til-app.md): appen regner total/konsepter/grossister, månedsgraf og årsestimat selv fra kundedata-pivoten og sammenligner med masterfilas ferdigtall. Avvik her endrer ingenting i dashbordet — de viser hva som må forklares før appen kan overta formlene (fase 4). Årsestimatet er unntaket: der er avvik forventet, siden appens prognosemodell er målt mer treffsikker enn Excels flate vekstfaktor.</p>
         <div id="paritetResultat" style="font-size:13px;margin-top:10px"></div>
       </div>
 
@@ -1021,7 +1021,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3 style="margin:0;font-size:14px;font-weight:600">Formel-konfig (fase 1)</h3>
           <button class="d-knapp subtil sm" onclick="lastFormelkonfig()" id="fkLastBtn">↻ Last konfig</button>
         </div>
-        <p class="sub" style="margin:0">Konfigurasjonen appen trenger for å overta Excel-formlene (MIGRERINGSPLAN fase 1): intern-regler (hvilken omsetning som holdes utenfor «Total ekstern» — brukes av paritetssjekken over), sesongvekter for årsestimatet og uke→måned-kalender for månedsgrafen (begge tas i bruk i fase 2).</p>
+        <p class="sub" style="margin:0">Konfigurasjonen appen trenger for å overta Excel-formlene (MIGRERINGSPLAN fase 1): intern-regler (hvilken omsetning som holdes utenfor «Total ekstern» — brukes av paritetssjekken over) og uke→måned-kalenderen som månedsgrafen i fase 2 regnes fra. Sesongvektene er beholdt, men ikke lenger nødvendige: årsestimatet kommer fra prognosemodellen.</p>
         <div id="fkInnhold" style="font-size:13px;margin-top:12px"></div>
       </div>
 
@@ -4117,6 +4117,60 @@ async function sjekkParitet(){
       if(x.kun_i_app.length)html+=` — kun i app: ${x.kun_i_app.map(esc).join(', ')}`;
       html+='</div>';
     }
+    // ---- Månedsgraf (fase 2) ----
+    if(d.maaneder&&d.maaneder.rader&&d.maaneder.rader.length){
+      const m=d.maaneder;
+      // Egen toleranse for måneder: uka rundt månedsskillet fordeles på virkedager, mens
+      // Excel summerer faktiske dager. Målt gir det opptil ~1,3 MNOK på en enkelt måned
+      // (2 % av måneden) med motsatt fortegn i nabomåneden — grønt går derfor på relativt
+      // avvik, ikke på 0,1-grensen som gjelder for YTD-tallene.
+      const mndCelle=(a,ref)=>{
+        const rel=ref?Math.abs(a)/Math.abs(ref):1;
+        const ok=Math.abs(a)<0.5||rel<0.02;
+        const f=ok?'var(--d-gronn)':(rel<0.05?'var(--d-gul)':'var(--d-roed)');
+        return `<td style="text-align:right;font-weight:600;color:${f}">${a>0?'+':''}${a.toFixed(2)}</td>`;
+      };
+      html+='<h4 style="margin:16px 0 6px;font-size:13px">Månedsgraf (fase 2)</h4>';
+      html+='<div class="table-wrap"><table class="d-tabell" style="min-width:520px"><thead><tr>'
+        +'<th>Måned</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App 2026</th>'
+        +'<th style="text-align:right">Avvik</th><th>Største konseptavvik</th></tr></thead><tbody>'
+        +m.rader.map(r=>`<tr><td>${esc(r.maaned)}${r.komplett?'':' <span class="sub">(delvis)</span>'}</td>`
+          +`<td style="text-align:right">${r.excel.toFixed(2)}</td>`
+          +`<td style="text-align:right">${r.app.toFixed(2)}</td>`
+          +mndCelle(r.avvik,r.excel)
+          +`<td class="sub">${r.storste_konsept?esc(r.storste_konsept.navn)+' '+(r.storste_konsept.avvik>0?'+':'')+r.storste_konsept.avvik.toFixed(2):'–'}</td></tr>`).join('')
+        +`<tr class="total"><td>Sum</td><td style="text-align:right">${m.sum_excel.toFixed(2)}</td>`
+        +`<td style="text-align:right">${m.sum_app.toFixed(2)}</td>`+mndCelle(m.sum_avvik,m.sum_excel)+'<td></td></tr>'
+        +'</tbody></table></div>';
+      if(m.maaneder_utenfor_excel>0){
+        html+=`<p class="sub" style="margin:4px 0 0">Appen har ${m.maaneder_utenfor_excel} måned(er) mer enn Excel-snapshotet — snapshotet er eldre enn ukedataene.</p>`;
+      }
+      if(m.maaneder_kun_i_excel>0){
+        html+=`<p class="sub" style="margin:4px 0 0">Excel viser ${m.maaneder_kun_i_excel} måned til (inneværende, kuttet på dato). Appen tar først med en måned når ukene den eier er komplette — ellers ville den siste søylen falle mot fjorårets hele måned.</p>`;
+      }
+      html+=`<p class="sub" style="margin:4px 0 0">${esc(m.merknad)}</p>`;
+    }
+    // ---- Årsestimat: Excels metode mot appens prognosemodell (fase 2) ----
+    if(d.estimat&&d.estimat.konsepter&&d.estimat.konsepter.length){
+      const e=d.estimat;
+      html+='<h4 style="margin:16px 0 6px;font-size:13px">Årsestimat — Excel mot appens prognosemodell</h4>';
+      html+='<div class="table-wrap"><table class="d-tabell" style="min-width:560px"><thead><tr>'
+        +'<th>Konsept</th><th style="text-align:right">Helår 2025</th><th style="text-align:right">Excel-estimat</th>'
+        +'<th style="text-align:right">App-estimat</th><th style="text-align:right">Differanse</th>'
+        +'<th style="text-align:right">Herav manuell justering</th></tr></thead><tbody>'
+        +e.konsepter.map(k=>`<tr><td>${esc(k.navn)}</td>`
+          +`<td style="text-align:right">${k.helar_2025.toFixed(1)}</td>`
+          +`<td style="text-align:right">${k.excel_estimat.toFixed(1)}</td>`
+          +`<td style="text-align:right;font-weight:600">${k.app_estimat.toFixed(1)}</td>`
+          +`<td style="text-align:right">${k.avvik>0?'+':''}${k.avvik.toFixed(1)}</td>`
+          +`<td style="text-align:right" class="sub">${k.justering?((k.justering>0?'+':'')+k.justering.toFixed(1)):'–'}</td></tr>`).join('')
+        +`<tr class="total"><td>Total ekstern</td><td></td>`
+        +`<td style="text-align:right">${e.total.excel_estimat.toFixed(1)}</td>`
+        +`<td style="text-align:right;font-weight:600">${e.total.app_estimat.toFixed(1)}</td>`
+        +`<td style="text-align:right">${e.total.avvik>0?'+':''}${e.total.avvik.toFixed(1)}</td><td></td></tr>`
+        +'</tbody></table></div>';
+      html+=`<p class="sub" style="margin:4px 0 0">Regnet ved uke ${esc(String(e.cutoff_uke))} med ${esc(String(e.uker_igjen))} uker igjen av året. ${esc(e.merknad)}</p>`;
+    }
     if(d.kilde){
       const fraGrossistark = d.kilde==='konsept_grossist_uke';
       html+=`<p class="sub" style="margin:8px 0 0">Appens tall er regnet fra <b>${esc(d.kilde)}</b>`
@@ -4206,10 +4260,10 @@ function renderFormelkonfig(){
   // — Sesongvekter —
   const antallUker=(d.kalender['2026']||d.kalender['2025']||[]).length||52;
   const vektVed={};(d.sesongvekter||[]).forEach(v=>vektVed[v.uke]=v.vekt);
-  html+='<h4 style="margin:0 0 6px;font-size:13px">Sesongvekter (årsestimat — fase 2)</h4>';
+  html+='<h4 style="margin:0 0 6px;font-size:13px">Sesongvekter (Excel-metoden — ikke lenger påkrevd)</h4>';
   html+='<p class="sub" style="margin:0 0 8px">'+(d.sesongvekter.length
     ?d.sesongvekter.length+' uker har vekt.'
-    :'Tom — årsestimatet kan ikke overtas av appen før vektene er lagt inn (hentes fra masterfilas Dashboard-ark, grunnlaget for kolonne G).')+'</p>';
+    :'Tom — og det er greit. Årsestimatet regnes av prognosemodellen (Rapporter → Prognose), som henter sesongen fra fjorårets faktiske ukeprofil i stedet for faste vekter. Backtesten måler den til 2,9 % snittavvik mot Excel-metodens 5,1 %. Fyll bare ut her hvis du vil reprodusere Excels kolonne G.')+'</p>';
   html+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
   for(let u=1;u<=antallUker;u++){
     html+='<label style="display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)">'+u
@@ -4217,15 +4271,25 @@ function renderFormelkonfig(){
   }
   html+='</div><button class="d-knapp primar sm" onclick="lagreSesongvekter('+antallUker+')">Lagre sesongvekter</button> <span id="fkVektStatus" class="sub"></span>';
   // — Uke→måned-kalender —
-  html+='<h4 style="margin:16px 0 6px;font-size:13px">Uke→måned-kalender (månedsgraf — fase 2)</h4>';
-  html+='<p class="sub" style="margin:0 0 8px">Forhåndsutfylt med ISO-ukens torsdag (dominerende måned). Juster kun uker regnearket mapper annerledes.</p>';
+  html+='<h4 style="margin:16px 0 6px;font-size:13px">Uke→måned (månedsgraf — fase 2)</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">Uker som krysser et månedsskille <b>deles</b> etter virkedager (man–fre uten røde dager) — det er den mappingen som treffer masterfilas månedsrader (avvik 0,04 % på summen). Delte uker er merket med ⇄ og andelen under. Skriver du inn en annen måned, tvinges HELE uka dit (overstyring, uthevet). «Nullstill» går tilbake til virkedagsfordeling.</p>';
   for(const ar of Object.keys(d.kalender).sort()){
-    html+='<div style="margin-bottom:6px"><b style="font-size:12.5px">'+esc(ar)+'</b></div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
+    const overstyrte=d.kalender[ar].filter(r=>r.overstyrt).length;
+    html+='<div style="margin-bottom:6px"><b style="font-size:12.5px">'+esc(ar)+'</b>'
+      +(overstyrte?' <span class="sub">— '+overstyrte+' overstyrt</span>':'')
+      +'</div><div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">';
     for(const r of d.kalender[ar]){
-      html+='<label style="display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)">'+r.uke
-        +'<input type="number" min="1" max="12" id="fkMnd_'+ar+'_'+r.uke+'" value="'+r.maaned+'" style="width:44px;padding:2px 4px;font-size:12px" class="d-input"></label>';
+      const delt=r.delt&&!r.overstyrt;
+      const andelTekst=delt?r.andeler.map(a=>Math.round(a[1]*100)+'%').join('/'):'';
+      html+='<label title="'+(delt?'Deles mellom måned '+r.andeler.map(a=>a[0]).join(' og '):'Hele uka i måned '+r.maaned)+'" style="display:flex;flex-direction:column;align-items:center;font-size:10.5px;color:var(--muted)">'
+        +r.uke+(delt?' ⇄':'')
+        +'<input type="number" min="1" max="12" id="fkMnd_'+ar+'_'+r.uke+'" value="'+r.maaned+'" style="width:44px;padding:2px 4px;font-size:12px'
+        +(r.overstyrt?';font-weight:700;border-color:var(--d-gul)':'')+'" class="d-input">'
+        +'<span style="font-size:9px;height:11px">'+andelTekst+'</span></label>';
     }
-    html+='</div><button class="d-knapp subtil sm" onclick="lagreKalender('+esc(ar)+','+d.kalender[ar].length+')">Lagre '+esc(ar)+'</button> <span id="fkKalStatus_'+esc(ar)+'" class="sub"></span><div style="margin-bottom:10px"></div>';
+    html+='</div><button class="d-knapp subtil sm" onclick="lagreKalender('+esc(ar)+','+d.kalender[ar].length+')">Lagre '+esc(ar)+'</button> '
+      +'<button class="d-knapp subtil sm" onclick="nullstillKalender('+esc(ar)+')">Nullstill '+esc(ar)+'</button> '
+      +'<span id="fkKalStatus_'+esc(ar)+'" class="sub"></span><div style="margin-bottom:10px"></div>';
   }
   el.innerHTML=html;
 }
@@ -4293,6 +4357,16 @@ async function lagreKalender(ar,antallUker){
   try{
     const r=await api('/api/formelkonfig/kalender/'+ar,{method:'PUT',body:rader});
     st.textContent='Lagret ('+r.antall+' uker).';
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
+}
+async function nullstillKalender(ar){
+  const st=document.getElementById('fkKalStatus_'+ar);
+  if(!confirm('Fjerne alle overstyringer for '+ar+' og gå tilbake til virkedagsfordeling?'))return;
+  try{
+    const r=await api('/api/formelkonfig/kalender/'+ar,{method:'DELETE'});
+    st.textContent='Nullstilt ('+r.fjernet+' overstyringer fjernet).';
+    await lastFormelkonfig();
   }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
 }
 
