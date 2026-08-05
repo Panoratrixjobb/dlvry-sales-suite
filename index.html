@@ -1005,6 +1005,37 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </div>
 
+      <!-- Hent rådata rett fra Power BI-modellen — erstatningen for kundedata-pivoten -->
+      <div class="d-panel" style="margin-top:18px" id="powerbiPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Hent fra Power BI (uten Excel)</h3>
+          <span class="sub" id="pbStatusLinje"></span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Henter kunde × konsept × uke rett fra den semantiske modellen og fyller de samme tabellene som kundedata-opplastingen. Målt 2026-08-05 gir denne veien <b>100 % kundenivå-dekning</b> mot pivotens 51 % — D06 og D15 kommer komplett med. Kjør alltid tørrkjøring først. Tar det for lang tid og henger seg opp, ta ett år om gangen — hvert år er fem spørringer mot modellen.</p>
+        <details style="margin-bottom:10px">
+          <summary class="sub" style="cursor:pointer">Slik henter du et token (mens service principal-en mangler)</summary>
+          <p class="sub" style="margin:8px 0 0">Kjør i PowerShell, og lim inn verdien under. Tokenet varer ca. én time, lagres aldri, og sendes bare med denne ene hentingen:</p>
+          <code style="display:block;background:var(--d-gul-bg);padding:8px;border-radius:6px;font-size:11.5px;margin-top:6px;overflow-x:auto">az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv</code>
+        </details>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;flex:1;min-width:260px"><b>Token</b>
+            <input type="password" id="pbToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Modell-ID</b>
+            <input id="pbDataset" class="d-input" style="width:290px" placeholder="semantisk modell, ikke rapport" autocomplete="off"></label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Arbeidsområde-ID</b>
+            <input id="pbGruppe" class="d-input" style="width:290px" placeholder="tomt = Mitt arbeidsområde" autocomplete="off"></label>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2025" checked> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2026" checked> 2026</label>
+          <button class="d-knapp subtil sm" onclick="hentFraPowerBI(false)" id="pbTorrBtn">Tørrkjør (skriver ingenting)</button>
+          <button class="d-knapp primar sm" onclick="hentFraPowerBI(true)" id="pbHentBtn">Hent og lagre</button>
+        </div>
+        <div id="pbResultat" style="font-size:13px"></div>
+      </div>
+
       <!-- Fase 0 formel-migrering: paritet Excel vs appens egne beregninger -->
       <div class="d-panel" style="margin-top:18px" id="paritetPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -4078,6 +4109,68 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
 }
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
+
+// ============ Hent fra Power BI (erstatter kundedata-opplastingen) ============
+// Tokenet holdes bare i DOM-feltet og sendes i kroppen (aldri i URL-en, som havner i
+// tilgangslogger). Det lagres verken i localStorage eller i basen — utløper av seg selv.
+async function hentFraPowerBI(bekreft){
+  const el=document.getElementById('pbResultat');
+  const knapper=['pbTorrBtn','pbHentBtn'].map(id=>document.getElementById(id));
+  const aar=[2024,2025,2026].filter(a=>document.getElementById('pbAr'+a).checked);
+  if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
+  const body={
+    token:document.getElementById('pbToken').value.trim()||null,
+    dataset_id:document.getElementById('pbDataset').value.trim()||null,
+    group_id:document.getElementById('pbGruppe').value.trim()||null,
+  };
+  if(bekreft&&!confirm('Skrive '+aar.join(', ')+' til databasen? Låste perioder hoppes over.'))return;
+  knapper.forEach(b=>b.disabled=true);
+  const start=Date.now();
+  el.innerHTML='<span class="sub">Henter fra modellen… (fem spørringer per år, dette tar litt tid)</span>';
+  const timer=setInterval(()=>{
+    el.innerHTML='<span class="sub">Henter fra modellen… '+Math.round((Date.now()-start)/1000)+' s</span>';
+  },1000);
+  try{
+    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
+    const d=await api('/api/powerbi/hent?'+qs,{method:'POST',body});
+    clearInterval(timer);
+    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
+    for(const [ar,s] of Object.entries(d.sammendrag||{})){
+      html+=`<div style="margin-bottom:12px"><b>${esc(ar)}</b> — ${s.kunderader.toLocaleString('nb-NO')} kunderader, `
+        +`${s.kunder.toLocaleString('nb-NO')} kundekontoer, ${s.kundeniva_mnok} MNOK på kundenivå `
+        +`(grossistnivå ${s.grossistniva_mnok})`;
+      const daarlig=(s.dekning_per_grossist||[]).filter(g=>g.dekning!=null&&g.dekning<99.5);
+      if(!daarlig.length){
+        html+=' · <span style="color:var(--d-gronn);font-weight:600">100 % kundenivå-dekning</span>';
+      }else{
+        html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
+          +'<th>Grossist</th><th style="text-align:right">Kundenivå</th><th style="text-align:right">Totalt</th><th style="text-align:right">Dekning</th></tr></thead><tbody>'
+          +daarlig.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.kundeniva}</td>`
+            +`<td style="text-align:right">${g.grossistniva}</td>`
+            +`<td style="text-align:right;font-weight:600;color:${g.dekning>=90?'var(--d-gul)':'var(--d-roed)'}">${g.dekning} %</td></tr>`).join('')
+          +'</tbody></table></div>';
+      }
+      if(s.droppet_fram_i_tid&&s.droppet_fram_i_tid!=='ingen'){
+        html+=`<div class="sub" style="margin-top:4px">Hoppet over ${s.droppet_fram_i_tid.rader} rader datert etter uke ${s.siste_godtatte_uke} (${s.droppet_fram_i_tid.mnok} MNOK) — de ville forskjøvet cutoff i hele appen.</div>`;
+      }
+      const utenfor=s.konsept_utenfor_appen||{};
+      if(Object.keys(utenfor).length){
+        html+='<div class="sub" style="margin-top:4px">Konsepter utenfor appen (ikke telt med): '
+          +Object.entries(utenfor).map(([k,n])=>esc(k||'(tomt)')+' '+n+' rader').join(' · ')+'</div>';
+      }
+      html+='</div>';
+    }
+    if(d.hoppet_over_laast&&d.hoppet_over_laast!=='ingen'){
+      html+='<p class="sub" style="margin:0 0 8px">Låste perioder hoppet over: '+esc(JSON.stringify(d.hoppet_over_laast))+'</p>';
+    }
+    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
+    el.innerHTML=html;
+    if(bekreft)document.getElementById('pbToken').value='';
+  }catch(e){
+    clearInterval(timer);
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
 
 // ============ Paritet Excel vs app (fase 0 formel-migrering) ============
 async function sjekkParitet(){
