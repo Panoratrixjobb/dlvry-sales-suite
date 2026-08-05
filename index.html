@@ -1478,11 +1478,17 @@ const DASH_FALLBACK={
   meta:{periode:'YTD uke 1–25, 2026 vs 2025 (pære-mot-pære)', oppdatert:'2026 uke 25', kilde:'fallback (vault) – last opp Excel for full detalj'},
   cutoff_uke:25,
   total:{navn:'Total ekstern', y2026:309.4, y2025:397.7, vekst:-0.222},
+  // Fast Food og Sabor har ingen fallback-TALL: de finnes ikke i masterfila, som disse
+  // verdiene stammer fra. Nøklene under (grossister/kundebevegelse) MÅ likevel finnes —
+  // normalizeDash spreader fallbacken under API-svaret, og uten dem ville et konseptvalg
+  // slå opp i undefined mens dashbordet fortsatt laster.
   konsepter:[
     {navn:'La Salumeria', y2026:51.3, y2025:52.0, vekst:-0.014, farge:'#16a34a'},
     {navn:'East Essence', y2026:6.4, y2025:5.4, vekst:0.178, farge:'#5b6ef5'},
     {navn:'Godt Lokalt', y2026:104.1, y2025:120.1, vekst:-0.133, farge:'#f59e0b'},
-    {navn:'Wulff & Co', y2026:147.6, y2025:220.3, vekst:-0.330, farge:'#22b8cf'}
+    {navn:'Wulff & Co', y2026:147.6, y2025:220.3, vekst:-0.330, farge:'#22b8cf'},
+    {navn:'Fast Food', y2026:0, y2025:0, vekst:0, farge:'#e03131'},
+    {navn:'Sabor', y2026:0, y2025:0, vekst:0, farge:'#ae3ec9'}
   ],
   estimat:[
     {navn:'La Salumeria', helar_2025:115.9, estimat_2026:122.8},
@@ -1496,14 +1502,18 @@ const DASH_FALLBACK={
       {navn:'La Salumeria',farge:'#16a34a',vals:[8.1,8.4,9.0,8.6,8.7,8.5],vals_2025:[8.1,8.0,8.4,9.0,10.0,12.2],vekst_pct:[0,0,0,0,0,0]},
       {navn:'East Essence',farge:'#5b6ef5',vals:[1.0,1.0,1.1,1.1,1.1,1.1],vals_2025:[1.0,0.9,0.9,1.0,1.0,1.0],vekst_pct:[0,0,0,0,0,0]},
       {navn:'Godt Lokalt',farge:'#f59e0b',vals:[17.0,16.8,17.9,17.3,17.6,17.5],vals_2025:[18.7,17.9,19.1,25.7,24.2,20.5],vekst_pct:[0,0,0,0,0,0]},
-      {navn:'Wulff & Co',farge:'#22b8cf',vals:[24.2,24.0,25.6,24.6,24.7,24.5],vals_2025:[34.9,27.9,33.8,42.4,50.4,45.1],vekst_pct:[0,0,0,0,0,0]}
+      {navn:'Wulff & Co',farge:'#22b8cf',vals:[24.2,24.0,25.6,24.6,24.7,24.5],vals_2025:[34.9,27.9,33.8,42.4,50.4,45.1],vekst_pct:[0,0,0,0,0,0]},
+      {navn:'Fast Food',farge:'#e03131',vals:[0,0,0,0,0,0],vals_2025:[0,0,0,0,0,0],vekst_pct:[0,0,0,0,0,0]},
+      {navn:'Sabor',farge:'#ae3ec9',vals:[0,0,0,0,0,0],vals_2025:[0,0,0,0,0,0],vekst_pct:[0,0,0,0,0,0]}
     ]},
-  grossister:{la_salumeria:[],east_essence:[],godt_lokalt:[],wulff_co:[]},
+  grossister:{la_salumeria:[],east_essence:[],godt_lokalt:[],wulff_co:[],fast_food:[],sabor:[]},
   kundebevegelse:{
     la_salumeria:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
     east_essence:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
     godt_lokalt:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
     wulff_co:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    fast_food:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
+    sabor:{ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}},
     alle:{nye:0,tapt:0,venter:0}
   },
   regioner:[
@@ -1534,14 +1544,14 @@ function normalizeDash(d){
   // dashboard_snapshot (fra før denne kontrakten fantes) uten å kaste — det skjer
   // helt til admin laster opp Excel på nytt med den nye backend-koden.
   const f=DASH_FALLBACK;
-  const konsepter=(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%4].farge,...k})):f.konsepter;
+  const konsepter=(d.konsepter&&d.konsepter.length)?d.konsepter.map((k,i)=>({farge:f.konsepter[i%f.konsepter.length].farge,...k})):f.konsepter;
 
   const months=(d.monthly&&Array.isArray(d.monthly.months))?d.monthly.months:f.monthly.months;
   const monthlyData=(d.monthly&&Array.isArray(d.monthly.data)&&d.monthly.data.length)?d.monthly.data.map((m,i)=>{
     const vals=Array.isArray(m.vals)?m.vals:new Array(months.length).fill(0);
     return {
       navn:m.navn,
-      farge:m.farge||f.konsepter[i%4].farge,
+      farge:m.farge||f.konsepter[i%f.konsepter.length].farge,
       vals,
       vals_2025:Array.isArray(m.vals_2025)?m.vals_2025:new Array(vals.length).fill(0),
       vekst_pct:Array.isArray(m.vekst_pct)?m.vekst_pct:new Array(vals.length).fill(0),
@@ -1566,7 +1576,7 @@ function normalizeDash(d){
   const hel=(d.periode&&d.total_hele_uker)?{
     total:d.total_hele_uker, konsepter:d.konsepter_hele_uker,
     monthly:d.monthly_hele_uker?{months:d.monthly_hele_uker.months,
-      data:d.monthly_hele_uker.data.map((m,i)=>({navn:m.navn,farge:m.farge||f.konsepter[i%4].farge,
+      data:d.monthly_hele_uker.data.map((m,i)=>({navn:m.navn,farge:m.farge||f.konsepter[i%f.konsepter.length].farge,
         vals:m.vals,vals_2025:m.vals_2025,vekst_pct:m.vekst_pct}))}:null,
   }:null;
 
@@ -1601,8 +1611,11 @@ function barList(id,arr,key,fmt,col,pct){
 }
 
 // ===== Analyse-fane: konsept/region/grossist/uke-filter + interaktivt dashboard =====
-const AN_KEY_FOR_NAVN={'La Salumeria':'la_salumeria','East Essence':'east_essence','Godt Lokalt':'godt_lokalt','Wulff & Co':'wulff_co'};
-const AN_NAVN_FOR_KEY={la_salumeria:'La Salumeria',east_essence:'East Essence',godt_lokalt:'Godt Lokalt',wulff_co:'Wulff & Co'};
+// Må speile KONSEPT_NOKKEL i backendens dashboard_excel.py. Fast Food og Sabor kom inn
+// 2026-08-05 — uten dem her ville KPI-kortene deres fått key=undefined og aldri latt seg
+// velge, selv om API-et sendte tallene.
+const AN_KEY_FOR_NAVN={'La Salumeria':'la_salumeria','East Essence':'east_essence','Godt Lokalt':'godt_lokalt','Wulff & Co':'wulff_co','Fast Food':'fast_food','Sabor':'sabor'};
+const AN_NAVN_FOR_KEY={la_salumeria:'La Salumeria',east_essence:'East Essence',godt_lokalt:'Godt Lokalt',wulff_co:'Wulff & Co',fast_food:'Fast Food',sabor:'Sabor'};
 let analyseState={concept:'all',region:'all',grossist:'',week:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
 
 function anWeekLabelLive(v){
@@ -1645,10 +1658,29 @@ function anSeriesFor(D,key){
   }
   const k=D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===key);
   const m=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===key);
-  return {vals:m.vals,vals2025:m.vals_2025,y2026:k.y2026,y2025:k.y2025,navn:k.navn,farge:k.farge};
+  // Konseptlista og månedsseriene kommer fra HVER SIN kilde-bryter (Oppsett > fase 4), og
+  // backend hopper over konsepter uten rader i månedsgrafen. Et konsept kan derfor finnes i
+  // det ene og ikke i det andre — typisk Fast Food/Sabor før første Power BI-henting. Uten
+  // dette kastet anComputeKpi på m.vals og hele Analyse-fanen ble blank.
+  if(!k)return null;
+  const n=(D.monthly.months||[]).length||((m&&m.vals)?m.vals.length:0);
+  const tom=()=>new Array(n).fill(0);
+  return {vals:(m&&m.vals)||tom(),vals2025:(m&&m.vals_2025)||tom(),
+    y2026:k.y2026||0,y2025:k.y2025||0,navn:k.navn,farge:k.farge};
+}
+// Månedsserien for ett konsept, eller en nullserie hvis konseptet ikke har rader i
+// månedsgrafen ennå (samme kilde-asymmetri som anSeriesFor beskriver).
+function anMonthlySerie(D,key){
+  const m=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===key);
+  if(m)return m;
+  const n=(D.monthly.months||[]).length;
+  const k=(D.konsepter||[]).find(k=>AN_KEY_FOR_NAVN[k.navn]===key)||{};
+  return {navn:k.navn||AN_NAVN_FOR_KEY[key]||key,farge:k.farge||'#999999',
+    vals:new Array(n).fill(0),vals_2025:new Array(n).fill(0),vekst_pct:new Array(n).fill(0)};
 }
 function anComputeKpi(D,key,week){
   const ser=anSeriesFor(D,key);
+  if(!ser)return null;   // ukjent konseptnavn fra API-et — se anSeriesFor
   const cutoff=D.cutoff_uke;
   const raw26=anYtdAt(ser.vals,cutoff),raw25=anYtdAt(ser.vals2025,cutoff);
   if(!raw26||!raw25){
@@ -1714,7 +1746,7 @@ function renderAnalyse(){
 
   // ---- KPI-kort ----
   const allKpi=anComputeKpi(D,'all',s.week);
-  const konseptKpis=D.konsepter.map(k=>anComputeKpi(D,AN_KEY_FOR_NAVN[k.navn],s.week));
+  const konseptKpis=D.konsepter.map(k=>anComputeKpi(D,AN_KEY_FOR_NAVN[k.navn],s.week)).filter(Boolean);
   const kpiKort=[allKpi,...konseptKpis];
   document.getElementById('anKpis').innerHTML=kpiKort.map(k=>{
     const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
@@ -1789,7 +1821,7 @@ function anDrawMonthlyChart(D,s){
     const totals=months.map((_,i)=>D.monthly.data.reduce((sum,d)=>sum+d.vals[i],0));
     maxY=Math.ceil(Math.max(...totals)/10)*10||10;
   }else{
-    const serie=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===s.concept);
+    const serie=anMonthlySerie(D,s.concept);
     maxY=Math.ceil(Math.max(...serie.vals,...serie.vals_2025)/5)*5||5;
   }
   for(let t=0;t<=4;t++){const yv=maxY*t/4,y=H-padB-(yv/maxY)*plotH;
@@ -1809,7 +1841,7 @@ function anDrawMonthlyChart(D,s){
       tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
     document.getElementById('anMonthlyLegend').innerHTML=D.monthly.data.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
   }else{
-    const serie=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===s.concept);
+    const serie=anMonthlySerie(D,s.concept);
     const farge=serie.farge;
     months.forEach((mo,i)=>{
       const x=padL+gap*i+(gap-bw)/2;
@@ -1944,7 +1976,10 @@ function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt){
 function kbTegnStatisk(isAllKonsept){
   const s=analyseState;  // for expand-flaggene (expandNew/Lost/Wait)
   const alle=DASH.kundebevegelse.alle||{};
-  const kb=isAllKonsept?null:DASH.kundebevegelse[kbState.konsept];
+  // Tom blokk om konseptet ikke finnes i snapshotet — Fast Food/Sabor mangler så lenge
+  // «kundebevegelse»-feltet leses fra Excel (Oppsett > kilde per felt).
+  const tomBev={ny:{antall:0,sum_kr:0,liste:[]},tapt:{antall:0,sum_kr:0,liste:[]},venter:{antall:0,liste:[]}};
+  const kb=isAllKonsept?null:(DASH.kundebevegelse[kbState.konsept]||tomBev);
   document.getElementById('anKundebevegelse').innerHTML=isAllKonsept?
     kbKort('Nye kunder','var(--green)',alle.nye||0,null,[],'new',s.expandNew)+
     kbKort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
@@ -4302,6 +4337,28 @@ async function sjekkParitet(){
       +d.konsepter.map(k=>rad(k.navn,k)).join('')
       +rad('Total',d.total).replace('<tr>','<tr class="total">')
       +'</tbody></table></div>';
+    // Konsepter appen har, men masterfila ikke kjenner (Fast Food, Sabor). De har ingen
+    // fasit å måles mot — vises derfor uten Excel-kolonne og uten avvik, så tallene er
+    // synlige uten å bli lest som at appen finner omsetning fra ingensteds.
+    const uten=d.uten_excel_fasit||[];
+    if(uten.length){
+      const s=d.sum_uten_excel_fasit||{y2025:0,y2026:0};
+      html+='<h4 style="margin:16px 0 6px;font-size:13px">Kun i appen — ingen Excel-fasit</h4>'
+        +'<div class="table-wrap"><table class="d-tabell" style="min-width:420px"><thead><tr>'
+        +'<th>Konsept</th><th style="text-align:right">App 2026 (MNOK)</th>'
+        +'<th style="text-align:right">App 2025</th><th style="text-align:right">App vekst</th></tr></thead><tbody>'
+        +uten.map(k=>`<tr><td>${esc(k.navn)}</td>`
+          +`<td style="text-align:right;font-weight:600">${(k.y2026??0).toFixed(2)}</td>`
+          +`<td style="text-align:right">${(k.y2025??0).toFixed(2)}</td>`
+          +`<td style="text-align:right">${fmtV(k.vekst)}</td></tr>`).join('')
+        +`<tr class="total"><td>Sum</td><td style="text-align:right">${(s.y2026||0).toFixed(2)}</td>`
+        +`<td style="text-align:right">${(s.y2025||0).toFixed(2)}</td><td></td></tr>`
+        +'</tbody></table></div>'
+        +'<p class="sub" style="margin:4px 0 0">Masterfila har ingen rader for disse — verken omsetning, '
+        +'grossist-seksjoner eller ny/tapt/venter. De er derfor holdt utenfor hele sammenligningen over, '
+        +'og «Total» der er tilsvarende lavere enn dashbordets «Total ekstern». Ingenting å lukke: det er '
+        +'ikke et avvik, det er to konsepter regnearket aldri har hatt.</p>';
+    }
     const g=Object.values(d.grossister||{});
     const gAvvik=g.reduce((s,x)=>s+x.antall_avvik,0);
     html+=`<p class="sub" style="margin:10px 0 4px">Grossist-tabeller: ${gAvvik===0?'ingen avvik':gAvvik+' koder med avvik'} (uke 1–${esc(String(d.cutoff_uke))}).</p>`;
@@ -4390,6 +4447,17 @@ async function sjekkParitet(){
             +`<td style="text-align:right" class="sub">${r.excel_uten_grossistkode||''}</td></tr>`;
         }).join('')
         +'</tbody></table></div>';
+      const kbUten=kb.uten_excel_fasit||[];
+      if(kbUten.length){
+        html+='<p class="sub" style="margin:8px 0 4px"><b>Kun i appen</b> (ingen rader i masterfila å måle mot):</p>'
+          +'<div class="table-wrap"><table class="d-tabell" style="min-width:380px"><thead><tr>'
+          +'<th>Konsept</th><th>Bevegelse</th><th style="text-align:right">App</th>'
+          +'<th style="text-align:right">MNOK</th></tr></thead><tbody>'
+          +kbUten.map(r=>`<tr><td>${esc(r.konsept)}</td><td>${BEV[r.bevegelse]||esc(r.bevegelse)}</td>`
+            +`<td style="text-align:right;font-weight:600">${r.app_antall||0}</td>`
+            +`<td style="text-align:right" class="sub">${(r.app_belop||0).toFixed(2)}</td></tr>`).join('')
+          +'</tbody></table></div>';
+      }
       // Dekningen forklarer avvikene — vis den rett under
       if(dek.per_grossist&&dek.per_grossist.length){
         const d26=dek.total_dekning_2026,d25=dek.total_dekning_2025;
@@ -4938,7 +5006,9 @@ async function slettBruker(id, navn){
 // Bruker samme DASH-objekt som Dashboard-visningen (/api/dashboard-excel) — ingen egen
 // datahenting. Totalrapport, Konseptrapport og Regionrapport har alt de trenger i DASH
 // (DASH.regionrapport kommer fra hent_omsetning_regioner() i dashboard_excel.py, steg 18).
-const KONSEPT_ORDER_RAP=['la_salumeria','east_essence','godt_lokalt','wulff_co'];
+// Rekkefølgen i Konseptrapport/Regionrapport. Fast Food og Sabor lagt til 2026-08-05 —
+// Fast Food etter Wulff (95 MNOK/år, på størrelse med La Salumeria), Sabor sist (12).
+const KONSEPT_ORDER_RAP=['la_salumeria','east_essence','godt_lokalt','wulff_co','fast_food','sabor'];
 const REGION_ORDER_RAP=['Nord','Sør','Vest','Øst'];
 let rapState={tab:'total',konsept:'la_salumeria',region:'Nord',regionFilter:'ALLE'};
 
@@ -5293,7 +5363,7 @@ function renderRapFiks(){
 // Returnerer {card, innsikt} der innsikt er én <p>-linje pluss «største grossist»-linje (som i PDF-ens INNSIKT-seksjon).
 function rapGrossistTrend(key){
   const navn=AN_NAVN_FOR_KEY[key];
-  const kortnavn={la_salumeria:'LS',east_essence:'EE',godt_lokalt:'GL',wulff_co:'Wulff'}[key]||navn;
+  const kortnavn={la_salumeria:'LS',east_essence:'EE',godt_lokalt:'GL',wulff_co:'Wulff',fast_food:'Fast Food',sabor:'Sabor'}[key]||navn;
   const kons=(DASH.konsepter||[]).find(k=>k.navn===navn)||{y2025:0,y2026:0,vekst:0};
   const rader=(DASH.grossister&&DASH.grossister[key])||[];
   const totalY26=kons.y2026||0;
@@ -5367,8 +5437,10 @@ function renderRapTotal(){
     <td style="text-align:right">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</td>
   </tr>`;
 
+  // Konsepter uten fjorårsgrunnlag (vekst=null) holdes utenfor «sterkest/svakest» — null
+  // sorterer som 0 og ville gjort et konsept uten historikk til svakest med «+0,0 %».
   let strongest=null,weakest=null;
-  kons.forEach(k=>{if(!strongest||k.vekst>strongest.vekst)strongest=k;if(!weakest||k.vekst<weakest.vekst)weakest=k;});
+  kons.filter(k=>k.vekst!=null).forEach(k=>{if(!strongest||k.vekst>strongest.vekst)strongest=k;if(!weakest||k.vekst<weakest.vekst)weakest=k;});
 
   const insight=kons.length?`<div class="rap-insight">
     <p>Ekstern omsetning YTD er <b>${rapFmtM(totalY26)}</b>, ${t.vekst>=0?'en oppgang':'en nedgang'} på <b>${rapFmtPctAbs(t.vekst)}</b> mot samme periode i 2025 (${rapFmtM(totalDelta)}).</p>
@@ -5503,7 +5575,7 @@ function renderRapRegion(regionNavn,filter){
       <div class="rap-kpi"><div class="lbl">Antall grossister</div><div class="val">${reg.grossister.length}</div></div>
     </div>`;
 
-  // per-konsept-tabell (alltid alle 4, uansett filter)
+  // per-konsept-tabell (alltid hele KONSEPT_ORDER_RAP, uansett filter)
   const konseptRows=KONSEPT_ORDER_RAP.map(k=>{
     const v=reg.byKonsept[k]||{y2025:0,y2026:0};
     const c=rapCalc(v.y2025,v.y2026);
