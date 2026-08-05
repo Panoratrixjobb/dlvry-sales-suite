@@ -4111,6 +4111,22 @@ function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-e
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
 
 // ============ Hent fra Power BI (erstatter kundedata-opplastingen) ============
+// Modell-ID og arbeidsområde fylles fra serveren, så admin bare limer inn tokenet.
+// Serveren har en innebygd standard som App Service-konfigurasjon overstyrer — og
+// feltet her overstyrer igjen begge, hvis man vil peke på en annen modell.
+async function pbFyllStandard(){
+  const linje=document.getElementById('pbStatusLinje');
+  try{
+    const s=await api('/api/powerbi/status');
+    const d=document.getElementById('pbDataset'), g=document.getElementById('pbGruppe');
+    if(d&&!d.value&&s.dataset_id)d.value=s.dataset_id;
+    if(g&&!g.value&&s.group_id)g.value=s.group_id;
+    linje.textContent=s.konfigurert
+      ? 'Service principal er satt opp — token trengs ikke.'
+      : 'Modell: '+(s.dataset_kilde||'')+'. Token må limes inn.';
+  }catch(e){ linje.textContent=''; }
+}
+
 // Tokenet holdes bare i DOM-feltet og sendes i kroppen (aldri i URL-en, som havner i
 // tilgangslogger). Det lagres verken i localStorage eller i basen — utløper av seg selv.
 async function hentFraPowerBI(bekreft){
@@ -5617,6 +5633,8 @@ async function showApp(){
   if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
   const paritetPanel=document.getElementById('paritetPanel');
   if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
+  const powerbiPanel=document.getElementById('powerbiPanel');
+  if(powerbiPanel){powerbiPanel.style.display=erAdmin?'':'none'; if(erAdmin)pbFyllStandard();}
   const formelkonfigPanel=document.getElementById('formelkonfigPanel');
   if(formelkonfigPanel)formelkonfigPanel.style.display=erAdmin?'':'none';
   const leadsImportPanel=document.getElementById('leadsImportPanel');
