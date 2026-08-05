@@ -4171,6 +4171,60 @@ async function sjekkParitet(){
         +'</tbody></table></div>';
       html+=`<p class="sub" style="margin:4px 0 0">Regnet ved uke ${esc(String(e.cutoff_uke))} med ${esc(String(e.uker_igjen))} uker igjen av året. ${esc(e.merknad)}</p>`;
     }
+    // ---- Ny/tapt/venter + kundenivå-dekning (fase 3) ----
+    if(d.kundebevegelse&&d.kundebevegelse.rader&&d.kundebevegelse.rader.length){
+      const kb=d.kundebevegelse, dek=kb.dekning||{};
+      const BEV={ny:'Nye',tapt:'Tapte',venter:'Venter'};
+      html+='<h4 style="margin:16px 0 6px;font-size:13px">Ny / tapt / venter (fase 3)</h4>';
+      html+='<div class="table-wrap"><table class="d-tabell" style="min-width:560px"><thead><tr>'
+        +'<th>Konsept</th><th>Bevegelse</th><th style="text-align:right">Excel</th>'
+        +'<th style="text-align:right">App</th><th style="text-align:right">Avvik</th>'
+        +'<th style="text-align:right">Excel-rader uten D-kode</th></tr></thead><tbody>'
+        +kb.rader.map(r=>{
+          // «ny» skal ligge OVER Excel (KundeDatas 2026-hull), «tapt»/«venter» ligger under
+          // fordi kilden mangler kundenivå — begge deler er forklart, ikke logikkfeil.
+          const farge=r.avvik===0?'var(--d-gronn)':(r.bevegelse==='ny'?'var(--d-gul)':'var(--d-roed)');
+          return `<tr><td>${esc(r.konsept)}</td><td>${BEV[r.bevegelse]||esc(r.bevegelse)}</td>`
+            +`<td style="text-align:right">${r.excel_antall}</td>`
+            +`<td style="text-align:right">${r.app_antall}</td>`
+            +`<td style="text-align:right;font-weight:600;color:${farge}">${r.avvik>0?'+':''}${r.avvik}</td>`
+            +`<td style="text-align:right" class="sub">${r.excel_uten_grossistkode||''}</td></tr>`;
+        }).join('')
+        +'</tbody></table></div>';
+      // Dekningen forklarer avvikene — vis den rett under
+      if(dek.per_grossist&&dek.per_grossist.length){
+        const d26=dek.total_dekning_2026,d25=dek.total_dekning_2025;
+        const farge=v=>v==null?'var(--muted)':(v>=99?'var(--d-gronn)':(v>=90?'var(--d-gul)':'var(--d-roed)'));
+        html+=`<p class="sub" style="margin:10px 0 4px"><b>Kundenivå-dekning:</b> `
+          +`<span style="color:${farge(d26)};font-weight:600">${d26==null?'–':d26+' %'}</span> av 2026-omsetningen `
+          +`og <span style="color:${farge(d25)};font-weight:600">${d25==null?'–':d25+' %'}</span> av 2025 `
+          +`kan knyttes til en kundekonto.</p>`;
+        const daarlige=dek.utilstrekkelig||[];
+        if(daarlige.length){
+          const alvorlige=daarlige.filter(g=>g.alvorlig).length;
+          html+=`<p class="sub" style="margin:4px 0">${alvorlige} grossist${alvorlige===1?'':'er'} med <b style="color:var(--d-roed)">alvorlige hull</b> (under 90 %) og ${daarlige.length-alvorlige} med mindre avvik. Viser de ${Math.min(8,daarlige.length)} verste:</p>`;
+          html+='<div class="table-wrap"><table class="d-tabell" style="min-width:460px"><thead><tr>'
+            +'<th>Grossist</th><th style="text-align:right">2026 kundenivå / totalt</th><th style="text-align:right">Dekning</th>'
+            +'<th style="text-align:right">2025 kundenivå / totalt</th><th style="text-align:right">Dekning</th></tr></thead><tbody>'
+            +daarlige.slice(0,8).map(g=>`<tr><td><b>${esc(g.kode)}</b>${g.alvorlig?' <span style="color:var(--d-roed)">⚠</span>':''}</td>`
+              +`<td style="text-align:right">${(g.kundeniva_2026??0).toFixed(1)} / ${(g.grossistniva_2026??0).toFixed(1)}</td>`
+              +`<td style="text-align:right;font-weight:600;color:${farge(g.dekning_2026)}">${g.dekning_2026==null?'–':g.dekning_2026+' %'}</td>`
+              +`<td style="text-align:right">${(g.kundeniva_2025??0).toFixed(1)} / ${(g.grossistniva_2025??0).toFixed(1)}</td>`
+              +`<td style="text-align:right;font-weight:600;color:${farge(g.dekning_2025)}">${g.dekning_2025==null?'–':g.dekning_2025+' %'}</td>`
+              +'</tr>').join('')
+            +'</tbody></table></div>';
+          html+=`<p class="sub" style="margin:4px 0 0">MNOK. Disse grossistene mangler kundekobling i Power BI-modellen — samme rot som D06-saken. Alt som telles per kunde (ny/tapt/venter, tiltakslister, kundekort) er tynnere enn virkeligheten for dem.</p>`;
+        }
+        html+=`<p class="sub" style="margin:4px 0 0">${esc(dek.merknad||'')}</p>`;
+      }
+      if(kb.klar_for_bytte){
+        const k=kb.klar_for_bytte;
+        const status=Object.entries({ny:'Nye',tapt:'Tapte',venter:'Venter'}).map(([n,l])=>
+          `${l}: <b style="color:${k[n]?'var(--d-gronn)':'var(--d-roed)'}">${k[n]?'klar':'blokkert'}</b>`).join(' · ');
+        html+=`<p class="sub" style="margin:6px 0 0">Klar for å overta dashbordets tall (fase 4)? ${status}</p>`;
+      }
+      html+=`<p class="sub" style="margin:4px 0 0">${esc(kb.merknad||'')}</p>`;
+    }
     if(d.kilde){
       const fraGrossistark = d.kilde==='konsept_grossist_uke';
       html+=`<p class="sub" style="margin:8px 0 0">Appens tall er regnet fra <b>${esc(d.kilde)}</b>`
