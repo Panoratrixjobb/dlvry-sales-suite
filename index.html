@@ -4897,6 +4897,10 @@ function renderPrognose(d){
       <div><div class="sub">Estimat helår</div><div style="font-size:34px;font-weight:700;color:var(--d-oransje,#e8590c)">${_pm(t.estimat)}</div><div class="sub">MNOK</div></div>
       <div><div class="sub">Usikkerhetsspenn</div><div style="font-size:18px;font-weight:600">${_pm(t.lav)} – ${_pm(t.hoy)}</div><div class="sub">MNOK</div></div>
     </div>
+    ${t.paabegynt_uke?`<p class="sub" style="margin:0 0 8px;padding:8px 10px;background:var(--d-gul-bg);border-radius:6px">
+      <b>Uke ${d.modell&&d.modell.paabegynt_uke_nr||d.cutoff_uke+1} pågår</b> og er ikke med i «hittil i år» her: ${_pm(t.paabegynt_uke)} MNOK så langt.
+      En påbegynt uke kan ikke måles mot fjorårets hele uke — da ville veksten, og dermed estimatet, blitt kunstig lav.
+      Pengene forsvinner ikke: uka ligger i estimatet som prognose. Dashbordet viser Excel-tallet, som kutter på dato og tar med de påbegynte dagene — derfor er dashbordet ${_pm(t.paabegynt_uke)}+ MNOK høyere enn YTD her.</p>`:''}
     <p class="sub" style="margin:0">${esc(d.merknad||'')}</p>
   </div>`;
 
@@ -4916,7 +4920,8 @@ function renderPrognose(d){
   for(const k of (d.konsepter||[])){
     h+=`<div class="rap-card"><h3>${esc(k.navn)}</h3>
       <div style="display:flex;gap:22px;flex-wrap:wrap;margin-bottom:10px">
-        <div><div class="sub">YTD</div><div style="font-size:18px;font-weight:600">${_pm(k.ytd)}</div></div>
+        <div><div class="sub">YTD (t.o.m. uke ${d.cutoff_uke})</div><div style="font-size:18px;font-weight:600">${_pm(k.ytd)}</div></div>
+        ${k.paabegynt_uke?`<div><div class="sub">+ uke ${d.cutoff_uke+1} så langt</div><div style="font-size:18px;font-weight:600;color:var(--d-tekst-2)">${_pm(k.paabegynt_uke)}</div></div>`:''}
         <div><div class="sub">Estimat</div><div style="font-size:22px;font-weight:700">${_pm(k.estimat)}</div></div>
         <div><div class="sub">Spenn</div><div style="font-size:14px">${_pm(k.lav)} – ${_pm(k.hoy)}</div></div>
         ${k.justering?`<div><div class="sub">Manuell justering</div><div style="font-size:14px;font-weight:600">${(k.justering>0?'+':'')}${_pm(k.justering)}</div></div>`:''}
