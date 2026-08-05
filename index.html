@@ -1036,6 +1036,16 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="pbResultat" style="font-size:13px"></div>
       </div>
 
+      <!-- Fase 4: hvilken kilde hvert dashboard-felt leses fra -->
+      <div class="d-panel" style="margin-top:18px" id="kildePanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Dashboardets kilde (fase 4)</h3>
+          <button class="d-knapp subtil sm" onclick="lastKilder()" id="kildeLastBtn">↻ Last</button>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Bytt ett felt om gangen, og bare når paritetssjekken over er grønn for det feltet. Endringen slår inn umiddelbart og kan rulles tilbake her — ingen ny opplasting eller deploy. Formen på tallene er identisk, så dashbordet ser likt ut; det er kilden som endres.</p>
+        <div id="kildeInnhold" style="font-size:13px"></div>
+      </div>
+
       <!-- Fase 0 formel-migrering: paritet Excel vs appens egne beregninger -->
       <div class="d-panel" style="margin-top:18px" id="paritetPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -4110,6 +4120,46 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
 function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
 
+// ============ Dashboardets kilde per felt (fase 4) ============
+const KILDE_FELT={
+  total_konsepter:['Total + konsepter','KPI-kortene og vekstprosentene øverst'],
+  monthly:['Månedsgraf','søylene og YoY-trenden'],
+  estimat:['Årsestimat','boksen «Sesongvektet årsestimat» — appens tall kommer fra prognosemodellen'],
+  grossister:['Grossist-tabeller','tabellene per konsept i Rapporter'],
+  kundebevegelse:['Ny / tapt / venter','kortene med kundelister'],
+};
+async function lastKilder(){
+  const el=document.getElementById('kildeInnhold');
+  el.textContent='Laster…';
+  try{
+    const d=await api('/api/dashboard-excel/kilder');
+    let html='<table class="d-tabell" style="min-width:520px"><thead><tr><th>Felt</th><th>Vises i</th><th style="text-align:right">Kilde</th><th></th></tr></thead><tbody>';
+    for(const [felt,[navn,hvor]] of Object.entries(KILDE_FELT)){
+      const kilde=(d.kilder||{})[felt]||'excel';
+      const erApp=kilde==='app';
+      html+=`<tr><td><b>${esc(navn)}</b></td><td class="sub">${esc(hvor)}</td>`
+        +`<td style="text-align:right;font-weight:600;color:${erApp?'var(--d-gronn)':'var(--muted)'}">${erApp?'Appen':'Excel'}</td>`
+        +`<td style="text-align:right"><button class="d-knapp ${erApp?'subtil':'primar'} sm" onclick="settKilde('${felt}','${erApp?'excel':'app'}')">`
+        +`${erApp?'Tilbake til Excel':'Bytt til appen'}</button></td></tr>`;
+    }
+    html+='</tbody></table>';
+    const antallApp=Object.values(d.kilder||{}).filter(k=>k==='app').length;
+    html+=`<p class="sub" style="margin:8px 0 0">${antallApp} av ${Object.keys(KILDE_FELT).length} felt leses fra appen.`
+      +(antallApp===Object.keys(KILDE_FELT).length
+        ? ' <b>Alle felt er byttet — masterfila kan pensjoneres.</b>'
+        : ' Masterfila må lastes opp så lenge minst ett felt står på Excel.')+'</p>';
+    el.innerHTML=html;
+  }catch(e){ el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>'; }
+}
+async function settKilde(felt,kilde){
+  const navn=(KILDE_FELT[felt]||[felt])[0];
+  if(!confirm(`Bytte «${navn}» til ${kilde==='app'?'appens egne tall':'Excel'}?\n\nEndringen er synlig for alle med én gang, og kan rulles tilbake her.`))return;
+  try{
+    await api('/api/dashboard-excel/kilder/'+felt+'?kilde='+kilde,{method:'PUT'});
+    await lastKilder();
+  }catch(e){ alert('Kunne ikke bytte: '+e.message); }
+}
+
 // ============ Hent fra Power BI (erstatter kundedata-opplastingen) ============
 // Modell-ID og arbeidsområde fylles fra serveren, så admin bare limer inn tokenet.
 // Serveren har en innebygd standard som App Service-konfigurasjon overstyrer — og
@@ -5635,6 +5685,8 @@ async function showApp(){
   if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
   const powerbiPanel=document.getElementById('powerbiPanel');
   if(powerbiPanel){powerbiPanel.style.display=erAdmin?'':'none'; if(erAdmin)pbFyllStandard();}
+  const kildePanel=document.getElementById('kildePanel');
+  if(kildePanel){kildePanel.style.display=erAdmin?'':'none'; if(erAdmin)lastKilder();}
   const formelkonfigPanel=document.getElementById('formelkonfigPanel');
   if(formelkonfigPanel)formelkonfigPanel.style.display=erAdmin?'':'none';
   const leadsImportPanel=document.getElementById('leadsImportPanel');
