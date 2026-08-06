@@ -1763,26 +1763,15 @@ function renderAnalyse(){
   // ---- Vekst per konsept + estimat ----
   const g=document.getElementById('anGrowth');
   const maxg=Math.max(...konseptKpis.map(k=>Math.abs(k.pct)),0.05);
-  // Kanal-split: grossistenes videresalg vs. importselskapenes direktesalg. Uten den ser
-  // grossistene svakere ut enn de er — La Salumeria samlet +2,1 %, grossistene +4,6 %.
-  // Vises bare på full YTD; vekstbarene interpoleres på uke, kanaltallene gjør ikke det,
-  // og da ville de to ikke stemt overens.
-  const kanalFor={};(D.konsepter||[]).forEach(k=>{if(k.kanaler)kanalFor[k.navn]=k.kanaler;});
-  const visKanal=s.week>=D.cutoff_uke;
-  const pct1=v=>(v==null?'–':(v>=0?'+':'')+(v*100).toFixed(1).replace('.',',')+' %');
   g.innerHTML=konseptKpis.map(k=>{
     const w=Math.abs(k.pct)/maxg*50;const up=k.pct>=0;const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
-    const kn=visKanal?kanalFor[k.navn]:null;
-    const harDirekte=kn&&kn.direkte&&(kn.direkte.y2025>0.05||kn.direkte.y2026>0.05);
     return `<div class="growth-row" style="opacity:${dimmed?0.45:1}">
       <span class="gr-name">${k.navn}</span>
       <div class="gr-track"><div class="gr-zero"></div>
         <div class="gr-bar" style="${up?'left:50%':'right:50%'};width:${w}%;background:${up?'var(--green)':'var(--red)'}"></div></div>
       <span class="gr-val">${growthTag(k.pct)}</span>
-    </div>${harDirekte?`<div style="font-size:11px;color:var(--d-tekst-3);margin:-6px 0 8px 2px;opacity:${dimmed?0.45:1}"
-      title="Grossistenes videresalg og importselskapenes (Wulff/Foodbroker) direktesalg til sluttkunder er to ulike forretninger. YTD t.o.m. uke ${D.cutoff_uke}.">
-      grossister <b style="color:${kn.grossist.vekst>=0?'var(--green)':'var(--red)'}">${pct1(kn.grossist.vekst)}</b>
-      · direktesalg <b style="color:${kn.direkte.vekst>=0?'var(--green)':'var(--red)'}">${pct1(kn.direkte.vekst)}</b></div>`:''}`;}).join('');
+    </div>`;}).join('');
+  renderImporthus(D);
   const estimatSubjekt=D.estimat.find(e=>e.navn===(isAll?'Total ekstern':AN_NAVN_FOR_KEY[s.concept]));
   document.getElementById('anEstimat').innerHTML=estimatSubjekt?
     `<div class="est-line"><span>Sesongvektet årsestimat 2026${isAll?'':' — '+estimatSubjekt.navn}</span><b>${estimatSubjekt.estimat_2026.toLocaleString('nb-NO')} MNOK</b></div>` : '';
@@ -1815,6 +1804,57 @@ function renderAnalyse(){
 
   document.getElementById('dashCrumb').textContent=`YTD uke 1–${s.week} · 2026 vs 2025 (pære-mot-pære)`;
   document.getElementById('anSource').textContent='Kilde: '+(D.meta.kilde||'')+(D.meta.oppdatert?' · oppdatert '+D.meta.oppdatert:'');
+}
+
+// Importhuset (Foodbroker) er bevisst holdt UTENFOR konsepttallene: det importerer varer de
+// andre grossistene selger, og 85–88 % av omsetningen er internfakturering. Blandes det inn,
+// bedømmes grossistene for importhusets utvikling. Men da må det vises et sted — ellers er
+// ~77 MNOK borte fra dashbordet uten spor. Kortet tegnes bare når backend sender data
+// (dvs. når konsern-bryteren er på); ellers fjernes det helt.
+function renderImporthus(D){
+  let boks=document.getElementById('anImporthus');
+  const d=D.importhus;
+  if(!d){ if(boks)boks.remove(); return; }
+  if(!boks){
+    boks=document.createElement('div');
+    boks.id='anImporthus';boks.className='d-panel';boks.style.marginTop='18px';
+    const etter=document.getElementById('anGrowth');
+    const vert=etter?etter.closest('.d-panel'):null;
+    (vert&&vert.parentNode)?vert.parentNode.insertBefore(boks,vert.nextSibling):document.body.appendChild(boks);
+  }
+  const pct=v=>(v==null?'–':(v>=0?'+':'')+(v*100).toFixed(1).replace('.',',')+' %');
+  const far=v=>(v==null?'var(--d-tekst-3)':(v>=0?'var(--green)':'var(--red)'));
+  const sum=d.sum;
+  const tot25=sum.intern.y2025+sum.ekstern.y2025, tot26=sum.intern.y2026+sum.ekstern.y2026;
+  let h=`<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+      <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--d-tekst)">${esc(d.navn)} — importhuset</h3>
+      <span class="sub" style="font-size:11.5px">YTD t.o.m. uke ${d.til_og_med_uke} · MNOK</span></div>
+    <p class="sub" style="margin:0 0 14px;font-size:11.5px">Importerer varer de andre grossistene selger. Holdes utenfor konsept- og totaltallene, fordi ${d.internandel_2026!=null?Math.round(d.internandel_2026*100)+' %':'det meste'} av omsetningen er internfakturering — den er ikke solgt ut av konsernet ennå. Kjøttimporten som er flyttet hit fra Wulff telles i Wulff &amp; Co-konseptet, ikke her.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px">
+      <div><div style="font-size:11.5px;color:var(--d-tekst-3)">Internfakturering</div>
+        <div style="font-size:19px;font-weight:700;margin-top:3px">${mnok(sum.intern.y2026)}</div>
+        <div style="font-size:11.5px;color:${far(sum.intern.vekst)}">${pct(sum.intern.vekst)} mot ${mnok(sum.intern.y2025)}</div></div>
+      <div><div style="font-size:11.5px;color:var(--d-tekst-3)">Eksternt salg</div>
+        <div style="font-size:19px;font-weight:700;margin-top:3px">${mnok(sum.ekstern.y2026)}</div>
+        <div style="font-size:11.5px;color:${far(sum.ekstern.vekst)}">${pct(sum.ekstern.vekst)} mot ${mnok(sum.ekstern.y2025)}</div></div>
+      <div><div style="font-size:11.5px;color:var(--d-tekst-3)">Samlet omsetning</div>
+        <div style="font-size:19px;font-weight:700;margin-top:3px">${mnok(tot26)}</div>
+        <div style="font-size:11.5px;color:var(--d-tekst-3)">mot ${mnok(tot25)} i fjor</div></div>
+    </div>`;
+  if((d.konsepter||[]).length){
+    h+=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:12.5px;width:100%;min-width:420px">
+      <thead><tr>${['Konsept','Internfakt. 2026','vekst','Eksternt 2026','vekst']
+        .map((x,i)=>`<th style="text-align:${i?'right':'left'};padding:4px 10px 4px 0;color:var(--muted);font-weight:500">${x}</th>`).join('')}</tr></thead><tbody>`;
+    for(const k of d.konsepter){
+      h+=`<tr><td style="padding:3px 10px 3px 0">${esc(k.navn)}</td>
+        <td style="padding:3px 10px 3px 0;text-align:right">${mnok(k.intern.y2026)}</td>
+        <td style="padding:3px 10px 3px 0;text-align:right;color:${far(k.intern.vekst)}">${pct(k.intern.vekst)}</td>
+        <td style="padding:3px 10px 3px 0;text-align:right">${mnok(k.ekstern.y2026)}</td>
+        <td style="padding:3px 10px 3px 0;text-align:right;color:${far(k.ekstern.vekst)}">${pct(k.ekstern.vekst)}</td></tr>`;
+    }
+    h+='</tbody></table></div>';
+  }
+  boks.innerHTML=h;
 }
 
 function anDrawMonthlyChart(D,s){
