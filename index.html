@@ -1059,7 +1059,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Fase 1 formel-migrering: konfigurasjon (intern-regler, sesongvekter, uke→måned) -->
       <div class="d-panel" style="margin-top:18px" id="formelkonfigPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Formel-konfig (fase 1)</h3>
+          <h3 style="margin:0;font-size:14px;font-weight:600">Formel-konfig</h3>
           <button class="d-knapp subtil sm" onclick="lastFormelkonfig()" id="fkLastBtn">↻ Last konfig</button>
         </div>
         <p class="sub" style="margin:0">Konfigurasjonen appen trenger for å overta Excel-formlene (MIGRERINGSPLAN fase 1): intern-regler (hvilken omsetning som holdes utenfor «Total ekstern» — brukes av paritetssjekken over) og uke→måned-kalenderen som månedsgrafen i fase 2 regnes fra. Sesongvektene er beholdt, men ikke lenger nødvendige: årsestimatet kommer fra prognosemodellen.</p>
@@ -1888,11 +1888,15 @@ function anRenderGrossistTabell(D,s,kilde){
   document.getElementById('anGrossistTabell').innerHTML=kilde.length?kilde.slice(0,visAntall).map(g=>{
     const growth=g.y2025?(g.y2026-g.y2025)/g.y2025:0;
     const nokkel=g.kode||g.navn;const selected=s.grossist===nokkel;
+    // Har omsetning byttet selskap, er vekstprosenten her ikke vekst. Vi skjuler den ikke
+    // — tallet er riktig for selskapet — men merker den så den ikke leses som utvikling.
+    const flyttet=g.flyttet_merknad||'';
     return `<div class="an-grossist-row${selected?' aktiv':''}" onclick="setAnalyseGrossist('${s.grossist===nokkel?'':escJsAttr(nokkel)}')">
       <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px">
-        <span style="font-weight:${selected?700:500}">${esc(g.navn)}</span>
-        <span style="display:flex;gap:10px"><b>${mnok(g.y2026)}</b><span style="color:${growth>=0?'var(--green)':'var(--red)'};min-width:52px;text-align:right">${(growth>=0?'+':'')+(growth*100).toFixed(0)} %</span></span>
+        <span style="font-weight:${selected?700:500}">${esc(g.navn)}${flyttet?` <span title="${esc(flyttet)}" style="color:var(--d-tekst-3);font-weight:400;cursor:help">⚠ flyttet</span>`:''}</span>
+        <span style="display:flex;gap:10px"><b>${mnok(g.y2026)}</b><span style="color:${flyttet?'var(--d-tekst-3)':(growth>=0?'var(--green)':'var(--red)')};min-width:52px;text-align:right">${(growth>=0?'+':'')+(growth*100).toFixed(0)} %</span></span>
       </div>
+      ${flyttet?`<div style="font-size:11px;color:var(--d-tekst-3);margin:-2px 0 5px">${esc(flyttet)}</div>`:''}
       <div class="bl-track"><div class="bl-bar" style="width:${Math.max(3,g.y2026/maxV*100)}%;background:${isAll?'#3b5bdb':(D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===s.concept)||{}).farge||'#3b5bdb'}"></div></div>
     </div>`;
   }).join('') : '<div style="text-align:center;padding:24px 10px;color:var(--d-tekst-3);font-size:13px">Ingen grossistdata for valgt konsept.</div>';
@@ -4548,6 +4552,57 @@ function renderFormelkonfig(){
     +'<input id="fkNyKommentar" class="d-input" style="width:260px" placeholder="Kommentar">'
     +'<button class="d-knapp primar sm" onclick="leggTilInternRegel()">+ Legg til</button>'
     +'<span id="fkInternStatus" class="sub"></span></div>';
+  // — Konsernintern omsetning og flyttet omsetning —
+  const br=d.brytere||{};
+  html+='<h4 style="margin:16px 0 6px;font-size:13px">Konsernintern og flyttet omsetning</h4>';
+  html+='<p class="sub" style="margin:0 0 8px">Importvirksomheten (utenlandsk kjøtt) lå på <b>D06 Wulff &amp; Co</b> t.o.m. 31.12.2025 og ble flyttet til <b>D24 Foodbroker</b> 01.01.2026. Uten korreksjon ser Foodbroker ut som stor vekst og Wulff som stort tap — ingen av delene er ekte. To brytere retter det, begge <b>av</b> som standard:</p>';
+  html+='<ul class="sub" style="margin:0 0 8px 18px;padding:0">'
+    +'<li><b>Konsernintern på kundenivå</b> — et salg er internt når kunden er et annet DLVRY-selskap (org.nr-oppslag), i stedet for dagens «hele D24 er intern». Fanger at Foodbroker også selger ekte eksternt, og hindrer at varen dobbelttelles Foodbroker → Wulff → sluttkunde. Tvinger kilden til kundenivå-tabellen.</li>'
+    +'<li><b>Flyttet omsetning</b> — attribuerer omsetningen tilbake til selskapet den tilhører i grossist-tabellene og prognosen. Konsept-totalene er upåvirket.</li></ul>';
+  html+='<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:8px">'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="fkBryterKonsern"'+(br.konsernintern?' checked':'')+' onchange="settBryter(\'konsernintern\',this.checked)"> Konsernintern på kundenivå</label>'
+    +'<label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="fkBryterFlytting"'+(br.omsetning_flytting?' checked':'')+' onchange="settBryter(\'omsetning_flytting\',this.checked)"> Flyttet omsetning</label>'
+    +'<button class="d-knapp subtil sm" onclick="visKonsernEffekt()">Vis effekt før du skrur på</button>'
+    +'<span id="fkBryterStatus" class="sub"></span></div>';
+  html+='<div id="fkKonsernEffekt" style="margin-bottom:10px"></div>';
+  // Flytteregler
+  html+='<div style="font-size:12.5px;margin-bottom:4px"><b>Flytteregler</b></div>';
+  if((d.flyttinger||[]).length){
+    html+='<table style="border-collapse:collapse;font-size:12.5px;margin-bottom:6px">'
+      +'<thead><tr>'+['Tilhører','Bokføres på','Konsept','Gjelder fra','Kommentar',''].map(h=>'<th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted)">'+h+'</th>').join('')+'</tr></thead><tbody>'
+      +d.flyttinger.map(r=>'<tr>'
+        +'<td style="padding:3px 10px 3px 0;font-weight:600">'+esc(r.fra_grossist)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+esc(r.til_grossist)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+(r.konsept?esc(r.konsept):'<i>alle</i>')+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+r.fra_ar+' uke '+r.fra_uke+'</td>'
+        +'<td style="padding:3px 10px 3px 0;color:var(--muted);max-width:320px">'+esc(r.kommentar)+'</td>'
+        +'<td><button class="d-knapp subtil sm" onclick="slettFlytting(\''+esc(r.id)+'\')">Fjern</button></td>'
+        +'</tr>').join('')+'</tbody></table>';
+  }else{ html+='<p class="sub" style="margin:0 0 6px">Ingen flytteregler.</p>'; }
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">'
+    +'<input id="fkFlyttFra" class="d-input" style="width:80px" placeholder="Tilhører">'
+    +'<input id="fkFlyttTil" class="d-input" style="width:90px" placeholder="Bokføres på">'
+    +'<input id="fkFlyttKonsept" class="d-input" style="width:120px" placeholder="Konsept (tom=alle)">'
+    +'<input id="fkFlyttAr" class="d-input" type="number" style="width:80px" placeholder="År">'
+    +'<input id="fkFlyttUke" class="d-input" type="number" style="width:70px" placeholder="Uke" value="1">'
+    +'<input id="fkFlyttKommentar" class="d-input" style="width:240px" placeholder="Kommentar">'
+    +'<button class="d-knapp primar sm" onclick="leggTilFlytting()">+ Legg til</button>'
+    +'<span id="fkFlyttStatus" class="sub"></span></div>';
+  // Konsernselskaper
+  const ks=d.konsern_selskap||[];
+  const aktive=ks.filter(x=>x.aktiv).length;
+  html+='<details style="margin-bottom:16px"><summary style="cursor:pointer;font-size:12.5px"><b>Konsernselskaper</b> <span class="sub">— '+aktive+' aktive org.nr. Salg til disse regnes som konserninternt.</span></summary>';
+  html+='<p class="sub" style="margin:6px 0">Mangler et selskap her, telles salg til det som eksternt og varen blir dobbelttalt mot sluttsalget. Filialkontoer trenger ikke egen rad — de bærer morselskapets org.nr.</p>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
+    +ks.map(r=>'<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:12px'+(r.aktiv?'':';opacity:.45')+'">'
+      +'<b>'+esc(r.orgnr)+'</b> '+esc(r.navn)
+      +(r.aktiv?'<button class="d-knapp subtil sm" style="padding:0 5px" title="Deaktiver" onclick="deaktiverKonsern(\''+esc(r.orgnr)+'\')">×</button>':'<i class="sub">av</i>')
+      +'</span>').join('')+'</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<input id="fkKonsernOrgnr" class="d-input" style="width:120px" placeholder="Org.nr (9 siffer)">'
+    +'<input id="fkKonsernNavn" class="d-input" style="width:220px" placeholder="Selskapsnavn">'
+    +'<button class="d-knapp primar sm" onclick="leggTilKonsern()">+ Legg til</button>'
+    +'<span id="fkKonsernStatus" class="sub"></span></div></details>';
   // — Låste (avsluttede) perioder —
   html+='<h4 style="margin:0 0 6px;font-size:13px">Låste perioder</h4>';
   html+='<p class="sub" style="margin:0 0 8px">Avsluttede perioder lastes opp én gang og røres ikke etterpå: opplastingen hopper over disse ukene, så pivotfila kan begrense seg til inneværende periode (mindre fil, raskere opplasting) — og en feilrefresh i Excel kan ikke ødelegge verifisert historikk. 53 = hele året låst. Tom = ingen lås.</p>';
@@ -4631,6 +4686,102 @@ async function slettInternRegel(id){
     await api('/api/formelkonfig/intern/'+id,{method:'DELETE'});
     await lastFormelkonfig();
   }catch(e){alert('Feil: '+e.message);}
+}
+async function settBryter(navn,paa){
+  const st=document.getElementById('fkBryterStatus');
+  st.textContent='Lagrer…';
+  try{
+    await api('/api/formelkonfig/bryter/'+encodeURIComponent(navn)+'?paa='+(paa?'true':'false'),{method:'PUT'});
+    st.textContent=paa?'Påskrudd — dashbordet regner om ved neste visning.':'Skrudd av.';
+    await lastFormelkonfig();
+  }catch(e){
+    st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';
+    await lastFormelkonfig();
+  }
+}
+async function visKonsernEffekt(){
+  const el=document.getElementById('fkKonsernEffekt');
+  el.textContent='Regner…';
+  try{
+    const d=await api('/api/formelkonfig/konsern/effekt');
+    const kr=n=>(n==null?'–':n.toFixed(1));
+    const pst=n=>(n==null?'–':(n>0?'+':'')+n.toFixed(1)+' %');
+    let h='<div style="border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12.5px">';
+    h+='<div class="sub" style="margin-bottom:8px">Pære-mot-pære t.o.m. uke '+d.til_og_med_uke+', MNOK. «Før» er dagens regel, «etter» er med konsernintern på kundenivå.</div>';
+    h+='<table style="border-collapse:collapse;width:100%;margin-bottom:10px"><thead><tr>'
+      +['Konsept','2025 før','2026 før','vekst før','2025 etter','2026 etter','vekst etter'].map(x=>'<th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted);font-weight:500">'+x+'</th>').join('')
+      +'</tr></thead><tbody>';
+    for(const r of d.konsepter){
+      const tot=r.konsept==='Total ekstern';
+      h+='<tr style="'+(tot?'border-top:1px solid var(--line);font-weight:700':'')+'">'
+        +'<td style="padding:3px 10px 3px 0">'+esc(r.konsept)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+kr(r['for'].y2025)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+kr(r['for'].y2026)+'</td>'
+        +'<td style="padding:3px 10px 3px 0;color:'+((r.vekst_for||0)<0?'var(--d-roed)':'var(--d-gronn)')+'">'+pst(r.vekst_for)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+kr(r.etter.y2025)+'</td>'
+        +'<td style="padding:3px 10px 3px 0">'+kr(r.etter.y2026)+'</td>'
+        +'<td style="padding:3px 10px 3px 0;color:'+((r.vekst_etter||0)<0?'var(--d-roed)':'var(--d-gronn)')+'">'+pst(r.vekst_etter)+'</td>'
+        +'</tr>';
+    }
+    h+='</tbody></table>';
+    if((d.flyttet||[]).length){
+      h+='<div style="margin-bottom:4px"><b>Flyttet omsetning som attribueres</b></div><ul style="margin:0 0 10px 18px;padding:0">';
+      for(const f of d.flyttet){
+        h+='<li>'+esc(f.til_grossist)+' → tilhører '+esc(f.fra_grossist)
+          +(f.konsept?' ('+esc(f.konsept)+')':'')+', fra '+esc(f.fra)+': '
+          +'<b>'+kr(f.y2026)+' MNOK</b> i 2026'+(f.y2025?' / '+kr(f.y2025)+' i 2025':'')+'</li>';
+      }
+      h+='</ul>';
+    }
+    h+='<details><summary style="cursor:pointer"><b>Konsernkunder som elimineres</b> — '
+      +d.konsernkunder.length+' kundekontoer, '+kr(d.konsernkunder_sum.y2025)+' MNOK i 2025 og '
+      +kr(d.konsernkunder_sum.y2026)+' i 2026. <span class="sub">Gå gjennom lista: er én av dem en ekte ekstern kunde, hører den ikke hjemme her.</span></summary>';
+    h+='<table style="border-collapse:collapse;margin-top:6px"><thead><tr>'
+      +['Org.nr','Selskap','Solgt av','2025','2026'].map(x=>'<th style="text-align:left;padding:3px 10px 3px 0;color:var(--muted);font-weight:500">'+x+'</th>').join('')
+      +'</tr></thead><tbody>';
+    for(const k of d.konsernkunder){
+      h+='<tr><td style="padding:2px 10px 2px 0">'+esc(k.orgnr)+'</td>'
+        +'<td style="padding:2px 10px 2px 0">'+esc(k.navn)+'</td>'
+        +'<td style="padding:2px 10px 2px 0;color:var(--muted)">'+esc(k.grossist||'')+'</td>'
+        +'<td style="padding:2px 10px 2px 0">'+kr(k.y2025)+'</td>'
+        +'<td style="padding:2px 10px 2px 0">'+kr(k.y2026)+'</td></tr>';
+    }
+    h+='</tbody></table></details></div>';
+    el.innerHTML=h;
+  }catch(e){el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';}
+}
+async function leggTilFlytting(){
+  const st=document.getElementById('fkFlyttStatus');
+  const v=id=>document.getElementById(id).value.trim();
+  const ar=parseInt(v('fkFlyttAr'),10), uke=parseInt(v('fkFlyttUke'),10)||1;
+  if(!v('fkFlyttFra')||!v('fkFlyttTil')||!ar){st.textContent='Fyll ut tilhører, bokføres på og år.';return;}
+  try{
+    await api('/api/formelkonfig/flytting',{method:'POST',body:{
+      fra_grossist:v('fkFlyttFra'),til_grossist:v('fkFlyttTil'),
+      konsept:v('fkFlyttKonsept')||null,fra_ar:ar,fra_uke:uke,
+      kommentar:v('fkFlyttKommentar')||null}});
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
+}
+async function slettFlytting(id){
+  if(!confirm('Fjerne flytteregelen? Omsetningen attribueres da til selskapet som faktisk bokfører den.'))return;
+  try{ await api('/api/formelkonfig/flytting/'+id,{method:'DELETE'}); await lastFormelkonfig(); }
+  catch(e){alert('Feil: '+e.message);}
+}
+async function leggTilKonsern(){
+  const st=document.getElementById('fkKonsernStatus');
+  const orgnr=document.getElementById('fkKonsernOrgnr').value.trim();
+  const navn=document.getElementById('fkKonsernNavn').value.trim();
+  if(!orgnr||!navn){st.textContent='Oppgi både org.nr og navn.';return;}
+  try{
+    await api('/api/formelkonfig/konsern',{method:'POST',body:{orgnr:orgnr,navn:navn}});
+    await lastFormelkonfig();
+  }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
+}
+async function deaktiverKonsern(orgnr){
+  if(!confirm('Deaktivere '+orgnr+'? Salg til dette org.nummeret telles da som eksternt.'))return;
+  try{ await api('/api/formelkonfig/konsern/'+orgnr,{method:'DELETE'}); await lastFormelkonfig(); }
+  catch(e){alert('Feil: '+e.message);}
 }
 async function lagrePeriodeLaas(){
   const st=document.getElementById('fkLaasStatus');
