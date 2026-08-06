@@ -1763,14 +1763,26 @@ function renderAnalyse(){
   // ---- Vekst per konsept + estimat ----
   const g=document.getElementById('anGrowth');
   const maxg=Math.max(...konseptKpis.map(k=>Math.abs(k.pct)),0.05);
+  // Kanal-split: grossistenes videresalg vs. importselskapenes direktesalg. Uten den ser
+  // grossistene svakere ut enn de er — La Salumeria samlet +2,1 %, grossistene +4,6 %.
+  // Vises bare på full YTD; vekstbarene interpoleres på uke, kanaltallene gjør ikke det,
+  // og da ville de to ikke stemt overens.
+  const kanalFor={};(D.konsepter||[]).forEach(k=>{if(k.kanaler)kanalFor[k.navn]=k.kanaler;});
+  const visKanal=s.week>=D.cutoff_uke;
+  const pct1=v=>(v==null?'–':(v>=0?'+':'')+(v*100).toFixed(1).replace('.',',')+' %');
   g.innerHTML=konseptKpis.map(k=>{
     const w=Math.abs(k.pct)/maxg*50;const up=k.pct>=0;const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
+    const kn=visKanal?kanalFor[k.navn]:null;
+    const harDirekte=kn&&kn.direkte&&(kn.direkte.y2025>0.05||kn.direkte.y2026>0.05);
     return `<div class="growth-row" style="opacity:${dimmed?0.45:1}">
       <span class="gr-name">${k.navn}</span>
       <div class="gr-track"><div class="gr-zero"></div>
         <div class="gr-bar" style="${up?'left:50%':'right:50%'};width:${w}%;background:${up?'var(--green)':'var(--red)'}"></div></div>
       <span class="gr-val">${growthTag(k.pct)}</span>
-    </div>`;}).join('');
+    </div>${harDirekte?`<div style="font-size:11px;color:var(--d-tekst-3);margin:-6px 0 8px 2px;opacity:${dimmed?0.45:1}"
+      title="Grossistenes videresalg og importselskapenes (Wulff/Foodbroker) direktesalg til sluttkunder er to ulike forretninger. YTD t.o.m. uke ${D.cutoff_uke}.">
+      grossister <b style="color:${kn.grossist.vekst>=0?'var(--green)':'var(--red)'}">${pct1(kn.grossist.vekst)}</b>
+      · direktesalg <b style="color:${kn.direkte.vekst>=0?'var(--green)':'var(--red)'}">${pct1(kn.direkte.vekst)}</b></div>`:''}`;}).join('');
   const estimatSubjekt=D.estimat.find(e=>e.navn===(isAll?'Total ekstern':AN_NAVN_FOR_KEY[s.concept]));
   document.getElementById('anEstimat').innerHTML=estimatSubjekt?
     `<div class="est-line"><span>Sesongvektet årsestimat 2026${isAll?'':' — '+estimatSubjekt.navn}</span><b>${estimatSubjekt.estimat_2026.toLocaleString('nb-NO')} MNOK</b></div>` : '';
