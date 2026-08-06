@@ -1595,7 +1595,12 @@ function normalizeDash(d){
     toppkunder:d.toppkunder||f.toppkunder,
     toppvinnere:d.toppvinnere||f.toppvinnere,
     regionrapport:d.regionrapport||null,
-    fikstotal:d.fikstotal||null
+    fikstotal:d.fikstotal||null,
+    // Importhuset (Foodbroker) — sendes bare når konsern-bryteren er på. MÅ stå her:
+    // normalizeDash returnerer et eksplisitt objekt, så et felt som ikke nevnes blir
+    // stille kastet selv om backend sender det. Det var grunnen til at kortet aldri
+    // dukket opp, mens tallene ellers var oppdatert.
+    importhus:d.importhus||null
   };
 }
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
@@ -1817,7 +1822,10 @@ function renderImporthus(D){
   if(!d){ if(boks)boks.remove(); return; }
   if(!boks){
     boks=document.createElement('div');
-    boks.id='anImporthus';boks.className='d-panel';boks.style.marginTop='18px';
+    boks.id='anImporthus';boks.className='d-panel';
+    // Settes inn i et grid (dash-row2) — uten gridColumn havner kortet i venstre kolonne
+    // med tomrom ved siden av. Tabellen trenger hele bredden.
+    boks.style.marginTop='18px';boks.style.gridColumn='1 / -1';
     const etter=document.getElementById('anGrowth');
     const vert=etter?etter.closest('.d-panel'):null;
     (vert&&vert.parentNode)?vert.parentNode.insertBefore(boks,vert.nextSibling):document.body.appendChild(boks);
