@@ -633,6 +633,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
               <div class="kpi-line"><span class="lbl">Total omsetning</span><span class="val" id="kpiOms">0 kr</span></div>
               <div class="kpi-line"><span class="lbl">Total margin (NOK)</span><span class="val" id="kpiMargNok">0 kr</span></div>
               <div class="kpi-line"><span class="lbl">Total margin (%)</span><span class="val big" id="kpiMargPct">0,0 %</span></div>
+              <!-- Realisert DG fra Consolidated Model: hva de samme varene FAKTISK har
+                   gitt i markedet i år, mot det kalkylen regner ut. -->
+              <div class="kpi-line"><span class="lbl">Faktisk DG i markedet <span class="d-sub" id="kpiMarkedDekning"></span></span><span class="val" id="kpiMarked">–</span></div>
             </div>
             <div class="status-wrap">
               <div class="donut">
@@ -1206,6 +1209,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
         <button class="rap-pill" data-raptab="prognose" onclick="setRapTab('prognose')">Prognose (årsestimat)</button>
         <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
+        <button class="rap-pill" data-raptab="produkt" onclick="setRapTab('produkt')">Produktmargin</button>
       </div>
 
       <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
@@ -2433,6 +2437,44 @@ function velgBytteProd(i,q){
 }
 
 // ============ Render ============
+// ===== Realisert margin fra Consolidated Model, vist i kalkylen =====
+// Kalkylen regner margin av listepris og grossistkost — det er den TEORETISKE marginen på
+// tilbudet. Her hentes hva de samme varene faktisk har gitt i markedet i år, per varenummer,
+// slik at avviket er synlig mens prisen settes og ikke først i et kvartalsmøte.
+const MARKED={data:{},nokkel:null,henter:false,ar:null};
+
+function markedCelle(x){
+  const m=MARKED.data[String(x.l.art||'')];
+  if(!m)return '';
+  const kalk=x.oms>0?((x.dlvryMargin-x.bonusKr)/x.oms)*100:null;
+  // Fargen sier om vi priser OVER eller UNDER det varen faktisk gir i markedet — det er
+  // spørsmålet selgeren har. Grått når vi ikke har en kalkulert margin å måle mot.
+  const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'#2f9e63':'#B45309');
+  const trend=(m.dg_pct_ifjor!=null&&Math.abs(m.dg_pct-m.dg_pct_ifjor)>=0.5)
+    ? ` <span title="I fjor ${m.dg_pct_ifjor.toLocaleString('nb-NO')} %">${m.dg_pct>m.dg_pct_ifjor?'↑':'↓'}</span>` : '';
+  return `<div style="font-size:10px;font-weight:500;color:${farge}" title="Faktisk dekningsgrad i markedet ${MARKED.ar}${m.margin_usikker?' — én av grossistene rapporterer ikke varekost, tallet er for høyt':''}">`
+    +`marked ${m.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %${trend}${m.margin_usikker?' ⚠':''}</div>`;
+}
+
+async function sikreMarkedsmargin(){
+  // Nøkkelen er varenumrene i kurven. Uendret kurv → ingen ny henting, og render() kan
+  // derfor kalle denne fritt uten å sette i gang en løkke.
+  const numre=[...new Set(state.cart.map(l=>String(l.art||'').trim()).filter(Boolean))];
+  const nokkel=numre.join(',');
+  if(nokkel===MARKED.nokkel||MARKED.henter)return;
+  if(!numre.length){MARKED.nokkel=nokkel;MARKED.data={};return;}
+  MARKED.henter=true;
+  try{
+    const d=await api('/api/produkt-margin/oppslag',{method:'POST',body:{varenumre:numre}});
+    MARKED.data=d.treff||{};MARKED.ar=d.ar;
+  }catch(e){
+    // Ingen margindata hentet ennå, eller ingen tilgang — kalkylen skal virke uansett.
+    MARKED.data={};
+  }finally{
+    MARKED.nokkel=nokkel;MARKED.henter=false;render();
+  }
+}
+
 function render(){
   const r=compute();
   const tb=document.getElementById('cartBody');tb.innerHTML='';
@@ -2459,7 +2501,7 @@ function render(){
       <td style="text-align:center">${konfCelle}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
-      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}" style="font-size:11.5px">${x.oms>0?fmtPct((x.dlvryMargin-x.bonusKr)/x.oms):'—'}</td>
+      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}" style="font-size:11.5px">${x.oms>0?fmtPct((x.dlvryMargin-x.bonusKr)/x.oms):'—'}${markedCelle(x)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
@@ -2510,7 +2552,29 @@ function render(){
   document.getElementById('nkBreakeven').textContent=enhetMargin>0?fmtNum(r.sumKost/enhetMargin):'–';
   document.getElementById('nkEnheter').textContent=fmtNum(r.sumEnh);
 
+  // Vektet med VÅR linjeomsetning, ikke et snitt av prosenter: en stor linje skal telle
+  // mer enn en liten, ellers gir tre bagatellvarer samme utslag som hovedproduktet.
+  let mOms=0,mVektet=0,mTreff=0;
+  r.lines.forEach(x=>{
+    const m=MARKED.data[String(x.l.art||'')];
+    if(!m||!(x.oms>0))return;
+    mOms+=x.oms;mVektet+=x.oms*m.dg_pct;mTreff++;
+  });
+  const kpiM=document.getElementById('kpiMarked'),kpiD=document.getElementById('kpiMarkedDekning');
+  if(kpiM){
+    if(mOms>0){
+      const snitt=mVektet/mOms;
+      kpiM.textContent=snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
+      kpiM.style.color=r.totMarginPct*100>=snitt?'#2f9e63':'#B45309';
+      kpiD.textContent='('+mTreff+' av '+r.lines.length+' linjer)';
+    }else{
+      kpiM.textContent='–';kpiM.style.color='';
+      kpiD.textContent=r.lines.length?'(ingen av linjene finnes i salgsdataene)':'';
+    }
+  }
+
   renderVerdikjede(r);renderSpark(r.totMarginPct);
+  sikreMarkedsmargin();
 }
 function upd(i,f,v){
   if(f==='antall')state.cart[i].antall=Math.max(0,parseFloat(v)||0);
@@ -5438,6 +5502,87 @@ function setRapTab(tab){
   document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===tab));
   renderRapporter();
 }
+// ===== Produktmargin (Consolidated Model) =====
+// Den eneste rapporten i appen som svarer på «hvor tjener vi faktisk penger, per vare».
+// Alt annet her er omsetning; dette er dekningsbidrag.
+const PM_KONSEPT=[['','Alle konsepter'],['la_salumeria','La Salumeria'],['east_essence','East Essence'],
+  ['godt_lokalt','Godt Lokalt'],['wulff_co','Wulff & Co'],['fast_food','Fast Food'],['sabor','Sabor']];
+const pmState={ar:new Date().getFullYear(),konsept:'',sorter:'omsetning',sok:''};
+
+function pmSett(felt,verdi){pmState[felt]=felt==='ar'?parseInt(verdi,10):verdi;lastRapProdukt();}
+
+function renderRapProduktSkall(){
+  const iAr=new Date().getFullYear();
+  const aarValg=[iAr,iAr-1,iAr-2].map(a=>`<option value="${a}" ${a===pmState.ar?'selected':''}>${a}</option>`).join('');
+  return `<div class="d-panel">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+      <h3 style="margin:0;font-size:15px;font-weight:600">Produktmargin</h3>
+      <span class="d-sub">Realisert dekningsgrad per vare, mot ${pmState.ar-1}</span>
+    </div>
+    <p class="d-sub" style="margin:0 0 12px">Tallene er hentet fra Consolidated Model — omsetning og varekost slik grossistene faktisk har rapportert dem. Dette er ikke kalkylens margin, men den vi endte opp med.</p>
+    <div class="rap-subrow rap-noprint" style="margin:0 0 12px">
+      ${PM_KONSEPT.map(([k,n])=>`<button class="rap-pill small ${k===pmState.konsept?'aktiv':''}" onclick="pmSett('konsept','${k}')">${n}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px" class="rap-noprint">
+      <select class="d-input" style="width:110px" onchange="pmSett('ar',this.value)">${aarValg}</select>
+      <select class="d-input" style="width:230px" onchange="pmSett('sorter',this.value)">
+        <option value="omsetning" ${pmState.sorter==='omsetning'?'selected':''}>Størst omsetning</option>
+        <option value="fall" ${pmState.sorter==='fall'?'selected':''}>Største marginfall mot i fjor</option>
+        <option value="dg_lav" ${pmState.sorter==='dg_lav'?'selected':''}>Lavest dekningsgrad</option>
+        <option value="dg_hoy" ${pmState.sorter==='dg_hoy'?'selected':''}>Høyest dekningsgrad</option>
+      </select>
+      <input class="d-input" style="width:220px" placeholder="produktnavn eller varenr" value="${esc(pmState.sok)}"
+             onchange="pmSett('sok',this.value)">
+    </div>
+    <div id="pmRapInnhold" style="font-size:13px"></div>
+  </div>`;
+}
+
+async function lastRapProdukt(){
+  const vert=document.getElementById('rapInnhold');
+  if(!vert)return;
+  vert.innerHTML=renderRapProduktSkall();
+  const el=document.getElementById('pmRapInnhold');
+  el.innerHTML='<span class="d-sub">Henter…</span>';
+  try{
+    const p=new URLSearchParams({ar:pmState.ar,mot_ar:pmState.ar-1,sorter:pmState.sorter,grense:'60'});
+    if(pmState.konsept)p.set('konsept',pmState.konsept);
+    if(pmState.sok)p.set('sok',pmState.sok);
+    const d=await api('/api/produkt-margin?'+p.toString());
+    if(!d.antall){
+      el.innerHTML='<p class="d-sub">Ingen produkter for '+pmState.ar+'. Hent produkt- og margindata i Innstillinger først.</p>';
+      return;
+    }
+    const mnok=v=>(v/1e6).toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const pp=v=>v==null?'<span class="d-sub">–</span>'
+      :`<span style="color:${v<-1?'#C0392B':(v>1?'#2f9e63':'var(--muted)')};font-weight:600">${v>0?'+':''}${v.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`;
+    // Sum-linja er vektet, ikke et snitt av prosentene — se samme resonnement i kalkylen.
+    const sumOms=d.produkter.reduce((a,r)=>a+r.belop,0), sumDb=d.produkter.reduce((a,r)=>a+r.db,0);
+    el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
+      +'<th>Varenr</th><th>Produkt</th><th>Kategori</th><th style="text-align:right">Omsetning</th>'
+      +`<th style="text-align:right">DB</th><th style="text-align:right">DG ${pmState.ar}</th>`
+      +`<th style="text-align:right">DG ${pmState.ar-1}</th><th style="text-align:right">Endring</th></tr></thead><tbody>`
+      +d.produkter.map(r=>`<tr>
+          <td>${esc(r.varenummer||'–')}</td>
+          <td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="d-sub" title="Én av grossistene bak tallet rapporterer ikke varekost — marginen er for høy">⚠</span>':''}</td>
+          <td class="d-sub">${esc(r.kategori||'–')}</td>
+          <td style="text-align:right">${mnok(r.belop)}</td>
+          <td style="text-align:right">${mnok(r.db)}</td>
+          <td style="text-align:right;font-weight:600">${r.dg_pct==null?'–':r.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'}</td>
+          <td style="text-align:right" class="d-sub">${r.dg_pct_forrige==null?'–':r.dg_pct_forrige.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'}</td>
+          <td style="text-align:right">${pp(r.dg_endring_pp)}</td></tr>`).join('')
+      +`</tbody><tfoot><tr style="font-weight:600;border-top:2px solid var(--d-ramme)">
+          <td colspan="3">Sum viste produkter (${d.antall})</td>
+          <td style="text-align:right">${mnok(sumOms)}</td>
+          <td style="text-align:right">${mnok(sumDb)}</td>
+          <td style="text-align:right">${sumOms?((100*sumDb/sumOms).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'):'–'}</td>
+          <td colspan="2"></td></tr></tfoot></table></div>`
+      +'<p class="d-sub" style="margin:8px 0 0">Beløp i MNOK. Sorteringene «lavest DG» og «største fall» viser bare varer med minst 0,1 MNOK i omsetning — resten er for små til å si noe om prising.</p>';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }
+}
+
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
 function setRapRegion(r){rapState.region=r;renderRapporter();}
 function setRapRegionFilter(f){rapState.regionFilter=f;renderRapporter();}
@@ -5446,6 +5591,12 @@ function renderRapporter(){
   const el=document.getElementById('rapInnhold');
   const sub=document.getElementById('rapSubKonsept');
   if(!el)return;
+  if(rapState.tab==='produkt'){
+    // Egen gren fordi denne henter fra API-et: skallet tegnes nå, tabellen når svaret kommer.
+    sub.style.display='none';
+    lastRapProdukt();
+    return;
+  }
   if(rapState.tab==='total'){
     sub.style.display='none';
     el.innerHTML=renderRapTotal();
