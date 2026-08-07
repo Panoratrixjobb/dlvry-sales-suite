@@ -4389,18 +4389,32 @@ async function sjekkParitet(){
       const ok=Math.abs(a)<0.1;
       return `<td style="text-align:right;font-weight:600;color:${ok?'var(--d-gronn)':'var(--d-roed)'}">${a>0?'+':''}${a.toFixed(2)}</td>`;
     };
+    // To app-kolonner, fordi de svarer på hvert sitt spørsmål. «App rå» er regnet med
+    // intern-reglene slik masterfila kjenner dem — det er den avviket måles mot, og den
+    // skal mot null. «Korrigert» er det dashbordet faktisk viser, etter konsernintern,
+    // importhus og flyttet omsetning. Differansen mellom dem er bevisst, ikke en feil.
+    const korrCelle=v=>`<td style="text-align:right;font-weight:600;border-left:1px solid var(--d-ramme-mork)">${v?.toFixed(2)??'–'}</td>`;
     const rad=(navn,p)=>`<tr><td>${esc(navn)}</td>
       <td style="text-align:right">${p.excel.y2026?.toFixed(2)??'–'}</td>
       <td style="text-align:right">${p.app.y2026?.toFixed(2)??'–'}</td>
       ${avvikCelle(p.avvik_y2026)}
       <td style="text-align:right">${fmtV(p.excel.vekst)}</td>
-      <td style="text-align:right">${fmtV(p.app.vekst)}</td></tr>`;
-    let html='<div class="table-wrap"><table class="d-tabell" style="min-width:520px"><thead><tr>'
-      +'<th>Konsept</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App 2026</th>'
-      +'<th style="text-align:right">Avvik</th><th style="text-align:right">Excel vekst</th><th style="text-align:right">App vekst</th></tr></thead><tbody>'
+      <td style="text-align:right">${fmtV(p.app.vekst)}</td>
+      ${korrCelle(p.korrigert?.y2026)}
+      <td style="text-align:right">${fmtV(p.korrigert?.vekst)}</td></tr>`;
+    let html='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
+      +'<th>Konsept</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App rå 2026</th>'
+      +'<th style="text-align:right">Avvik</th><th style="text-align:right">Excel vekst</th><th style="text-align:right">App rå vekst</th>'
+      +'<th style="text-align:right;border-left:1px solid var(--d-ramme-mork)">Korrigert 2026</th>'
+      +'<th style="text-align:right">Korrigert vekst</th></tr></thead><tbody>'
       +d.konsepter.map(k=>rad(k.navn,k)).join('')
       +rad('Total',d.total).replace('<tr>','<tr class="total">')
-      +'</tbody></table></div>';
+      +'</tbody></table></div>'
+      +'<p class="sub" style="margin:6px 0 0">De to siste kolonnene er det dashbordet viser — '
+      +'etter konsernintern eliminering, Foodbroker ut som importhus og kjøttimporten '
+      +'attribuert tilbake til Wulff. Masterfila kjenner ingen av dem, så differansen mot '
+      +'«App rå» er en bevisst korreksjon og ikke et avvik som skal lukkes. '
+      +'Avvik-kolonnen måler fortsatt formelmotoren mot regnearket, og skal mot null.</p>';
     // Konsepter appen har, men masterfila ikke kjenner (Fast Food, Sabor). De har ingen
     // fasit å måles mot — vises derfor uten Excel-kolonne og uten avvik, så tallene er
     // synlige uten å bli lest som at appen finner omsetning fra ingensteds.
@@ -4408,9 +4422,11 @@ async function sjekkParitet(){
     if(uten.length){
       const s=d.sum_uten_excel_fasit||{y2025:0,y2026:0};
       html+='<h4 style="margin:16px 0 6px;font-size:13px">Kun i appen — ingen Excel-fasit</h4>'
+        +'<p class="sub" style="margin:0 0 6px">Disse har ingen fasit å avvike fra, så tallene '
+        +'er de korrigerte — samme grunnlag som dashbordet.</p>'
         +'<div class="table-wrap"><table class="d-tabell" style="min-width:420px"><thead><tr>'
-        +'<th>Konsept</th><th style="text-align:right">App 2026 (MNOK)</th>'
-        +'<th style="text-align:right">App 2025</th><th style="text-align:right">App vekst</th></tr></thead><tbody>'
+        +'<th>Konsept</th><th style="text-align:right">Korrigert 2026 (MNOK)</th>'
+        +'<th style="text-align:right">Korrigert 2025</th><th style="text-align:right">Vekst</th></tr></thead><tbody>'
         +uten.map(k=>`<tr><td>${esc(k.navn)}</td>`
           +`<td style="text-align:right;font-weight:600">${(k.y2026??0).toFixed(2)}</td>`
           +`<td style="text-align:right">${(k.y2025??0).toFixed(2)}</td>`
