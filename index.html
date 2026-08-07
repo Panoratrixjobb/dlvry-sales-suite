@@ -1082,6 +1082,21 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </div>
 
+      <!-- Leverandørprisene. Dekker 46 % av prisverktøyets katalog (EPD-broen) — derfor en
+           berikelse og et varsel, ikke en erstatning for produkter.json. -->
+      <div class="d-panel" style="margin-top:18px" id="prislistePanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">3 · Leverandørpriser (Totalprislista)</h3>
+          <span class="sub">Consolidated Model</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Henter prisene DLVRY faktisk betaler leverandørene, med forrige pris og endring. Svarer på ett spørsmål prisverktøyet ikke kan i dag: <b>har innkjøpsprisen endret seg siden listeprisen ble satt?</b> Ca. 22 000 rader, går på sekunder. Resultatet vises i Rapporter → Prisendringer.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <button class="d-knapp subtil sm" onclick="hentPrisliste(false)" id="plTorrBtn">Tørrkjør (skriver ingenting)</button>
+          <button class="d-knapp primar sm" onclick="hentPrisliste(true)" id="plHentBtn">Hent og lagre</button>
+        </div>
+        <div id="plResultat" style="font-size:13px"></div>
+      </div>
+
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
            over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
            tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet
@@ -1233,6 +1248,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="prognose" onclick="setRapTab('prognose')">Prognose (årsestimat)</button>
         <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
         <button class="rap-pill" data-raptab="produkt" onclick="setRapTab('produkt')">Produktmargin</button>
+        <button class="rap-pill" data-raptab="pris" onclick="setRapTab('pris')">Prisendringer</button>
       </div>
 
       <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
@@ -1537,6 +1553,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
   <div style="font-size:12.5px;color:var(--muted)" id="loadMsg">24 490 produkter</div>
 </div>
 <script src="frontend_steg4.js"></script>
+<!-- Delt ut av index.html 2026-08-07 (C1 i oppryddingsplanen). Vanlige script-filer, ikke
+     moduler: appen har ingen byggeprosess, og alt deler samme globale scope som før.
+     Må lastes FØR hovedskriptet, som kaller inn i dem. -->
+<script src="js/kalkyle-margin.js"></script>
+<script src="js/oppsett-datainnhenting.js"></script>
+<script src="js/oppsett-faner.js"></script>
+<script src="js/rapport-produkt.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -2460,44 +2483,6 @@ function velgBytteProd(i,q){
 }
 
 // ============ Render ============
-// ===== Realisert margin fra Consolidated Model, vist i kalkylen =====
-// Kalkylen regner margin av listepris og grossistkost — det er den TEORETISKE marginen på
-// tilbudet. Her hentes hva de samme varene faktisk har gitt i markedet i år, per varenummer,
-// slik at avviket er synlig mens prisen settes og ikke først i et kvartalsmøte.
-const MARKED={data:{},nokkel:null,henter:false,ar:null};
-
-function markedCelle(x){
-  const m=MARKED.data[String(x.l.art||'')];
-  if(!m)return '';
-  const kalk=x.oms>0?((x.dlvryMargin-x.bonusKr)/x.oms)*100:null;
-  // Fargen sier om vi priser OVER eller UNDER det varen faktisk gir i markedet — det er
-  // spørsmålet selgeren har. Grått når vi ikke har en kalkulert margin å måle mot.
-  const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'#2f9e63':'#B45309');
-  const trend=(m.dg_pct_ifjor!=null&&Math.abs(m.dg_pct-m.dg_pct_ifjor)>=0.5)
-    ? ` <span title="I fjor ${m.dg_pct_ifjor.toLocaleString('nb-NO')} %">${m.dg_pct>m.dg_pct_ifjor?'↑':'↓'}</span>` : '';
-  return `<div style="font-size:10px;font-weight:500;color:${farge}" title="Faktisk dekningsgrad i markedet ${MARKED.ar}${m.margin_usikker?' — én av grossistene rapporterer ikke varekost, tallet er for høyt':''}">`
-    +`marked ${m.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %${trend}${m.margin_usikker?' ⚠':''}</div>`;
-}
-
-async function sikreMarkedsmargin(){
-  // Nøkkelen er varenumrene i kurven. Uendret kurv → ingen ny henting, og render() kan
-  // derfor kalle denne fritt uten å sette i gang en løkke.
-  const numre=[...new Set(state.cart.map(l=>String(l.art||'').trim()).filter(Boolean))];
-  const nokkel=numre.join(',');
-  if(nokkel===MARKED.nokkel||MARKED.henter)return;
-  if(!numre.length){MARKED.nokkel=nokkel;MARKED.data={};return;}
-  MARKED.henter=true;
-  try{
-    const d=await api('/api/produkt-margin/oppslag',{method:'POST',body:{varenumre:numre}});
-    MARKED.data=d.treff||{};MARKED.ar=d.ar;
-  }catch(e){
-    // Ingen margindata hentet ennå, eller ingen tilgang — kalkylen skal virke uansett.
-    MARKED.data={};
-  }finally{
-    MARKED.nokkel=nokkel;MARKED.henter=false;render();
-  }
-}
-
 function render(){
   const r=compute();
   const tb=document.getElementById('cartBody');tb.innerHTML='';
@@ -4463,179 +4448,6 @@ async function settKilde(felt,kilde){
   }catch(e){ alert('Kunne ikke bytte: '+e.message); }
 }
 
-// ============ Hent fra Power BI (erstatter kundedata-opplastingen) ============
-// Modell-ID og arbeidsområde fylles fra serveren, så admin bare limer inn tokenet.
-// Serveren har en innebygd standard som App Service-konfigurasjon overstyrer — og
-// feltet her overstyrer igjen begge, hvis man vil peke på en annen modell.
-async function pbFyllStandard(){
-  const linje=document.getElementById('pbStatusLinje');
-  try{
-    const s=await api('/api/powerbi/status');
-    const d=document.getElementById('pbDataset'), g=document.getElementById('pbGruppe');
-    if(d&&!d.value&&s.dataset_id)d.value=s.dataset_id;
-    if(g&&!g.value&&s.group_id)g.value=s.group_id;
-    linje.textContent=s.konfigurert
-      ? 'Service principal er satt opp — token trengs ikke.'
-      : 'Modell: '+(s.dataset_kilde||'')+'. Token må limes inn.';
-  }catch(e){ linje.textContent=''; }
-}
-
-// Tokenet holdes bare i DOM-feltet og sendes i kroppen (aldri i URL-en, som havner i
-// tilgangslogger). Det lagres verken i localStorage eller i basen — utløper av seg selv.
-async function hentFraPowerBI(bekreft){
-  const el=document.getElementById('pbResultat');
-  const knapper=['pbTorrBtn','pbHentBtn'].map(id=>document.getElementById(id));
-  const aar=[2024,2025,2026].filter(a=>document.getElementById('pbAr'+a).checked);
-  if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
-  const body={
-    token:document.getElementById('pbToken').value.trim()||null,
-    dataset_id:document.getElementById('pbDataset').value.trim()||null,
-    group_id:document.getElementById('pbGruppe').value.trim()||null,
-  };
-  if(bekreft&&!confirm('Skrive '+aar.join(', ')+' til databasen? Låste perioder hoppes over.'))return;
-  knapper.forEach(b=>b.disabled=true);
-  const start=Date.now();
-  el.innerHTML='<span class="sub">Henter fra modellen… (fem spørringer per år, dette tar litt tid)</span>';
-  const timer=setInterval(()=>{
-    el.innerHTML='<span class="sub">Henter fra modellen… '+Math.round((Date.now()-start)/1000)+' s</span>';
-  },1000);
-  try{
-    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
-    const d=await api('/api/powerbi/hent?'+qs,{method:'POST',body});
-    clearInterval(timer);
-    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
-    for(const [ar,s] of Object.entries(d.sammendrag||{})){
-      html+=`<div style="margin-bottom:12px"><b>${esc(ar)}</b> — ${s.kunderader.toLocaleString('nb-NO')} kunderader, `
-        +`${s.kunder.toLocaleString('nb-NO')} kundekontoer, ${s.kundeniva_mnok} MNOK på kundenivå `
-        +`(grossistnivå ${s.grossistniva_mnok})`;
-      const daarlig=(s.dekning_per_grossist||[]).filter(g=>g.dekning!=null&&g.dekning<99.5);
-      if(!daarlig.length){
-        html+=' · <span style="color:var(--d-gronn);font-weight:600">100 % kundenivå-dekning</span>';
-      }else{
-        html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
-          +'<th>Grossist</th><th style="text-align:right">Kundenivå</th><th style="text-align:right">Totalt</th><th style="text-align:right">Dekning</th></tr></thead><tbody>'
-          +daarlig.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.kundeniva}</td>`
-            +`<td style="text-align:right">${g.grossistniva}</td>`
-            +`<td style="text-align:right;font-weight:600;color:${g.dekning>=90?'var(--d-gul)':'var(--d-roed)'}">${g.dekning} %</td></tr>`).join('')
-          +'</tbody></table></div>';
-      }
-      if(s.droppet_fram_i_tid&&s.droppet_fram_i_tid!=='ingen'){
-        html+=`<div class="sub" style="margin-top:4px">Hoppet over ${s.droppet_fram_i_tid.rader} rader datert etter uke ${s.siste_godtatte_uke} (${s.droppet_fram_i_tid.mnok} MNOK) — de ville forskjøvet cutoff i hele appen.</div>`;
-      }
-      const utenfor=s.konsept_utenfor_appen||{};
-      if(Object.keys(utenfor).length){
-        html+='<div class="sub" style="margin-top:4px">Konsepter utenfor appen (ikke telt med): '
-          +Object.entries(utenfor).map(([k,n])=>esc(k||'(tomt)')+' '+n+' rader').join(' · ')+'</div>';
-      }
-      html+='</div>';
-    }
-    if(d.hoppet_over_laast&&d.hoppet_over_laast!=='ingen'){
-      html+='<p class="sub" style="margin:0 0 8px">Låste perioder hoppet over: '+esc(JSON.stringify(d.hoppet_over_laast))+'</p>';
-    }
-    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
-    el.innerHTML=html;
-    if(bekreft)document.getElementById('pbToken').value='';
-  }catch(e){
-    clearInterval(timer);
-    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
-  }finally{knapper.forEach(b=>b.disabled=false);}
-}
-
-// ============ Produkt- og margindata (Consolidated Model) ============
-// Sender BARE tokenet — ikke modell-ID-en fra panelet over. Den peker på salgsmodellen,
-// og margintallene finnes bare i Consolidated Model, som serveren kjenner selv.
-async function hentProduktMargin(bekreft){
-  const el=document.getElementById('pmResultat');
-  const knapper=['pmTorrBtn','pmHentBtn'].map(id=>document.getElementById(id));
-  const aar=[2024,2025,2026].filter(a=>document.getElementById('pmAr'+a).checked);
-  if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
-  // Panelet låner tokenfeltet fra hentingen over. Uten denne sjekken lot knappen seg
-  // trykke med tomt felt, og svaret ble en serverfeil om App Service-konfigurasjon som
-  // ikke fortalte det som faktisk manglet: tokenet, i feltet rett over.
-  const token=document.getElementById('pbToken').value.trim();
-  if(!token){
-    let sp=false;
-    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
-    if(!sp){
-      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet over først</span>'
-        +' <span class="sub">— samme token brukes til begge hentingene.</span>';
-      const felt=document.getElementById('pbToken');
-      felt.focus(); felt.scrollIntoView({block:'center'});
-      return;
-    }
-  }
-  if(bekreft&&!confirm('Skrive produkt- og margindata for '+aar.join(', ')+' til databasen? Året erstattes i sin helhet.'))return;
-  knapper.forEach(b=>b.disabled=true);
-  const start=Date.now();
-  const timer=setInterval(()=>{
-    el.innerHTML='<span class="sub">Henter produktnivå… '+Math.round((Date.now()-start)/1000)+' s (seks konsepter per år)</span>';
-  },1000);
-  el.innerHTML='<span class="sub">Henter produktnivå…</span>';
-  try{
-    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
-    const d=await api('/api/powerbi/produkt/hent?'+qs,{method:'POST',body:{token:token||null}});
-    clearInterval(timer);
-    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
-    for(const [ar,s] of Object.entries(d.sammendrag||{})){
-      html+=`<div style="margin-bottom:12px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
-        +`${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK, DB ${s.db_mnok} MNOK `
-        +`· <b>DG ${s.dg_pct} %</b>`;
-      // Kostdekningen er hele poenget med tørrkjøringen: en grossist uten varekost gir
-      // strålende marginer som ikke finnes, og det skal ses her — ikke i et tilbud.
-      const svake=(s.kostdekning_per_grossist||[]).filter(g=>!g.kost_palitelig);
-      if(svake.length){
-        html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
-          +'<th>Grossist</th><th style="text-align:right">Omsetning</th><th style="text-align:right">Kost</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-          +svake.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.mnok}</td>`
-            +`<td style="text-align:right">${g.kost_mnok}</td>`
-            +`<td style="text-align:right;font-weight:600;color:var(--d-roed)">${g.dg_pct} %</td></tr>`).join('')
-          +'</tbody></table><div class="sub" style="margin-top:4px">Disse rapporterer ikke varekost — marginene deres er for høye og merkes som usikre i produktlista.</div></div>';
-      }else{
-        html+=' · <span style="color:var(--d-gronn);font-weight:600">alle grossister rapporterer varekost</span>';
-      }
-      if(s.uten_varenummer&&s.uten_varenummer.rader){
-        html+=`<div class="sub" style="margin-top:4px">${s.uten_varenummer.rader.toLocaleString('nb-NO')} rader (${s.uten_varenummer.mnok} MNOK) mangler varenummer — de telles med, men kan ikke kobles til prisverktøyet.</div>`;
-      }
-      if(s.droppet_fram_i_tid){
-        html+=`<div class="sub" style="margin-top:4px">Hoppet over ${s.droppet_fram_i_tid} rader datert etter uke ${s.siste_godtatte_uke}.</div>`;
-      }
-      html+='</div>';
-    }
-    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
-    el.innerHTML=html;
-    if(bekreft){document.getElementById('pbToken').value='';visProduktMargin();}
-  }catch(e){
-    clearInterval(timer);
-    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
-  }finally{knapper.forEach(b=>b.disabled=false);}
-}
-
-async function visProduktMargin(){
-  const el=document.getElementById('pmTabell');
-  const btn=document.getElementById('pmVisBtn');
-  btn.disabled=true;el.innerHTML='<span class="sub">Henter…</span>';
-  try{
-    const p=new URLSearchParams({ar:document.getElementById('pmAr').value,grense:'50'});
-    const k=document.getElementById('pmKonsept').value, s=document.getElementById('pmSok').value.trim();
-    if(k)p.set('konsept',k);
-    if(s)p.set('sok',s);
-    const d=await api('/api/produkt-margin?'+p.toString());
-    if(!d.antall){el.innerHTML='<span class="sub">Ingen treff. Er dataene hentet for dette året?</span>';btn.disabled=false;return;}
-    const mnok=v=>(v/1e6).toFixed(2);
-    el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:640px"><thead><tr>'
-      +'<th>Varenr</th><th>Produkt</th><th style="text-align:right">MNOK</th>'
-      +'<th style="text-align:right">DB MNOK</th><th style="text-align:right">DG</th><th style="text-align:right">Grossister</th></tr></thead><tbody>'
-      +d.produkter.map(r=>`<tr><td>${esc(r.varenummer||'–')}</td>`
-        +`<td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="sub" title="Minst én grossist bak tallet rapporterer ikke varekost">⚠ usikker</span>':''}</td>`
-        +`<td style="text-align:right">${mnok(r.belop)}</td>`
-        +`<td style="text-align:right">${mnok(r.db)}</td>`
-        +`<td style="text-align:right;font-weight:600">${r.dg_pct==null?'–':r.dg_pct+' %'}</td>`
-        +`<td style="text-align:right">${r.grossister}</td></tr>`).join('')
-      +'</tbody></table></div>';
-  }catch(e){ el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>'; }
-  finally{ btn.disabled=false; }
-}
-
 // ============ Paritet Excel vs app (fase 0 formel-migrering) ============
 async function sjekkParitet(){
   const el=document.getElementById('paritetResultat');
@@ -5527,87 +5339,6 @@ function setRapTab(tab){
   document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===tab));
   renderRapporter();
 }
-// ===== Produktmargin (Consolidated Model) =====
-// Den eneste rapporten i appen som svarer på «hvor tjener vi faktisk penger, per vare».
-// Alt annet her er omsetning; dette er dekningsbidrag.
-const PM_KONSEPT=[['','Alle konsepter'],['la_salumeria','La Salumeria'],['east_essence','East Essence'],
-  ['godt_lokalt','Godt Lokalt'],['wulff_co','Wulff & Co'],['fast_food','Fast Food'],['sabor','Sabor']];
-const pmState={ar:new Date().getFullYear(),konsept:'',sorter:'omsetning',sok:''};
-
-function pmSett(felt,verdi){pmState[felt]=felt==='ar'?parseInt(verdi,10):verdi;lastRapProdukt();}
-
-function renderRapProduktSkall(){
-  const iAr=new Date().getFullYear();
-  const aarValg=[iAr,iAr-1,iAr-2].map(a=>`<option value="${a}" ${a===pmState.ar?'selected':''}>${a}</option>`).join('');
-  return `<div class="d-panel">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
-      <h3 style="margin:0;font-size:15px;font-weight:600">Produktmargin</h3>
-      <span class="d-sub">Realisert dekningsgrad per vare, mot ${pmState.ar-1}</span>
-    </div>
-    <p class="d-sub" style="margin:0 0 12px">Tallene er hentet fra Consolidated Model — omsetning og varekost slik grossistene faktisk har rapportert dem. Dette er ikke kalkylens margin, men den vi endte opp med.</p>
-    <div class="rap-subrow rap-noprint" style="margin:0 0 12px">
-      ${PM_KONSEPT.map(([k,n])=>`<button class="rap-pill small ${k===pmState.konsept?'aktiv':''}" onclick="pmSett('konsept','${k}')">${n}</button>`).join('')}
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px" class="rap-noprint">
-      <select class="d-input" style="width:110px" onchange="pmSett('ar',this.value)">${aarValg}</select>
-      <select class="d-input" style="width:230px" onchange="pmSett('sorter',this.value)">
-        <option value="omsetning" ${pmState.sorter==='omsetning'?'selected':''}>Størst omsetning</option>
-        <option value="fall" ${pmState.sorter==='fall'?'selected':''}>Største marginfall mot i fjor</option>
-        <option value="dg_lav" ${pmState.sorter==='dg_lav'?'selected':''}>Lavest dekningsgrad</option>
-        <option value="dg_hoy" ${pmState.sorter==='dg_hoy'?'selected':''}>Høyest dekningsgrad</option>
-      </select>
-      <input class="d-input" style="width:220px" placeholder="produktnavn eller varenr" value="${esc(pmState.sok)}"
-             onchange="pmSett('sok',this.value)">
-    </div>
-    <div id="pmRapInnhold" style="font-size:13px"></div>
-  </div>`;
-}
-
-async function lastRapProdukt(){
-  const vert=document.getElementById('rapInnhold');
-  if(!vert)return;
-  vert.innerHTML=renderRapProduktSkall();
-  const el=document.getElementById('pmRapInnhold');
-  el.innerHTML='<span class="d-sub">Henter…</span>';
-  try{
-    const p=new URLSearchParams({ar:pmState.ar,mot_ar:pmState.ar-1,sorter:pmState.sorter,grense:'60'});
-    if(pmState.konsept)p.set('konsept',pmState.konsept);
-    if(pmState.sok)p.set('sok',pmState.sok);
-    const d=await api('/api/produkt-margin?'+p.toString());
-    if(!d.antall){
-      el.innerHTML='<p class="d-sub">Ingen produkter for '+pmState.ar+'. Hent produkt- og margindata i Innstillinger først.</p>';
-      return;
-    }
-    const mnok=v=>(v/1e6).toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2});
-    const pp=v=>v==null?'<span class="d-sub">–</span>'
-      :`<span style="color:${v<-1?'#C0392B':(v>1?'#2f9e63':'var(--muted)')};font-weight:600">${v>0?'+':''}${v.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`;
-    // Sum-linja er vektet, ikke et snitt av prosentene — se samme resonnement i kalkylen.
-    const sumOms=d.produkter.reduce((a,r)=>a+r.belop,0), sumDb=d.produkter.reduce((a,r)=>a+r.db,0);
-    el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
-      +'<th>Varenr</th><th>Produkt</th><th>Kategori</th><th style="text-align:right">Omsetning</th>'
-      +`<th style="text-align:right">DB</th><th style="text-align:right">DG ${pmState.ar}</th>`
-      +`<th style="text-align:right">DG ${pmState.ar-1}</th><th style="text-align:right">Endring</th></tr></thead><tbody>`
-      +d.produkter.map(r=>`<tr>
-          <td>${esc(r.varenummer||'–')}</td>
-          <td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="d-sub" title="Én av grossistene bak tallet rapporterer ikke varekost — marginen er for høy">⚠</span>':''}</td>
-          <td class="d-sub">${esc(r.kategori||'–')}</td>
-          <td style="text-align:right">${mnok(r.belop)}</td>
-          <td style="text-align:right">${mnok(r.db)}</td>
-          <td style="text-align:right;font-weight:600">${r.dg_pct==null?'–':r.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'}</td>
-          <td style="text-align:right" class="d-sub">${r.dg_pct_forrige==null?'–':r.dg_pct_forrige.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'}</td>
-          <td style="text-align:right">${pp(r.dg_endring_pp)}</td></tr>`).join('')
-      +`</tbody><tfoot><tr style="font-weight:600;border-top:2px solid var(--d-ramme)">
-          <td colspan="3">Sum viste produkter (${d.antall})</td>
-          <td style="text-align:right">${mnok(sumOms)}</td>
-          <td style="text-align:right">${mnok(sumDb)}</td>
-          <td style="text-align:right">${sumOms?((100*sumDb/sumOms).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'):'–'}</td>
-          <td colspan="2"></td></tr></tfoot></table></div>`
-      +'<p class="d-sub" style="margin:8px 0 0">Beløp i MNOK. Sorteringene «lavest DG» og «største fall» viser bare varer med minst 0,1 MNOK i omsetning — resten er for små til å si noe om prising.</p>';
-  }catch(e){
-    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
-  }
-}
-
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
 function setRapRegion(r){rapState.region=r;renderRapporter();}
 function setRapRegionFilter(f){rapState.regionFilter=f;renderRapporter();}
@@ -5616,10 +5347,15 @@ function renderRapporter(){
   const el=document.getElementById('rapInnhold');
   const sub=document.getElementById('rapSubKonsept');
   if(!el)return;
+  // Egne grener fordi disse henter fra API-et: skallet tegnes nå, tabellen når svaret kommer.
   if(rapState.tab==='produkt'){
-    // Egen gren fordi denne henter fra API-et: skallet tegnes nå, tabellen når svaret kommer.
     sub.style.display='none';
     lastRapProdukt();
+    return;
+  }
+  if(rapState.tab==='pris'){
+    sub.style.display='none';
+    lastRapPrisendringer();
     return;
   }
   if(rapState.tab==='total'){
@@ -6374,41 +6110,6 @@ async function showApp(){
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
   document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
   setView('dashboard');
-}
-
-// ===== Innstillinger: faner =====
-// Panelene blir stående der de er i DOM-en; fanene styrer bare synlighet. Rekkefølgen
-// under er den de vises i, og for Datainnhenting er den KJØREREKKEFØLGEN: token, så
-// salgstall, så produkt/margin, med Excel-reserven sist.
-const OPPSETT_GRUPPER={
-  brukere:['brukerFormRad','brukerkort-steg4','invitasjonPanel','feedbackPanel','bulkImportPanel'],
-  data:['tokenPanel','powerbiPanel','produktPanel','dashUploadPanel'],
-  beregning:['kildePanel','paritetPanel','formelkonfigPanel'],
-  import:['brregPanel','leadsImportPanel'],
-};
-const OPPSETT_TEKST={
-  brukere:'Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.',
-  data:'Hent salgs- og margindata fra Power BI. Kjør panelene i rekkefølge — tørrkjør alltid før du lagrer.',
-  beregning:'Hvilken kilde dashbordet leser fra, og om appens egne tall stemmer med regnearket.',
-  import:'Engangs- og periodiske importer: firmadata fra Brønnøysund og den nasjonale leads-databasen.',
-};
-// Bare superadmin når Innstillinger i det hele tatt, men de tre siste fanene er
-// datateknisk arbeid — leder-/admin-roller skal ikke kunne skrive til dashbordet.
-let OPPSETT_ER_ADMIN=false, OPPSETT_FANE='brukere';
-
-function settOppsettFane(fane){
-  if(!OPPSETT_GRUPPER[fane]||(!OPPSETT_ER_ADMIN&&fane!=='brukere'))fane='brukere';
-  OPPSETT_FANE=fane;
-  Object.entries(OPPSETT_GRUPPER).forEach(([navn,ider])=>ider.forEach(id=>{
-    const el=document.getElementById(id);
-    if(el)el.style.display=(navn===fane)?'':'none';
-  }));
-  document.querySelectorAll('[data-oppsettfane]').forEach(b=>{
-    b.classList.toggle('aktiv',b.dataset.oppsettfane===fane);
-    b.style.display=(OPPSETT_ER_ADMIN||b.dataset.oppsettfane==='brukere')?'':'none';
-  });
-  const crumb=document.getElementById('oppsettCrumb');
-  if(crumb)crumb.textContent=OPPSETT_TEKST[fane]||'';
 }
 
 // Enter-tast i login
