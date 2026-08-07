@@ -148,6 +148,30 @@ tbody td:nth-child(1),tbody td:nth-child(2){text-align:left}
    «td.tall» taper, fordi nth-child teller som en klasse (2026-08-07). */
 tbody td.tall,thead th.tall{text-align:right}
 tbody td.venstre,thead th.venstre{text-align:left}
+
+/* ── Kalkyletabellen (blokk 3, 2026-08-07) ─────────────────────────────────────
+   Fjorten kolonner i tre grupper. Gruppelinja gir kolonnene et sted å høre hjemme,
+   og de to første fryses så man aldri mister hvilket produkt en rad gjelder. */
+.kalk-tabell thead tr.gruppe th{
+  font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; font-weight:700;
+  padding:6px 12px 4px; border-bottom:none; background:#fff; color:var(--d-tekst-3);
+  text-align:left;}
+.kalk-tabell thead tr.gruppe th.grp{border-bottom:2px solid var(--line);}
+.kalk-tabell thead tr.gruppe th.grp-produkt {color:var(--d-tekst-2); border-bottom-color:var(--d-ramme-mork);}
+.kalk-tabell thead tr.gruppe th.grp-pris    {color:var(--teal-mork); border-bottom-color:var(--teal);}
+.kalk-tabell thead tr.gruppe th.grp-resultat{color:var(--primaer-mork); border-bottom-color:var(--primaer);}
+/* Frosne kolonner. z-index-lagene: gruppelinja (4) over frossen kolonneoverskrift (3)
+   over frossen datacelle (2) over vanlige celler. Uten egen bakgrunn ville radene
+   skinne gjennom når man ruller. */
+.kalk-tabell .frys{position:sticky; background:#fff; z-index:2;}
+.kalk-tabell thead .frys{z-index:3;}
+/* Bredden på kolonne 1 må være LÅST, ikke bare en minsteverdi: «left» på kolonne 2 er et
+   fast tall, så vokser kolonne 1 med et langt artikkelnummer, legger kolonne 2 seg oppå. */
+.kalk-tabell .frys-1{left:0; width:84px; min-width:84px; max-width:84px;
+  overflow:hidden; text-overflow:ellipsis;}
+.kalk-tabell .frys-2{left:84px; box-shadow:1px 0 0 var(--line);}
+.kalk-tabell tbody tr:hover .frys{background:#fafbff;}
+.kalk-tabell tbody tr.faktura-info td{background:var(--bg);}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:#fafbff}
 .pname{font-weight:600;color:var(--ink);max-width:230px;white-space:normal;line-height:1.25;font-size:11.5px}
@@ -666,10 +690,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <div class="kpi-list">
               <div class="kpi-line"><span class="lbl">Total omsetning</span><span class="val" id="kpiOms">0 kr</span></div>
               <div class="kpi-line"><span class="lbl">Total margin (NOK)</span><span class="val" id="kpiMargNok">0 kr</span></div>
-              <div class="kpi-line"><span class="lbl">Total margin (%)</span><span class="val big" id="kpiMargPct">0,0 %</span></div>
+              <div class="kpi-line"><span class="lbl">Kalkulert margin (%)</span><span class="val" id="kpiMargPct">0,0 %</span></div>
               <!-- Realisert DG fra Consolidated Model: hva de samme varene FAKTISK har
-                   gitt i markedet i år, mot det kalkylen regner ut. -->
+                   gitt i markedet i år. Avviket mellom de to er tallet selgeren skal
+                   reagere på, så det står størst — ikke marginen alene. -->
               <div class="kpi-line"><span class="lbl">Faktisk DG i markedet <span class="d-sub" id="kpiMarkedDekning"></span></span><span class="val" id="kpiMarked">–</span></div>
+              <div class="kpi-line" id="kpiAvvikLinje" style="display:none;border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
+                <span class="lbl">Avvik mot marked</span><span class="val big" id="kpiAvvik">–</span></div>
             </div>
             <div class="status-wrap">
               <div class="donut">
@@ -719,11 +746,24 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           </label>
         </div>
         <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th>Art.nr</th><th>Produkt</th><th>Match</th><th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
-              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th><th>Konfidens</th><th>Linjeomsetning</th>
-              <th>Margin kr</th><th>Margin %</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
+          <!-- Sytten kolonner var for mange til å lese på tvers. Nå fjorten, i tre
+               grupper, og de to første fryses ved vannrett rulling så man alltid ser
+               hvilket produkt raden gjelder. «Match» hører til produktet og er flyttet
+               inn i produktcella; «Konfidens» hører til konkurrentprisen og er flyttet
+               dit. Margin kr og % er nå én celle, med markedsmarginen under. -->
+          <table class="kalk-tabell">
+            <thead>
+              <tr class="gruppe">
+                <th colspan="2" class="grp grp-produkt">Produkt</th>
+                <th colspan="7" class="grp grp-pris">Pris og rabatt</th>
+                <th colspan="4" class="grp grp-resultat">Resultat</th>
+                <th></th>
+              </tr>
+              <tr>
+              <th class="frys frys-1">Art.nr</th><th class="frys frys-2">Produkt</th>
+              <th>Antall</th><th>Listepris</th><th>Linjerabatt %</th>
+              <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th><th>Konkurrent pris</th>
+              <th>Linjeomsetning</th><th>Margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
           </table>
@@ -1270,11 +1310,17 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </div>
 
+      <!-- Åtte faner på én rad ga ingen hjelp til å velge. Delt i to: det som RAPPORTERER
+           hva som har skjedd, og det som ANALYSERER hvorfor og hva vi gjør med det. -->
       <div class="rap-subrow rap-noprint" style="margin-top:0">
+        <span class="rap-sublbl">Salg</span>
         <button class="rap-pill aktiv" data-raptab="total" onclick="setRapTab('total')">Ukerapport (alle konsepter)</button>
         <button class="rap-pill" data-raptab="fiks" onclick="setRapTab('fiks')">Totalrapport (grossist — FIKS)</button>
         <button class="rap-pill" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
         <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
+      </div>
+      <div class="rap-subrow rap-noprint" style="margin-top:6px">
+        <span class="rap-sublbl">Analyse</span>
         <button class="rap-pill" data-raptab="prognose" onclick="setRapTab('prognose')">Prognose (årsestimat)</button>
         <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
         <button class="rap-pill" data-raptab="produkt" onclick="setRapTab('produkt')">Produktmargin</button>
@@ -2474,7 +2520,7 @@ function byttRad(i){
   if(!mainTr)return;
   var tr2=document.createElement('tr');
   tr2.id='bytte-rad-'+i;
-  tr2.innerHTML='<td colspan="16" style="padding:4px 8px 8px 32px;background:var(--surface2,#f9f9f9)">'
+  tr2.innerHTML='<td colspan="14" style="padding:4px 8px 8px 32px;background:var(--surface2,#f9f9f9)">'
     +'<input id="bytte-input-'+i+'" style="width:260px;font-size:12px" placeholder="Søk produkt (navn eller art.nr)…" list="bytte-list-'+i+'">'
     +'<datalist id="bytte-list-'+i+'"></datalist>'
     +'<button style="margin-left:8px;font-size:11px" onclick="velgBytteProd('+i+',document.getElementById(\'bytte-input-'+i+'\').value)">OK</button>'
@@ -2522,24 +2568,27 @@ function render(){
     const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
     const kp=x.l.konkurrentpris;
     const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'var(--ok)':'var(--feil)'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
+    // Konfidens hører til konkurrentprisen (den sto rett etter den i den gamle tabellen),
+    // ikke til produktmatchen. Derfor havner den under konkurrentprisen, mens Match —
+    // som gjelder hvilket produkt fakturaen ble tolket som — flyttes inn i produktcella.
     const kf=x.l.konfidens;
-    const konfCelle = kf==null ? '<span class="d-sub">—</span>'
-      : (kf>=60 ? '<span style="color:var(--ok)">'+kf+'%</span>'
-                : '<span style="color:var(--advarsel)">'+kf+'% ⚠</span>');
-    tr.innerHTML=`<td class="art">${x.l.art||''}</td>
-      <td><div class="pname">${esc(x.l.navn)}</div><button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;margin-top:2px;opacity:0.6">⇄ Bytt</button></td>
-      <td>${x.l.matchkonfidens!=null?(x.l.matchkonfidens+'%'+(x.l.matchkonfidens<60?' ⚠':'')):'—'}</td>
+    const konfLinje = kf==null ? ''
+      : `<div class="d-sub" style="font-size:10px;color:${kf>=60?'var(--ok)':'var(--advarsel)'}" title="Konfidens i konkurrentprisen">${kf} %${kf<60?' ⚠':''}</div>`;
+    const mk=x.l.matchkonfidens;
+    const matchMerke = mk==null ? ''
+      : `<span class="d-merke ${mk<60?'advarsel':'noytral'}" title="Treffsikkerhet i produktmatchen fra faktura">${mk} %${mk<60?' ⚠':''}</span>`;
+    const marg=x.dlvryMargin-x.bonusKr;
+    tr.innerHTML=`<td class="art frys frys-1">${x.l.art||''}</td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
       <td>${fmtKr2(x.prisEtter)}</td>
       <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
       <td class="final">${fmtKr2(x.endelig)}</td>
-      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}</td>
-      <td style="text-align:center">${konfCelle}</td>
+      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}${konfLinje}</td>
       <td>${fmtKr(x.oms)}</td>
-      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}">${fmtKr(x.dlvryMargin-x.bonusKr)}</td>
-      <td class="${x.dlvryMargin-x.bonusKr>=0?'pos':'neg'}" style="font-size:11.5px">${x.oms>0?fmtPct((x.dlvryMargin-x.bonusKr)/x.oms):'—'}${markedCelle(x)}</td>
+      <td class="${marg>=0?'pos':'neg'}">${fmtKr(marg)}<div style="font-size:11px;font-weight:600;opacity:.85">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>${markedCelle(x)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
@@ -2548,7 +2597,7 @@ function render(){
     if(vfi&&vfi.checked&&x.l.faktura_original_navn){
       var tr2=document.createElement('tr');
       tr2.className='faktura-info';
-      tr2.innerHTML='<td colspan="16" style="font-size:11px;color:var(--muted);padding:2px 8px 6px 32px;font-style:italic">Faktura: '
+      tr2.innerHTML='<td colspan="14" style="font-size:11px;color:var(--muted);padding:2px 8px 6px 32px;font-style:italic">Faktura: '
         +esc(x.l.faktura_original_navn)
         +(x.l.faktura_mengde!=null?' · '+x.l.faktura_mengde:'')
         +(x.l.faktura_pris!=null?' · '+fmtKr2(x.l.faktura_pris):'')
@@ -2557,7 +2606,7 @@ function render(){
       tb.appendChild(tr2);
     }
   });
-  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+  if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
 
   document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
   document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
@@ -2599,15 +2648,24 @@ function render(){
     mOms+=x.oms;mVektet+=x.oms*m.dg_pct;mTreff++;
   });
   const kpiM=document.getElementById('kpiMarked'),kpiD=document.getElementById('kpiMarkedDekning');
+  const kpiA=document.getElementById('kpiAvvik'),kpiAL=document.getElementById('kpiAvvikLinje');
   if(kpiM){
     if(mOms>0){
-      const snitt=mVektet/mOms;
+      const snitt=mVektet/mOms, avvik=r.totMarginPct*100-snitt;
       kpiM.textContent=snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
-      kpiM.style.color=r.totMarginPct*100>=snitt?'var(--ok)':'var(--advarsel)';
+      kpiM.style.color='';
       kpiD.textContent='('+mTreff+' av '+r.lines.length+' linjer)';
+      // Prosentpoeng, ikke prosent: differansen mellom to prosenttall er pp. Blandes de,
+      // ser et fall fra 22 til 18 ut som «−18 %» i stedet for −4 pp.
+      kpiA.textContent=(avvik>0?'+':'')+avvik.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
+      kpiA.style.color=avvik>=0?'var(--ok)':'var(--advarsel)';
+      kpiA.title=avvik>=0?'Kalkylen ligger over det varene faktisk gir i markedet'
+                         :'Kalkylen ligger under det varene faktisk gir i markedet';
+      kpiAL.style.display='';
     }else{
       kpiM.textContent='–';kpiM.style.color='';
       kpiD.textContent=r.lines.length?'(ingen av linjene finnes i salgsdataene)':'';
+      kpiAL.style.display='none';
     }
   }
 
