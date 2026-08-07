@@ -11,12 +11,37 @@
 <script src="vendor/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="dlvry-stil.css">
 <style>
+/* ── Fase 1 av den visuelle overhalingen (2026-08-07) ──────────────────────────
+   Her sto tidligere et TREDJE sett designtokens, med egne verdier for --bg, --panel,
+   --green, --red og resten. Det overstyrte dlvry-stil.css, som lastes rett over — så
+   den godkjente varme paletten (--bg:#F4F2ED) var i praksis aldri i bruk: appen kjørte
+   på en kald #f4f6fb, med grønt og rødt i en annen tone enn statuspillene.
+
+   Nå finnes verdiene ETT sted (dlvry-stil.css). Blokka under er bare navn som peker dit,
+   så de ~1 100 stedene i koden som sier var(--muted) eller var(--green) fortsetter å
+   virke, mens fargen kommer fra designsystemet.
+   ────────────────────────────────────────────────────────────────────────────── */
 :root{
-  --bg:#f4f6fb; --panel:#ffffff; --ink:#1e2433; --muted:#7a8499; --line:#e7ebf3;
-  --brand:#D65742; --brand2:#B8472F; --sidebar:#3A2D2A; --sidebar-ink:#C8BEB8;
-  --green:#16a34a; --green-bg:#e7f6ed; --orange:#ea8a1e; --orange-bg:#fdf1e1;
-  --red:#dc2626; --red-bg:#fbe9e9; --pos:#16a34a; --neg:#dc2626;
-  --radius:14px; --shadow:0 1px 3px rgba(20,30,60,.06),0 6px 24px rgba(20,30,60,.05);
+  /* Semantiske farger: hva noe BETYR, ikke hvilken farge det har. Bruk disse i ny kode. */
+  --ok:        var(--d-gronn);   --ok-bg:        var(--d-gronn-bg);
+  --advarsel:  var(--d-gul);     --advarsel-bg:  var(--d-gul-bg);
+  --feil:      var(--d-roed);    --feil-bg:      var(--d-roed-bg);
+  --info:      var(--d-bla);     --info-bg:      var(--d-bla-bg);
+
+  /* Eldre navn — beholdes som alias så ingenting brekker. Ikke bruk dem i ny kode. */
+  --ink:var(--d-tekst); --muted:var(--d-tekst-2); --line:var(--d-ramme);
+  --brand:var(--primaer); --brand2:var(--primaer-mork);
+  --sidebar:var(--sidemeny); --sidebar-ink:var(--sidemeny-tekst);
+  --green:var(--ok); --green-bg:var(--ok-bg); --orange:var(--advarsel); --orange-bg:var(--advarsel-bg);
+  --red:var(--feil); --red-bg:var(--feil-bg); --pos:var(--ok); --neg:var(--feil);
+  --gronn:var(--ok); --roed:var(--feil); --gul:var(--advarsel);
+  --radius:var(--d-radius); --shadow:var(--d-skygge);
+}
+
+/* Tall skal kunne sammenlignes vertikalt. Uten tabular-nums har «1» og «7» ulik bredde,
+   og en kolonne med kroner blir ujevn selv når den er høyrejustert. */
+table, .kpi-list, .d-kpi, .val, .num, input[type="number"]{
+  font-variant-numeric: tabular-nums; font-feature-settings:"tnum" 1;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -41,11 +66,11 @@ table,input,button,.d-select,.tabs button,.nav a{font-size:15px}
 .cust-item:hover{background:rgba(255,255,255,.05);color:#fff}
 .cust-item.active{background:rgba(214,87,66,.18);color:#fff}
 .cust-item .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cust-item .cnt{font-size:10.5px;color:#7a8499;background:rgba(255,255,255,.06);border-radius:10px;padding:1px 7px;flex-shrink:0;margin-left:6px}
+.cust-item .cnt{font-size:10.5px;color:var(--d-tekst-3);background:rgba(255,255,255,.06);border-radius:10px;padding:1px 7px;flex-shrink:0;margin-left:6px}
 .side-btn{margin-top:8px;width:100%;background:rgba(255,255,255,.06);color:#fff;border:1px dashed rgba(255,255,255,.18);border-radius:8px;padding:8px;font-size:12px;cursor:pointer;font-family:inherit}
 .side-btn:hover{background:rgba(255,255,255,.1)}
 .sidebar .user{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 2px;border-top:1px solid rgba(255,255,255,.07)}
-.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#D65742,#B8472F);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--primaer),#B8472F);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
 .user .meta{font-size:12px;color:#fff;font-weight:600;line-height:1.2}
 .user .meta span{display:block;color:var(--muted);font-weight:400;font-size:11px}
 
@@ -218,7 +243,7 @@ tbody tr:hover{background:#fafbff}
 /* ===== Dashboard ===== */
 .dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:16px}
 .dash-card{background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
-.dash-card.total{background:linear-gradient(135deg,#7A2E1F,#D65742);color:#fff}
+.dash-card.total{background:linear-gradient(135deg,#7A2E1F,var(--primaer));color:#fff}
 .dash-card .dc-name{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px}
 .dash-card.total .dc-name{color:rgba(255,255,255,.8)}
 .dash-card .dc-val{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1}
@@ -409,15 +434,15 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <div style="margin-bottom:4px">
       <img src="dlvry-logo-full.png" alt="DLVRY" class="d-login-logo">
     </div>
-    <div style="font-size:12.5px;color:#7a8499;margin-bottom:22px">Logg inn for å fortsette</div>
-    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">E-post</label>
+    <div style="font-size:12.5px;color:var(--d-tekst-3);margin-bottom:22px">Logg inn for å fortsette</div>
+    <label style="display:block;font-size:12px;color:var(--d-tekst-3);margin-bottom:5px">E-post</label>
     <input id="loginEpost" type="email" autocomplete="username" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:14px;font-family:inherit;box-sizing:border-box">
-    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">Passord</label>
+    <label style="display:block;font-size:12px;color:var(--d-tekst-3);margin-bottom:5px">Passord</label>
     <input id="loginPassord" type="password" autocomplete="current-password" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
     <div id="loginErr" style="color:#dc2626;font-size:12px;min-height:16px;margin-bottom:8px"></div>
-    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:#D65742;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
+    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:var(--primaer);color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Logg inn</button>
     <div style="text-align:center;margin-top:10px">
-      <a href="javascript:void(0)" onclick="visGlemtPassord()" style="font-size:12px;color:#7a8499;text-decoration:underline">Glemt passord?</a>
+      <a href="javascript:void(0)" onclick="visGlemtPassord()" style="font-size:12px;color:var(--d-tekst-3);text-decoration:underline">Glemt passord?</a>
     </div>
     <div style="font-size:11px;color:#a0a8ba;text-align:center;margin-top:14px;line-height:1.4">Første kall kan ta ~50 sek mens serveren våkner.</div>
   </div>
@@ -426,13 +451,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <div style="margin-bottom:4px">
       <img src="dlvry-logo-full.png" alt="DLVRY" class="d-login-logo">
     </div>
-    <div style="font-size:12.5px;color:#7a8499;margin-bottom:22px">Skriv inn e-posten din, så sender vi deg en lenke for å sette nytt passord.</div>
-    <label style="display:block;font-size:12px;color:#7a8499;margin-bottom:5px">E-post</label>
+    <div style="font-size:12.5px;color:var(--d-tekst-3);margin-bottom:22px">Skriv inn e-posten din, så sender vi deg en lenke for å sette nytt passord.</div>
+    <label style="display:block;font-size:12px;color:var(--d-tekst-3);margin-bottom:5px">E-post</label>
     <input id="glemtEpost" type="email" autocomplete="username" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
     <div id="glemtMelding" style="font-size:12px;min-height:16px;margin-bottom:8px"></div>
-    <button id="glemtBtn" onclick="sendGlemtPassord()" style="width:100%;background:#D65742;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Send lenke</button>
+    <button id="glemtBtn" onclick="sendGlemtPassord()" style="width:100%;background:var(--primaer);color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Send lenke</button>
     <div style="text-align:center;margin-top:10px">
-      <a href="javascript:void(0)" onclick="skjulGlemtPassord()" style="font-size:12px;color:#7a8499;text-decoration:underline">Tilbake til innlogging</a>
+      <a href="javascript:void(0)" onclick="skjulGlemtPassord()" style="font-size:12px;color:var(--d-tekst-3);text-decoration:underline">Tilbake til innlogging</a>
     </div>
   </div>
 </div>
@@ -1535,14 +1560,14 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 </div>
 <div class="toast" id="toast"></div>
 <div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#3A2D2A;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
-  <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#D65742;border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
+  <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--primaer);border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
   Backend våkner – prøver igjen automatisk…
 </div>
 <style>
 @keyframes spin{to{transform:rotate(360deg)}}
 .mf-wrap{position:relative;display:inline-block}
 .mf-btn{background:var(--panel);border:1px solid var(--d-ramme,#ccc);border-radius:6px;padding:0 12px;height:40px;min-width:160px;box-sizing:border-box;font-size:15px;cursor:pointer;color:var(--ink);white-space:nowrap;text-align:left;display:inline-flex;align-items:center}
-.mf-btn:hover{border-color:var(--primaer,#D65742)}
+.mf-btn:hover{border-color:var(--primaer,var(--primaer))}
 .mf-box{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:180px;background:var(--panel);border:1px solid var(--d-ramme,#e0e4ee);border-radius:6px;padding:6px;max-height:240px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .mf-box.open{display:block}
 .mf-box label{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:4px;user-select:none}
@@ -2013,7 +2038,7 @@ function anDrawMonthlyChart(D,s){
     const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
     ln.setAttribute('x1',padL);ln.setAttribute('x2',W-padR);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);
     const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
-    tx.setAttribute('x',padL-6);tx.setAttribute('y',y+3);tx.setAttribute('text-anchor','end');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=yv.toFixed(0);svg.appendChild(tx);}
+    tx.setAttribute('x',padL-6);tx.setAttribute('y',y+3);tx.setAttribute('text-anchor','end');tx.setAttribute('font-size','10');tx.setAttribute('fill','var(--d-tekst-3)');tx.textContent=yv.toFixed(0);svg.appendChild(tx);}
 
   if(isAll){
     months.forEach((mo,i)=>{
@@ -2023,7 +2048,7 @@ function anDrawMonthlyChart(D,s){
         rect.setAttribute('x',x);rect.setAttribute('y',yAcc);rect.setAttribute('width',bw);rect.setAttribute('height',Math.max(0,h));
         rect.setAttribute('fill',d.farge);svg.appendChild(rect);});
       const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
-      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
+      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','var(--d-tekst-3)');tx.textContent=mo;svg.appendChild(tx);});
     document.getElementById('anMonthlyLegend').innerHTML=D.monthly.data.map(d=>`<span class="lg-item"><span class="dot" style="background:${d.farge}"></span>${d.navn}</span>`).join('');
   }else{
     const serie=anMonthlySerie(D,s.concept);
@@ -2036,7 +2061,7 @@ function anDrawMonthlyChart(D,s){
       const r26=document.createElementNS('http://www.w3.org/2000/svg','rect');
       r26.setAttribute('x',x+bw*0.5);r26.setAttribute('y',H-padB-h26);r26.setAttribute('width',bw*0.42);r26.setAttribute('height',Math.max(0,h26));r26.setAttribute('fill',farge);svg.appendChild(r26);
       const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
-      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','#7a8499');tx.textContent=mo;svg.appendChild(tx);});
+      tx.setAttribute('x',x+bw/2);tx.setAttribute('y',H-padB+14);tx.setAttribute('text-anchor','middle');tx.setAttribute('font-size','10');tx.setAttribute('fill','var(--d-tekst-3)');tx.textContent=mo;svg.appendChild(tx);});
     document.getElementById('anMonthlyLegend').innerHTML=`<span class="lg-item"><span class="dot" style="background:#c7cede"></span>2025</span><span class="lg-item"><span class="dot" style="background:${farge}"></span>2026</span>`;
   }
 }
@@ -2491,11 +2516,11 @@ function render(){
     tr.setAttribute('data-cart-idx',i);
     const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
     const kp=x.l.konkurrentpris;
-    const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'#2f9e63':'#C0392B'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
+    const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'var(--ok)':'var(--feil)'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
     const kf=x.l.konfidens;
     const konfCelle = kf==null ? '<span class="d-sub">—</span>'
-      : (kf>=60 ? '<span style="color:#2f9e63">'+kf+'%</span>'
-                : '<span style="color:#B45309">'+kf+'% ⚠</span>');
+      : (kf>=60 ? '<span style="color:var(--ok)">'+kf+'%</span>'
+                : '<span style="color:var(--advarsel)">'+kf+'% ⚠</span>');
     tr.innerHTML=`<td class="art">${x.l.art||''}</td>
       <td><div class="pname">${esc(x.l.navn)}</div><button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;margin-top:2px;opacity:0.6">⇄ Bytt</button></td>
       <td>${x.l.matchkonfidens!=null?(x.l.matchkonfidens+'%'+(x.l.matchkonfidens<60?' ⚠':'')):'—'}</td>
@@ -2573,7 +2598,7 @@ function render(){
     if(mOms>0){
       const snitt=mVektet/mOms;
       kpiM.textContent=snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
-      kpiM.style.color=r.totMarginPct*100>=snitt?'#2f9e63':'#B45309';
+      kpiM.style.color=r.totMarginPct*100>=snitt?'var(--ok)':'var(--advarsel)';
       kpiD.textContent='('+mTreff+' av '+r.lines.length+' linjer)';
     }else{
       kpiM.textContent='–';kpiM.style.color='';
@@ -3194,7 +3219,7 @@ async function lagreMoteNotater(){
   st.textContent='Lagrer…'; st.style.color='var(--muted)';
   try{
     await api('/api/aktiviteter/'+_mdAktId,{method:'PATCH',body:_mdNotaterPayload()});
-    st.textContent='Lagret ✓'; st.style.color='var(--gronn,#2f9e63)';
+    st.textContent='Lagret ✓'; st.style.color='var(--gronn,var(--ok))';
   }catch(e){ st.textContent='Feil: '+e.message; st.style.color='var(--d-roed)'; }
 }
 
@@ -3206,7 +3231,7 @@ async function genererMoteReferat(){
     const res=await api('/api/aktiviteter/'+_mdAktId+'/referat',{method:'POST'});
     document.getElementById('md-referat').textContent=res.referat;
     document.getElementById('md-referat-wrap').style.display='block';
-    st.textContent='Referat generert ✓'; st.style.color='var(--gronn,#2f9e63)';
+    st.textContent='Referat generert ✓'; st.style.color='var(--gronn,var(--ok))';
   }catch(e){ st.textContent='Feil: '+e.message; st.style.color='var(--d-roed)'; }
 }
 
@@ -6130,7 +6155,7 @@ async function importFaktura(ev){
     const d=await r.json();
     renderFaktura(d);
     if(d.leverandor) autoOpprettKonkurrent(d.leverandor);
-  }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:#C0392B">Feil: '+esc(e.message)+'</p>'; }
+  }catch(e){ document.getElementById('fakturaInnhold').innerHTML='<p class="sub" style="color:var(--feil)">Feil: '+esc(e.message)+'</p>'; }
 }
 // --- Fase 2: enkel fuzzy match faktura→produkt (token-overlap, ingen AI/tokens) ---
 let _dbTokens=null,_fakturaForslag=[];
@@ -6163,7 +6188,7 @@ function renderFaktura(d){
   const treff=_fakturaForslag.filter(f=>f.match).length;
   const rows=_fakturaForslag.map((f,i)=>{
     const m=f.match;
-    const konf=m?(m.score>=60?'<span style="color:#2f9e63">'+m.score+'%</span>':'<span style="color:#B45309">'+m.score+'% ⚠</span>'):'<span style="color:#C0392B">ingen</span>';
+    const konf=m?(m.score>=60?'<span style="color:var(--ok)">'+m.score+'%</span>':'<span style="color:var(--advarsel)">'+m.score+'% ⚠</span>'):'<span style="color:var(--feil)">ingen</span>';
     const matchVis=m?('<b>'+(f.byttetTil?esc(f.byttetTil.navn):esc(m.prod.navn))+'</b><br><span class="sub">Art '+(f.byttetTil?f.byttetTil.art:m.prod.art)+'</span>'+'<br><input style="font-size:11px;width:120px;margin-top:3px" placeholder="Bytt produkt…" oninput="byttProdukt('+i+',this.value)" list="byttProdList'+i+'">'+'<datalist id="byttProdList'+i+'">'+DB.slice(0,5).map(p=>'<option value="'+esc(p.navn)+'">').join('')+'</datalist>'):'<span class="sub">Søk opp manuelt</span>';
     return '<tr>'
       +'<td>'+esc(f.faktura.beskrivelse??'—')+'</td>'
@@ -6217,7 +6242,7 @@ function lagrePrislisteFraFaktura(){
     +'<div style="color:var(--muted);font-size:12px;margin-bottom:8px">eller opprett ny:</div>'
     +'<label style="display:block;margin-bottom:6px">Navn: <input id="kfNyNavn" placeholder="Leverandørnavn" style="margin-left:6px;width:180px"></label>'
     +'<label style="display:block;margin-bottom:10px">Kategori: <input id="kfNyKat" placeholder="Valgfritt" style="margin-left:6px;width:140px"></label>'
-    +'<div id="kfErr" style="color:#C0392B;font-size:12px;margin-bottom:6px"></div>'
+    +'<div id="kfErr" style="color:var(--feil);font-size:12px;margin-bottom:6px"></div>'
     +'<button class="d-knapp primar" onclick="bekreftPrisliste()">Lagre</button>'
     +'<button class="d-knapp subtil" style="margin-left:8px" onclick="document.getElementById(\'kfPopup\').remove()">Avbryt</button>'
     +'</div>'

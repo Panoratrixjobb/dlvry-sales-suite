@@ -12,7 +12,7 @@ function markedCelle(x){
   const kalk=x.oms>0?((x.dlvryMargin-x.bonusKr)/x.oms)*100:null;
   // Fargen sier om vi priser OVER eller UNDER det varen faktisk gir i markedet — det er
   // spørsmålet selgeren har. Grått når vi ikke har en kalkulert margin å måle mot.
-  const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'#2f9e63':'#B45309');
+  const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'var(--ok)':'var(--advarsel)');
   const trend=(m.dg_pct_ifjor!=null&&Math.abs(m.dg_pct-m.dg_pct_ifjor)>=0.5)
     ? ` <span title="I fjor ${m.dg_pct_ifjor.toLocaleString('nb-NO')} %">${m.dg_pct>m.dg_pct_ifjor?'↑':'↓'}</span>` : '';
   return `<div style="font-size:10px;font-weight:500;color:${farge}" title="Faktisk dekningsgrad i markedet ${MARKED.ar}${m.margin_usikker?' — én av grossistene rapporterer ikke varekost, tallet er for høyt':''}">`

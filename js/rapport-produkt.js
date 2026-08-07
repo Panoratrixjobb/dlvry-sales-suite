@@ -52,7 +52,7 @@ async function lastRapProdukt(){
     }
     const mnok=v=>(v/1e6).toLocaleString('nb-NO',{minimumFractionDigits:2,maximumFractionDigits:2});
     const pp=v=>v==null?'<span class="d-sub">–</span>'
-      :`<span style="color:${v<-1?'#C0392B':(v>1?'#2f9e63':'var(--muted)')};font-weight:600">${v>0?'+':''}${v.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`;
+      :`<span style="color:${v<-1?'var(--feil)':(v>1?'var(--ok)':'var(--muted)')};font-weight:600">${v>0?'+':''}${v.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</span>`;
     // Sum-linja er vektet, ikke et snitt av prosentene — se samme resonnement i kalkylen.
     const sumOms=d.produkter.reduce((a,r)=>a+r.belop,0), sumDb=d.produkter.reduce((a,r)=>a+r.db,0);
     el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
@@ -129,7 +129,7 @@ async function lastRapPrisendringer(){
         <td class="d-sub">${esc(r.enhet||'–')}</td>
         <td style="text-align:right">${kr(r.forrige_netto)}</td>
         <td style="text-align:right;font-weight:600">${kr(r.netto)}</td>
-        <td style="text-align:right;font-weight:600;color:${opp?'#B45309':'#2f9e63'}">${opp?'+':''}${r.endring_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %</td>
+        <td style="text-align:right;font-weight:600;color:${opp?'var(--advarsel)':'var(--ok)'}">${opp?'+':''}${r.endring_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %</td>
         <td class="d-sub">${esc(r.prisdato||'')}</td>
         <td style="text-align:right">${p?kr(p.kostbase):'<span class="d-sub">ikke i kalkylen</span>'}</td>
         <td style="text-align:right">${p?kr(p.listepris):''}</td></tr>`;}).join('');

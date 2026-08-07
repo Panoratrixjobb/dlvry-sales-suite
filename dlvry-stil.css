@@ -32,7 +32,9 @@
   /* --- Tekst --- */
   --d-tekst:      #211C1A;
   --d-tekst-2:    #5C534E;
-  --d-tekst-3:    #948C86;
+  /* Var #948C86 = 3,3:1 mot hvitt, under WCAG-kravet på 4,5:1 for brødtekst — og dette er
+     nettopp fargen på forklaringene under tallene. Mørknet 2026-08-07, samme varme tone. */
+  --d-tekst-3:    #7A7269;
   --d-ramme:      #E6E1DA;
   --d-ramme-mork: #D6CFC6;
 
