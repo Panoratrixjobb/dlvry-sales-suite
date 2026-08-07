@@ -1036,6 +1036,45 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="pbResultat" style="font-size:13px"></div>
       </div>
 
+      <!-- Produktnivå med REALISERT margin. Egen modell: varekost og DB finnes bare i
+           «Consolidated Model», ikke i modellen panelet over henter salgstall fra. -->
+      <div class="d-panel" style="margin-top:18px" id="produktPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Hent produkt- og margindata</h3>
+          <span class="sub">Consolidated Model</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Henter <b>produkt × grossist × uke</b> med omsetning, varekost og dekningsbidrag — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. Bruk samme token som over. Ca. 300 000 rader per år, så regn med noen minutter.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2025"> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2026" checked> 2026</label>
+          <button class="d-knapp subtil sm" onclick="hentProduktMargin(false)" id="pmTorrBtn">Tørrkjør (skriver ingenting)</button>
+          <button class="d-knapp primar sm" onclick="hentProduktMargin(true)" id="pmHentBtn">Hent og lagre</button>
+        </div>
+        <div id="pmResultat" style="font-size:13px;margin-bottom:12px"></div>
+        <div style="border-top:1px solid var(--d-ramme);padding-top:10px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+            <b style="font-size:12.5px">Se marginene:</b>
+            <select id="pmKonsept" class="d-input" style="width:170px">
+              <option value="">Alle konsepter</option>
+              <option value="la_salumeria">La Salumeria</option>
+              <option value="east_essence">East Essence</option>
+              <option value="godt_lokalt">Godt Lokalt</option>
+              <option value="wulff_co">Wulff &amp; Co</option>
+              <option value="fast_food">Fast Food</option>
+              <option value="sabor">Sabor</option>
+            </select>
+            <input id="pmSok" class="d-input" style="width:200px" placeholder="produktnavn eller varenr">
+            <select id="pmAr" class="d-input" style="width:100px">
+              <option>2026</option><option>2025</option><option>2024</option>
+            </select>
+            <button class="d-knapp subtil sm" onclick="visProduktMargin()" id="pmVisBtn">Vis</button>
+          </div>
+          <div id="pmTabell" style="font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- Fase 4: hvilken kilde hvert dashboard-felt leses fra -->
       <div class="d-panel" style="margin-top:18px" id="kildePanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -4413,6 +4452,87 @@ async function hentFraPowerBI(bekreft){
   }finally{knapper.forEach(b=>b.disabled=false);}
 }
 
+// ============ Produkt- og margindata (Consolidated Model) ============
+// Sender BARE tokenet — ikke modell-ID-en fra panelet over. Den peker på salgsmodellen,
+// og margintallene finnes bare i Consolidated Model, som serveren kjenner selv.
+async function hentProduktMargin(bekreft){
+  const el=document.getElementById('pmResultat');
+  const knapper=['pmTorrBtn','pmHentBtn'].map(id=>document.getElementById(id));
+  const aar=[2024,2025,2026].filter(a=>document.getElementById('pmAr'+a).checked);
+  if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
+  const token=document.getElementById('pbToken').value.trim();
+  if(bekreft&&!confirm('Skrive produkt- og margindata for '+aar.join(', ')+' til databasen? Året erstattes i sin helhet.'))return;
+  knapper.forEach(b=>b.disabled=true);
+  const start=Date.now();
+  const timer=setInterval(()=>{
+    el.innerHTML='<span class="sub">Henter produktnivå… '+Math.round((Date.now()-start)/1000)+' s (seks konsepter per år)</span>';
+  },1000);
+  el.innerHTML='<span class="sub">Henter produktnivå…</span>';
+  try{
+    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
+    const d=await api('/api/powerbi/produkt/hent?'+qs,{method:'POST',body:{token:token||null}});
+    clearInterval(timer);
+    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
+    for(const [ar,s] of Object.entries(d.sammendrag||{})){
+      html+=`<div style="margin-bottom:12px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
+        +`${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK, DB ${s.db_mnok} MNOK `
+        +`· <b>DG ${s.dg_pct} %</b>`;
+      // Kostdekningen er hele poenget med tørrkjøringen: en grossist uten varekost gir
+      // strålende marginer som ikke finnes, og det skal ses her — ikke i et tilbud.
+      const svake=(s.kostdekning_per_grossist||[]).filter(g=>!g.kost_palitelig);
+      if(svake.length){
+        html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
+          +'<th>Grossist</th><th style="text-align:right">Omsetning</th><th style="text-align:right">Kost</th><th style="text-align:right">DG</th></tr></thead><tbody>'
+          +svake.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.mnok}</td>`
+            +`<td style="text-align:right">${g.kost_mnok}</td>`
+            +`<td style="text-align:right;font-weight:600;color:var(--d-roed)">${g.dg_pct} %</td></tr>`).join('')
+          +'</tbody></table><div class="sub" style="margin-top:4px">Disse rapporterer ikke varekost — marginene deres er for høye og merkes som usikre i produktlista.</div></div>';
+      }else{
+        html+=' · <span style="color:var(--d-gronn);font-weight:600">alle grossister rapporterer varekost</span>';
+      }
+      if(s.uten_varenummer&&s.uten_varenummer.rader){
+        html+=`<div class="sub" style="margin-top:4px">${s.uten_varenummer.rader.toLocaleString('nb-NO')} rader (${s.uten_varenummer.mnok} MNOK) mangler varenummer — de telles med, men kan ikke kobles til prisverktøyet.</div>`;
+      }
+      if(s.droppet_fram_i_tid){
+        html+=`<div class="sub" style="margin-top:4px">Hoppet over ${s.droppet_fram_i_tid} rader datert etter uke ${s.siste_godtatte_uke}.</div>`;
+      }
+      html+='</div>';
+    }
+    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
+    el.innerHTML=html;
+    if(bekreft){document.getElementById('pbToken').value='';visProduktMargin();}
+  }catch(e){
+    clearInterval(timer);
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
+async function visProduktMargin(){
+  const el=document.getElementById('pmTabell');
+  const btn=document.getElementById('pmVisBtn');
+  btn.disabled=true;el.innerHTML='<span class="sub">Henter…</span>';
+  try{
+    const p=new URLSearchParams({ar:document.getElementById('pmAr').value,grense:'50'});
+    const k=document.getElementById('pmKonsept').value, s=document.getElementById('pmSok').value.trim();
+    if(k)p.set('konsept',k);
+    if(s)p.set('sok',s);
+    const d=await api('/api/produkt-margin?'+p.toString());
+    if(!d.antall){el.innerHTML='<span class="sub">Ingen treff. Er dataene hentet for dette året?</span>';btn.disabled=false;return;}
+    const mnok=v=>(v/1e6).toFixed(2);
+    el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:640px"><thead><tr>'
+      +'<th>Varenr</th><th>Produkt</th><th style="text-align:right">MNOK</th>'
+      +'<th style="text-align:right">DB MNOK</th><th style="text-align:right">DG</th><th style="text-align:right">Grossister</th></tr></thead><tbody>'
+      +d.produkter.map(r=>`<tr><td>${esc(r.varenummer||'–')}</td>`
+        +`<td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="sub" title="Minst én grossist bak tallet rapporterer ikke varekost">⚠ usikker</span>':''}</td>`
+        +`<td style="text-align:right">${mnok(r.belop)}</td>`
+        +`<td style="text-align:right">${mnok(r.db)}</td>`
+        +`<td style="text-align:right;font-weight:600">${r.dg_pct==null?'–':r.dg_pct+' %'}</td>`
+        +`<td style="text-align:right">${r.grossister}</td></tr>`).join('')
+      +'</tbody></table></div>';
+  }catch(e){ el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>'; }
+  finally{ btn.disabled=false; }
+}
+
 // ============ Paritet Excel vs app (fase 0 formel-migrering) ============
 async function sjekkParitet(){
   const el=document.getElementById('paritetResultat');
@@ -6060,6 +6180,8 @@ async function showApp(){
   if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
   const powerbiPanel=document.getElementById('powerbiPanel');
   if(powerbiPanel){powerbiPanel.style.display=erAdmin?'':'none'; if(erAdmin)pbFyllStandard();}
+  const produktPanel=document.getElementById('produktPanel');
+  if(produktPanel)produktPanel.style.display=erAdmin?'':'none';
   const kildePanel=document.getElementById('kildePanel');
   if(kildePanel){kildePanel.style.display=erAdmin?'':'none'; if(erAdmin)lastKilder();}
   const formelkonfigPanel=document.getElementById('formelkonfigPanel');
