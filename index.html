@@ -1553,6 +1553,9 @@ function normalizeDash(d){
       navn:m.navn,
       farge:m.farge||f.konsepter[i%f.konsepter.length].farge,
       vals,
+      // Stolpehøyden: alt fakturert, uskalert. Faller tilbake på vals for eldre snapshots
+      // som ikke har feltet — da er de like uansett, utenom den påbegynte uka.
+      vals_hittil:Array.isArray(m.vals_hittil)?m.vals_hittil:vals,
       vals_2025:Array.isArray(m.vals_2025)?m.vals_2025:new Array(vals.length).fill(0),
       vekst_pct:Array.isArray(m.vekst_pct)?m.vekst_pct:new Array(vals.length).fill(0),
     };
@@ -1577,7 +1580,7 @@ function normalizeDash(d){
     total:d.total_hele_uker, konsepter:d.konsepter_hele_uker,
     monthly:d.monthly_hele_uker?{months:d.monthly_hele_uker.months,
       data:d.monthly_hele_uker.data.map((m,i)=>({navn:m.navn,farge:m.farge||f.konsepter[i%f.konsepter.length].farge,
-        vals:m.vals,vals_2025:m.vals_2025,vekst_pct:m.vekst_pct}))}:null,
+        vals:m.vals,vals_hittil:m.vals_hittil||m.vals,vals_2025:m.vals_2025,vekst_pct:m.vekst_pct}))}:null,
   }:null;
 
   return {
@@ -1659,7 +1662,8 @@ function anSeriesFor(D,key){
     const n=D.monthly.data[0].vals.length;
     const vals=new Array(n).fill(0),vals2025=new Array(n).fill(0);
     D.monthly.data.forEach(d=>{d.vals.forEach((v,i)=>vals[i]+=v);d.vals_2025.forEach((v,i)=>vals2025[i]+=v);});
-    return {vals,vals2025,y2026:D.total.y2026,y2025:D.total.y2025,navn:D.total.navn,farge:'#1b2a4a'};
+    return {vals,vals2025,y2026:D.total.y2026,y2025:D.total.y2025,
+      y2026_hittil:D.total.y2026_hittil??D.total.y2026,navn:D.total.navn,farge:'#1b2a4a'};
   }
   const k=D.konsepter.find(k=>AN_KEY_FOR_NAVN[k.navn]===key);
   const m=D.monthly.data.find(d=>AN_KEY_FOR_NAVN[d.navn]===key);
@@ -1671,7 +1675,8 @@ function anSeriesFor(D,key){
   const n=(D.monthly.months||[]).length||((m&&m.vals)?m.vals.length:0);
   const tom=()=>new Array(n).fill(0);
   return {vals:(m&&m.vals)||tom(),vals2025:(m&&m.vals_2025)||tom(),
-    y2026:k.y2026||0,y2025:k.y2025||0,navn:k.navn,farge:k.farge};
+    y2026:k.y2026||0,y2025:k.y2025||0,y2026_hittil:k.y2026_hittil??k.y2026??0,
+    navn:k.navn,farge:k.farge};
 }
 // Månedsserien for ett konsept, eller en nullserie hvis konseptet ikke har rader i
 // månedsgrafen ennå (samme kilde-asymmetri som anSeriesFor beskriver).
@@ -1683,21 +1688,41 @@ function anMonthlySerie(D,key){
   return {navn:k.navn||AN_NAVN_FOR_KEY[key]||key,farge:k.farge||'#999999',
     vals:new Array(n).fill(0),vals_2025:new Array(n).fill(0),vekst_pct:new Array(n).fill(0)};
 }
+// «man–tor» fra [1,2,3,4]. Sammenhengende spenn skrives med tankestrek, hull med komma —
+// en rød dag midt i uka er tatt ut av begge år og skal da synes i teksten.
+function ukedagTekst(dager){
+  const n=['','man','tir','ons','tor','fre','lør','søn'];
+  const d=(dager||[]).slice().sort((a,b)=>a-b);
+  if(!d.length)return 'ingen hele dager';
+  const spenn=[];
+  for(const v of d){
+    const siste=spenn[spenn.length-1];
+    if(siste&&v===siste[1]+1)siste[1]=v; else spenn.push([v,v]);
+  }
+  return spenn.map(([a,b])=>a===b?n[a]:(b===a+1?`${n[a]}, ${n[b]}`:`${n[a]}–${n[b]}`)).join(', ');
+}
 function anComputeKpi(D,key,week){
   const ser=anSeriesFor(D,key);
   if(!ser)return null;   // ukjent konseptnavn fra API-et — se anSeriesFor
   const cutoff=D.cutoff_uke;
+  // NIVÅ vs SAMMENLIGNINGSGRUNNLAG. `nivaa` er hver krone som er fakturert (det tallet
+  // som skal stemme med Power BI); `y2026`/`y2025` er begge år skalert til de samme
+  // ukedagene, som er det eneste vekstprosenten kan regnes på. De er like utenom den
+  // påbegynte uka — og bare på siste uke, der den delvise uka faktisk ligger.
   const raw26=anYtdAt(ser.vals,cutoff),raw25=anYtdAt(ser.vals2025,cutoff);
   if(!raw26||!raw25){
     // 2025-manedsdetalj mangler ennå (eldre opplasting, før denne kontrakten) —
     // vis de statiske YTD-tallene uten uke-interpolasjon i stedet for å late som 0.
     const delta=ser.y2026-ser.y2025,pct=ser.y2025?delta/ser.y2025:0;
-    return {key,navn:ser.navn,farge:ser.farge,y2026:ser.y2026,y2025:ser.y2025,delta,pct};
+    return {key,navn:ser.navn,farge:ser.farge,y2026:ser.y2026,y2025:ser.y2025,
+      nivaa:ser.y2026_hittil,delta,pct};
   }
   const f26=ser.y2026/raw26,f25=ser.y2025/raw25;
   const y2026=anYtdAt(ser.vals,week)*f26,y2025=anYtdAt(ser.vals2025,week)*f25;
   const delta=y2026-y2025,pct=y2025?delta/y2025:0;
-  return {key,navn:ser.navn,farge:ser.farge,y2026,y2025,delta,pct};
+  // Tidligere uker er hele uker — der finnes ingen delvis uke å skille ut.
+  const nivaa=week>=cutoff?ser.y2026_hittil:y2026;
+  return {key,navn:ser.navn,farge:ser.farge,y2026,y2025,nivaa,delta,pct};
 }
 function anCombinedGrossister(D){
   const map={};const order=[];
@@ -1744,7 +1769,8 @@ function renderAnalyse(){
   document.getElementById('anWeekLabel').innerHTML=`<b>Uke ${s.week}</b> `
     +`<span style="color:var(--d-tekst-3);font-weight:500">(${maaneder[Math.min(11,Math.floor((s.week-1)/wpm))]})</span>`
     +(pd&&pd.delvis?` <span class="sub" style="margin-left:8px">${delvisNaa
-        ? `uke ${pd.siste_uke_med_data} pågår (${Math.round(pd.andel_siste_uke*100)} % av salgsdagene) — fjoråret er skalert likt`
+        ? `uke ${pd.siste_uke_med_data} pågår — tallet viser alt fakturert, veksten måler `
+          +`${ukedagTekst(pd.ferdige_ukedager)} mot samme dager i fjor`
         : `t.o.m. siste hele uke ${pd.siste_hele_uke}`}</span>`
       +` <button class="d-knapp subtil sm" style="margin-left:8px" onclick="byttPeriodemodus()">`
       +`${delvisNaa?'Vis kun hele uker':'Ta med uke '+pd.siste_uke_med_data}</button>`:'');
@@ -1753,12 +1779,18 @@ function renderAnalyse(){
   const allKpi=anComputeKpi(D,'all',s.week);
   const konseptKpis=D.konsepter.map(k=>anComputeKpi(D,AN_KEY_FOR_NAVN[k.navn],s.week)).filter(Boolean);
   const kpiKort=[allKpi,...konseptKpis];
+  const mnok1=v=>(v??0).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1});
   document.getElementById('anKpis').innerHTML=kpiKort.map(k=>{
     const selected=s.concept===k.key;const dimmed=!isAll&&!selected;
+    const nivaa=k.nivaa??k.y2026;
+    // Avviker nivået fra sammenligningsgrunnlaget, ligger dagens omsetning i differansen.
+    // Da vises grunnlaget eksplisitt, ellers ser prosenten ut som den ikke hører til tallene.
+    const skiller=Math.abs(nivaa-k.y2026)>=0.05;
     return `<div class="d-kpi${k.key==='all'?' d-kpi-total':''}" style="cursor:pointer;opacity:${dimmed?0.5:1};${selected&&k.key!=='all'?`box-shadow:0 0 0 2px ${k.farge}`:''}" onclick="setAnalyseConcept('${k.key}')">
       <div class="d-label">${k.navn}</div>
-      <div class="d-rad"><span class="d-tall">${k.y2026.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})}</span><span style="font-size:14px;color:var(--d-tekst-3)"> MNOK</span></div>
-      <div class="d-vs">${growthTag(k.pct)} fra ${k.y2025.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} MNOK</div>
+      <div class="d-rad"><span class="d-tall">${mnok1(nivaa)}</span><span style="font-size:14px;color:var(--d-tekst-3)"> MNOK</span></div>
+      <div class="d-vs">${growthTag(k.pct)} fra ${mnok1(k.y2025)} MNOK</div>
+      ${skiller?`<div class="sub" style="font-size:10px;margin-top:2px">veksten måler ${mnok1(k.y2026)} mot ${mnok1(k.y2025)} på like dager</div>`:''}
     </div>`;
   }).join('');
 
@@ -1876,13 +1908,17 @@ function anDrawMonthlyChart(D,s){
   document.getElementById('anMonthlyTitle').textContent=isAll?'Månedlig omsetning per konsept':'Månedlig omsetning — '+AN_NAVN_FOR_KEY[s.concept];
   document.getElementById('anMonthlySubtitle').textContent=isAll?'MNOK, stablet — 2026':'MNOK — 2025 vs 2026 per måned';
 
+  // Stolpene viser NIVÅ — alt fakturert. `vals` er sammenligningsgrunnlaget (skalert til
+  // like dager) og hører til vekstlinja, ikke til høyden. Uten dette ville siste stolpe
+  // tegnet seg lavere enn KPI-kortet rett over den påstår.
+  const niv=d=>d.vals_hittil||d.vals;
   let maxY;
   if(isAll){
-    const totals=months.map((_,i)=>D.monthly.data.reduce((sum,d)=>sum+d.vals[i],0));
+    const totals=months.map((_,i)=>D.monthly.data.reduce((sum,d)=>sum+niv(d)[i],0));
     maxY=Math.ceil(Math.max(...totals)/10)*10||10;
   }else{
     const serie=anMonthlySerie(D,s.concept);
-    maxY=Math.ceil(Math.max(...serie.vals,...serie.vals_2025)/5)*5||5;
+    maxY=Math.ceil(Math.max(...niv(serie),...serie.vals_2025)/5)*5||5;
   }
   for(let t=0;t<=4;t++){const yv=maxY*t/4,y=H-padB-(yv/maxY)*plotH;
     const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -1893,7 +1929,7 @@ function anDrawMonthlyChart(D,s){
   if(isAll){
     months.forEach((mo,i)=>{
       const x=padL+gap*i+(gap-bw)/2;let yAcc=H-padB;
-      D.monthly.data.forEach(d=>{const h=(d.vals[i]/maxY)*plotH;yAcc-=h;
+      D.monthly.data.forEach(d=>{const h=(niv(d)[i]/maxY)*plotH;yAcc-=h;
         const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
         rect.setAttribute('x',x);rect.setAttribute('y',yAcc);rect.setAttribute('width',bw);rect.setAttribute('height',Math.max(0,h));
         rect.setAttribute('fill',d.farge);svg.appendChild(rect);});
@@ -1905,7 +1941,7 @@ function anDrawMonthlyChart(D,s){
     const farge=serie.farge;
     months.forEach((mo,i)=>{
       const x=padL+gap*i+(gap-bw)/2;
-      const h25=(serie.vals_2025[i]/maxY)*plotH,h26=(serie.vals[i]/maxY)*plotH;
+      const h25=(serie.vals_2025[i]/maxY)*plotH,h26=(niv(serie)[i]/maxY)*plotH;
       const r25=document.createElementNS('http://www.w3.org/2000/svg','rect');
       r25.setAttribute('x',x);r25.setAttribute('y',H-padB-h25);r25.setAttribute('width',bw*0.42);r25.setAttribute('height',Math.max(0,h25));r25.setAttribute('fill','#c7cede');svg.appendChild(r25);
       const r26=document.createElementNS('http://www.w3.org/2000/svg','rect');
