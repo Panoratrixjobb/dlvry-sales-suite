@@ -1043,7 +1043,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3 style="margin:0;font-size:14px;font-weight:600">Hent produkt- og margindata</h3>
           <span class="sub">Consolidated Model</span>
         </div>
-        <p class="sub" style="margin:0 0 10px">Henter <b>produkt × grossist × uke</b> med omsetning, varekost og dekningsbidrag — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. Bruk samme token som over. Ca. 300 000 rader per år, så regn med noen minutter.</p>
+        <p class="sub" style="margin:0 0 10px">Henter <b>produkt × grossist × uke</b> med omsetning, varekost og dekningsbidrag — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. <b>Tokenet limes inn i feltet i panelet over</b> — det samme brukes til begge hentingene, mens modell-ID-en der bare gjelder salgstallene. Ca. 300 000 rader per år, så regn med noen minutter.</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <span class="sub">År:</span>
           <label style="font-size:12.5px"><input type="checkbox" id="pmAr2024"> 2024</label>
@@ -4460,7 +4460,21 @@ async function hentProduktMargin(bekreft){
   const knapper=['pmTorrBtn','pmHentBtn'].map(id=>document.getElementById(id));
   const aar=[2024,2025,2026].filter(a=>document.getElementById('pmAr'+a).checked);
   if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
+  // Panelet låner tokenfeltet fra hentingen over. Uten denne sjekken lot knappen seg
+  // trykke med tomt felt, og svaret ble en serverfeil om App Service-konfigurasjon som
+  // ikke fortalte det som faktisk manglet: tokenet, i feltet rett over.
   const token=document.getElementById('pbToken').value.trim();
+  if(!token){
+    let sp=false;
+    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
+    if(!sp){
+      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet over først</span>'
+        +' <span class="sub">— samme token brukes til begge hentingene.</span>';
+      const felt=document.getElementById('pbToken');
+      felt.focus(); felt.scrollIntoView({block:'center'});
+      return;
+    }
+  }
   if(bekreft&&!confirm('Skrive produkt- og margindata for '+aar.join(', ')+' til databasen? Året erstattes i sin helhet.'))return;
   knapper.forEach(b=>b.disabled=true);
   const start=Date.now();
