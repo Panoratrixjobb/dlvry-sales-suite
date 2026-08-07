@@ -143,6 +143,11 @@ thead th{background:#fafbfe;color:var(--muted);font-weight:600;text-align:right;
 thead th:nth-child(1),thead th:nth-child(2){text-align:left}
 tbody td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:middle}
 tbody td:nth-child(1),tbody td:nth-child(2){text-align:left}
+/* .tall/.venstre må slå nth-child-reglene over. «tbody td.tall» har SAMME spesifisitet
+   som «tbody td:nth-child(1)» (0-1-2), og står etter — da vinner den. En kortere
+   «td.tall» taper, fordi nth-child teller som en klasse (2026-08-07). */
+tbody td.tall,thead th.tall{text-align:right}
+tbody td.venstre,thead th.venstre{text-align:left}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:#fafbff}
 .pname{font-weight:600;color:var(--ink);max-width:230px;white-space:normal;line-height:1.25;font-size:11.5px}
@@ -941,7 +946,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Inviter bruker-form -->
       <div id="brukerFormRad" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px">
         <div class="d-panel" style="min-width:320px;flex:1;max-width:480px">
-          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Inviter ny bruker</h3>
+          <h3>Inviter ny bruker</h3>
           <div class="d-felt" style="margin-bottom:10px">
             <label>E-post</label>
             <input id="invEpost" type="email" class="d-input" placeholder="ny.bruker@firma.no">
@@ -962,7 +967,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
         <!-- Opprett bruker direkte -->
         <div class="d-panel" style="min-width:320px;flex:1;max-width:480px">
-          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Opprett bruker direkte</h3>
+          <h3>Opprett bruker direkte</h3>
           <div class="d-felt" style="margin-bottom:10px"><label>Navn</label><input id="nbNavn" class="d-input" placeholder="Fornavn Etternavn"></div>
           <div class="d-felt" style="margin-bottom:10px"><label>E-post (= brukernavn)</label><input id="nbEpost" type="email" class="d-input" placeholder="navn@dlvry.no"></div>
           <div class="d-felt" style="margin-bottom:10px"><label>Rolle</label>
@@ -992,7 +997,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
         <!-- Brukerliste -->
         <div class="d-panel" style="flex:2;min-width:300px">
-          <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Aktive brukere</h3>
+          <h3>Aktive brukere</h3>
           <div id="brukerListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
         </div>
       </div>
@@ -1002,8 +1007,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Invitasjonsliste -->
       <div class="d-panel" id="invitasjonPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Sendte invitasjoner</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Sendte invitasjoner</h3>
           <button class="d-knapp subtil sm" onclick="lastInvitasjoner()">↻ Oppdater</button>
         </div>
         <div id="invitasjonListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
@@ -1011,8 +1016,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Feedback -->
       <div class="d-panel" style="margin-top:18px" id="feedbackPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Feedback fra brukere</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Feedback fra brukere</h3>
           <button class="d-knapp subtil sm" onclick="lastFeedback()">↻ Oppdater</button>
         </div>
         <div id="feedbackListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
@@ -1020,8 +1025,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- BRREG-oppdatering -->
       <div class="d-panel" style="margin-top:18px" id="brregPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">BRREG-oppdatering</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>BRREG-oppdatering</h3>
           <button id="brregRefreshBtn" class="d-knapp primar sm" onclick="sjekkBrregNa()">Sjekk BRREG nå</button>
         </div>
         <p class="sub" style="margin:0">Oppdaterer manglende firmainfo og konkurs-/avviklingsstatus for alle kunder mot Brønnøysundregistrene. Kjøres automatisk ved innlogging (maks hver 7. dag / ny kalendermåned) — bruk knappen for å tvinge en oppdatering nå. Kan ta noen minutter for mange kunder.</p>
@@ -1032,8 +1037,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Tokenet gjelder BEGGE hentingene under, og sto tidligere inne i Power BI-panelet.
            Det ga forvirring da produktpanelet lånte det. Nå står det ett sted, øverst. -->
       <div class="d-panel" style="margin-top:18px" id="tokenPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Tilkobling til Power BI</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Tilkobling til Power BI</h3>
           <span class="sub" id="pbStatusLinje"></span>
         </div>
         <details style="margin-bottom:10px">
@@ -1047,8 +1052,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Hent rådata rett fra Power BI-modellen — erstatningen for kundedata-pivoten -->
       <div class="d-panel" style="margin-top:18px" id="powerbiPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">1 · Salgstall (kunde × konsept × uke)</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>1 · Salgstall (kunde × konsept × uke)</h3>
         </div>
         <p class="sub" style="margin:0 0 10px">Henter kunde × konsept × uke rett fra den semantiske modellen og fyller de samme tabellene som kundedata-opplastingen. Målt 2026-08-05 gir denne veien <b>100 % kundenivå-dekning</b> mot pivotens 51 % — D06 og D15 kommer komplett med. Kjør alltid tørrkjøring først. Tar det for lang tid og henger seg opp, ta ett år om gangen — hvert år er fem spørringer mot modellen.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
@@ -1057,7 +1062,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Arbeidsområde-ID</b>
             <input id="pbGruppe" class="d-input" style="width:290px" placeholder="tomt = Mitt arbeidsområde" autocomplete="off"></label>
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <div class="d-verktoy">
           <span class="sub">År:</span>
           <label style="font-size:12.5px"><input type="checkbox" id="pbAr2024"> 2024</label>
           <label style="font-size:12.5px"><input type="checkbox" id="pbAr2025" checked> 2025</label>
@@ -1071,12 +1076,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Produktnivå med REALISERT margin. Egen modell: varekost og DB finnes bare i
            «Consolidated Model», ikke i modellen panelet over henter salgstall fra. -->
       <div class="d-panel" style="margin-top:18px" id="produktPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">2 · Produkt og margin (produkt × grossist × uke)</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>2 · Produkt og margin (produkt × grossist × uke)</h3>
           <span class="sub">Consolidated Model</span>
         </div>
         <p class="sub" style="margin:0 0 10px">Henter omsetning, varekost og dekningsbidrag per vare — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. Bruker tokenet øverst; modell-ID-en i panelet over gjelder bare salgstallene. Ca. 300 000 rader per år, så regn med noen minutter.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <div class="d-verktoy">
           <span class="sub">År:</span>
           <label style="font-size:12.5px"><input type="checkbox" id="pmAr2024"> 2024</label>
           <label style="font-size:12.5px"><input type="checkbox" id="pmAr2025"> 2025</label>
@@ -1086,7 +1091,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
         <div id="pmResultat" style="font-size:13px;margin-bottom:12px"></div>
         <div style="border-top:1px solid var(--d-ramme);padding-top:10px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <div class="d-verktoy">
             <b style="font-size:12.5px">Se marginene:</b>
             <select id="pmKonsept" class="d-input" style="width:170px">
               <option value="">Alle konsepter</option>
@@ -1110,12 +1115,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Leverandørprisene. Dekker 46 % av prisverktøyets katalog (EPD-broen) — derfor en
            berikelse og et varsel, ikke en erstatning for produkter.json. -->
       <div class="d-panel" style="margin-top:18px" id="prislistePanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">3 · Leverandørpriser (Totalprislista)</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>3 · Leverandørpriser (Totalprislista)</h3>
           <span class="sub">Consolidated Model</span>
         </div>
         <p class="sub" style="margin:0 0 10px">Henter prisene DLVRY faktisk betaler leverandørene, med forrige pris og endring. Svarer på ett spørsmål prisverktøyet ikke kan i dag: <b>har innkjøpsprisen endret seg siden listeprisen ble satt?</b> Ca. 22 000 rader, går på sekunder. Resultatet vises i Rapporter → Prisendringer.</p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+        <div class="d-verktoy">
           <button class="d-knapp subtil sm" onclick="hentPrisliste(false)" id="plTorrBtn">Tørrkjør (skriver ingenting)</button>
           <button class="d-knapp primar sm" onclick="hentPrisliste(true)" id="plHentBtn">Hent og lagre</button>
         </div>
@@ -1128,8 +1133,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
            /last-opp-kundedata står igjen i backend og kan gjenopprettes. Masterfil-
            opplastingen blir til paritetssjekken er grønn på alle felt. -->
       <div class="d-panel" style="margin-top:18px" id="dashUploadPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Excel-opplasting (reserveløsning)</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Excel-opplasting (reserveløsning)</h3>
           <span class="sub">Bruk hentingene over</span>
         </div>
         <details>
@@ -1143,8 +1148,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Fase 4: hvilken kilde hvert dashboard-felt leses fra -->
       <div class="d-panel" style="margin-top:18px" id="kildePanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Dashboardets kilde (fase 4)</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Dashboardets kilde (fase 4)</h3>
           <button class="d-knapp subtil sm" onclick="lastKilder()" id="kildeLastBtn">↻ Last</button>
         </div>
         <p class="sub" style="margin:0 0 10px">Bytt ett felt om gangen, og bare når paritetssjekken over er grønn for det feltet. Endringen slår inn umiddelbart og kan rulles tilbake her — ingen ny opplasting eller deploy. Formen på tallene er identisk, så dashbordet ser likt ut; det er kilden som endres.</p>
@@ -1153,8 +1158,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Fase 0 formel-migrering: paritet Excel vs appens egne beregninger -->
       <div class="d-panel" style="margin-top:18px" id="paritetPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Paritet: Excel vs appens egne beregninger</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Paritet: Excel vs appens egne beregninger</h3>
           <button class="d-knapp primar sm" onclick="sjekkParitet()" id="paritetBtn">Sjekk paritet</button>
         </div>
         <p class="sub" style="margin:0">Formel-migreringen (MIGRERINGSPLAN-formler-til-app.md): appen regner total/konsepter/grossister, månedsgraf og årsestimat selv fra kundedata-pivoten og sammenligner med masterfilas ferdigtall. Avvik her endrer ingenting i dashbordet — de viser hva som må forklares før appen kan overta formlene (fase 4). Årsestimatet er unntaket: der er avvik forventet, siden appens prognosemodell er målt mer treffsikker enn Excels flate vekstfaktor.</p>
@@ -1163,8 +1168,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Fase 1 formel-migrering: konfigurasjon (intern-regler, sesongvekter, uke→måned) -->
       <div class="d-panel" style="margin-top:18px" id="formelkonfigPanel">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Formel-konfig</h3>
+        <div class="d-panel-hode midtstilt">
+          <h3>Formel-konfig</h3>
           <button class="d-knapp subtil sm" onclick="lastFormelkonfig()" id="fkLastBtn">↻ Last konfig</button>
         </div>
         <p class="sub" style="margin:0">Konfigurasjonen appen trenger for å overta Excel-formlene (MIGRERINGSPLAN fase 1): intern-regler (hvilken omsetning som holdes utenfor «Total ekstern» — brukes av paritetssjekken over) og uke→måned-kalenderen som månedsgrafen i fase 2 regnes fra. Sesongvektene er beholdt, men ikke lenger nødvendige: årsestimatet kommer fra prognosemodellen.</p>
@@ -1173,7 +1178,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Bulk-importer brukere (Excel) -->
       <div class="d-panel" style="margin-top:18px" id="bulkImportPanel">
-        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Bulk-importer brukere (Excel)</h3>
+        <h3>Bulk-importer brukere (Excel)</h3>
         <p class="sub" style="margin:0 0 10px">
           Last opp «Import»-arket (samme mal som salgsavdeling-importen). Matcher rader på
           e-post: finnes brukeren fra før oppdateres kun utfylte felt (tomme celler rører ikke
@@ -1189,7 +1194,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <!-- Nasjonal leads-import (Excel) -->
       <div class="d-panel" style="margin-top:18px" id="leadsImportPanel">
-        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Nasjonal leads-database (Excel)</h3>
+        <h3>Nasjonal leads-database (Excel)</h3>
         <p class="sub" style="margin:0 0 10px">
           Last opp «leads_nasjonal.xlsx» (sammenslått fastfood + restaurant, matchet mot egne
           kunder på org.nr). Matcher på org.nr: nye prospekter opprettes som leads, eksisterende
@@ -1980,7 +1985,7 @@ function renderImporthus(D){
   const far=v=>(v==null?'var(--d-tekst-3)':(v>=0?'var(--green)':'var(--red)'));
   const sum=d.sum;
   const tot25=sum.intern.y2025+sum.ekstern.y2025, tot26=sum.intern.y2026+sum.ekstern.y2026;
-  let h=`<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+  let h=`<div class="d-panel-hode">
       <h3 style="margin:0;font-size:14px;font-weight:700;color:var(--d-tekst)">${esc(d.navn)} — importhuset</h3>
       <span class="sub" style="font-size:11.5px">YTD t.o.m. uke ${d.til_og_med_uke} · MNOK</span></div>
     <p class="sub" style="margin:0 0 14px;font-size:11.5px">Importerer varer de andre grossistene selger. Holdes utenfor konsept- og totaltallene, fordi ${d.internandel_2026!=null?Math.round(d.internandel_2026*100)+' %':'det meste'} av omsetningen er internfakturering — den er ikke solgt ut av konsernet ennå. Kjøttimporten som er flyttet hit fra Wulff telles i Wulff &amp; Co-konseptet, ikke her.</p>
@@ -3429,7 +3434,7 @@ async function klLastOgVis(){
       <td>${grossist?esc(grossist):dash}</td>
       <td>${regionCell}</td>
       <td>${c.selger_navn?esc(c.selger_navn):dash}</td>
-      <td style="text-align:right">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
+      <td class="tall">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
       <td><span class="d-badge ${statusFarge(c.status||'')} flat">${esc(c.status||'Kunde')}</span></td>
     </tr>`;}).join('');
   const totPages=Math.ceil(klTotal/KL_LIMIT)||1;
@@ -4041,17 +4046,17 @@ async function lastKonkPriser(){
     '<tr style="background:var(--panel)">'
     +'<td><input id="nyKonkProdNavn" class="d-input" placeholder="Varenavn *" style="font-size:12px;padding:4px 8px"></td>'
     +'<td></td><td></td>'
-    +'<td style="text-align:right"><input id="nyKonkProdPris" type="number" class="d-input" placeholder="Pris" style="font-size:12px;padding:4px 8px;width:80px"></td>'
+    +'<td class="tall"><input id="nyKonkProdPris" type="number" class="d-input" placeholder="Pris" style="font-size:12px;padding:4px 8px;width:80px"></td>'
     +'<td colspan="4"></td>'
     +'<td><button class="d-knapp primar sm" onclick="leggTilKonkProdukt()">+ Legg til</button></td>'
     +'</tr>':'';
   el.innerHTML='<div class="table-wrap"><table>'
     +'<thead><tr>'
     +'<th>Varenavn</th><th>Kategori</th><th>Enhet</th>'
-    +'<th style="text-align:right">Rapris</th>'
-    +'<th style="text-align:right">kr/kg</th>'
-    +'<th style="text-align:right">kr/liter</th>'
-    +'<th style="text-align:right">kr/stk</th>'
+    +'<th class="tall">Rapris</th>'
+    +'<th class="tall">kr/kg</th>'
+    +'<th class="tall">kr/liter</th>'
+    +'<th class="tall">kr/stk</th>'
     +'<th>Flagg</th><th>Dato</th>'
     +(erRed?'<th></th>':'')
     +'</tr></thead><tbody>'
@@ -4062,10 +4067,10 @@ async function lastKonkPriser(){
         +'<td contenteditable="'+(erRed?'true':'false')+'" onblur="'+(erRed?'oppdaterKonkProdukt(\''+pid+'\',\'varenavn\',this.textContent.trim(),this)':'')+'" style="outline:none">'+esc(r.varenavn||dash)+'</td>'
         +'<td>'+esc(r.kategori||dash)+'</td>'
         +'<td>'+(r.pakning?r.pakning+(r.pakning_enhet?' '+r.pakning_enhet:''):esc(r.enhet_kilde||dash))+'</td>'
-        +'<td style="text-align:right" contenteditable="'+(erRed?'true':'false')+'" onblur="'+(erRed?'oppdaterKonkProdukt(\''+pid+'\',\'pris\',this.textContent.trim(),this)':'')+'" style="outline:none;text-align:right">'+(r.rapris!=null?r.rapris.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td class="tall" contenteditable="'+(erRed?'true':'false')+'" onblur="'+(erRed?'oppdaterKonkProdukt(\''+pid+'\',\'pris\',this.textContent.trim(),this)':'')+'" style="outline:none;text-align:right">'+(r.rapris!=null?r.rapris.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td style="text-align:right;font-weight:600;color:var(--brand)">'+(r.pris_per_kg!=null?r.pris_per_kg.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
-        +'<td style="text-align:right">'+(r.pris_per_liter!=null?r.pris_per_liter.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
-        +'<td style="text-align:right">'+(r.pris_per_stk!=null?r.pris_per_stk.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td class="tall">'+(r.pris_per_liter!=null?r.pris_per_liter.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
+        +'<td class="tall">'+(r.pris_per_stk!=null?r.pris_per_stk.toLocaleString('no',{minimumFractionDigits:2,maximumFractionDigits:2}):dash)+'</td>'
         +'<td>'+(r.flagg?'<span class="d-badge flat '+(erUsikker?'gul':'graa')+'" style="font-size:11px">'+esc(r.flagg)+'</span>':dash)+'</td>'
         +'<td style="font-size:11.5px;color:var(--muted)">'+(r.dato||dash)+'</td>'
         +(erRed?'<td><button class="d-knapp fare sm" onclick="slettKonkProdukt(\''+pid+'\',this.closest(\'tr\'))">✕</button></td>':'')
@@ -4446,13 +4451,13 @@ async function lastKilder(){
   el.textContent='Laster…';
   try{
     const d=await api('/api/dashboard-excel/kilder');
-    let html='<table class="d-tabell" style="min-width:520px"><thead><tr><th>Felt</th><th>Vises i</th><th style="text-align:right">Kilde</th><th></th></tr></thead><tbody>';
+    let html='<table class="d-tabell" style="min-width:520px"><thead><tr><th>Felt</th><th>Vises i</th><th class="tall">Kilde</th><th></th></tr></thead><tbody>';
     for(const [felt,[navn,hvor]] of Object.entries(KILDE_FELT)){
       const kilde=(d.kilder||{})[felt]||'excel';
       const erApp=kilde==='app';
       html+=`<tr><td><b>${esc(navn)}</b></td><td class="sub">${esc(hvor)}</td>`
         +`<td style="text-align:right;font-weight:600;color:${erApp?'var(--d-gronn)':'var(--muted)'}">${erApp?'Appen':'Excel'}</td>`
-        +`<td style="text-align:right"><button class="d-knapp ${erApp?'subtil':'primar'} sm" onclick="settKilde('${felt}','${erApp?'excel':'app'}')">`
+        +`<td class="tall"><button class="d-knapp ${erApp?'subtil':'primar'} sm" onclick="settKilde('${felt}','${erApp?'excel':'app'}')">`
         +`${erApp?'Tilbake til Excel':'Bytt til appen'}</button></td></tr>`;
     }
     html+='</tbody></table>';
@@ -4491,18 +4496,18 @@ async function sjekkParitet(){
     // importhus og flyttet omsetning. Differansen mellom dem er bevisst, ikke en feil.
     const korrCelle=v=>`<td style="text-align:right;font-weight:600;border-left:1px solid var(--d-ramme-mork)">${v?.toFixed(2)??'–'}</td>`;
     const rad=(navn,p)=>`<tr><td>${esc(navn)}</td>
-      <td style="text-align:right">${p.excel.y2026?.toFixed(2)??'–'}</td>
-      <td style="text-align:right">${p.app.y2026?.toFixed(2)??'–'}</td>
+      <td class="tall">${p.excel.y2026?.toFixed(2)??'–'}</td>
+      <td class="tall">${p.app.y2026?.toFixed(2)??'–'}</td>
       ${avvikCelle(p.avvik_y2026)}
-      <td style="text-align:right">${fmtV(p.excel.vekst)}</td>
-      <td style="text-align:right">${fmtV(p.app.vekst)}</td>
+      <td class="tall">${fmtV(p.excel.vekst)}</td>
+      <td class="tall">${fmtV(p.app.vekst)}</td>
       ${korrCelle(p.korrigert?.y2026)}
-      <td style="text-align:right">${fmtV(p.korrigert?.vekst)}</td></tr>`;
+      <td class="tall">${fmtV(p.korrigert?.vekst)}</td></tr>`;
     let html='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
-      +'<th>Konsept</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App rå 2026</th>'
-      +'<th style="text-align:right">Avvik</th><th style="text-align:right">Excel vekst</th><th style="text-align:right">App rå vekst</th>'
+      +'<th>Konsept</th><th class="tall">Excel 2026 (MNOK)</th><th class="tall">App rå 2026</th>'
+      +'<th class="tall">Avvik</th><th class="tall">Excel vekst</th><th class="tall">App rå vekst</th>'
       +'<th style="text-align:right;border-left:1px solid var(--d-ramme-mork)">Korrigert 2026</th>'
-      +'<th style="text-align:right">Korrigert vekst</th></tr></thead><tbody>'
+      +'<th class="tall">Korrigert vekst</th></tr></thead><tbody>'
       +d.konsepter.map(k=>rad(k.navn,k)).join('')
       +rad('Total',d.total).replace('<tr>','<tr class="total">')
       +'</tbody></table></div>'
@@ -4521,14 +4526,14 @@ async function sjekkParitet(){
         +'<p class="sub" style="margin:0 0 6px">Disse har ingen fasit å avvike fra, så tallene '
         +'er de korrigerte — samme grunnlag som dashbordet.</p>'
         +'<div class="table-wrap"><table class="d-tabell" style="min-width:420px"><thead><tr>'
-        +'<th>Konsept</th><th style="text-align:right">Korrigert 2026 (MNOK)</th>'
-        +'<th style="text-align:right">Korrigert 2025</th><th style="text-align:right">Vekst</th></tr></thead><tbody>'
+        +'<th>Konsept</th><th class="tall">Korrigert 2026 (MNOK)</th>'
+        +'<th class="tall">Korrigert 2025</th><th class="tall">Vekst</th></tr></thead><tbody>'
         +uten.map(k=>`<tr><td>${esc(k.navn)}</td>`
-          +`<td style="text-align:right;font-weight:600">${(k.y2026??0).toFixed(2)}</td>`
-          +`<td style="text-align:right">${(k.y2025??0).toFixed(2)}</td>`
-          +`<td style="text-align:right">${fmtV(k.vekst)}</td></tr>`).join('')
-        +`<tr class="total"><td>Sum</td><td style="text-align:right">${(s.y2026||0).toFixed(2)}</td>`
-        +`<td style="text-align:right">${(s.y2025||0).toFixed(2)}</td><td></td></tr>`
+          +`<td class="tall" style="font-weight:600">${(k.y2026??0).toFixed(2)}</td>`
+          +`<td class="tall">${(k.y2025??0).toFixed(2)}</td>`
+          +`<td class="tall">${fmtV(k.vekst)}</td></tr>`).join('')
+        +`<tr class="total"><td>Sum</td><td class="tall">${(s.y2026||0).toFixed(2)}</td>`
+        +`<td class="tall">${(s.y2025||0).toFixed(2)}</td><td></td></tr>`
         +'</tbody></table></div>'
         +'<p class="sub" style="margin:4px 0 0">Masterfila har ingen rader for disse — verken omsetning, '
         +'grossist-seksjoner eller ny/tapt/venter. De er derfor holdt utenfor hele sammenligningen over, '
@@ -4564,15 +4569,15 @@ async function sjekkParitet(){
       };
       html+='<h4 style="margin:16px 0 6px;font-size:13px">Månedsgraf (fase 2)</h4>';
       html+='<div class="table-wrap"><table class="d-tabell" style="min-width:520px"><thead><tr>'
-        +'<th>Måned</th><th style="text-align:right">Excel 2026 (MNOK)</th><th style="text-align:right">App 2026</th>'
-        +'<th style="text-align:right">Avvik</th><th>Største konseptavvik</th></tr></thead><tbody>'
+        +'<th>Måned</th><th class="tall">Excel 2026 (MNOK)</th><th class="tall">App 2026</th>'
+        +'<th class="tall">Avvik</th><th>Største konseptavvik</th></tr></thead><tbody>'
         +m.rader.map(r=>`<tr><td>${esc(r.maaned)}${r.komplett?'':' <span class="sub">(delvis)</span>'}</td>`
-          +`<td style="text-align:right">${r.excel.toFixed(2)}</td>`
-          +`<td style="text-align:right">${r.app.toFixed(2)}</td>`
+          +`<td class="tall">${r.excel.toFixed(2)}</td>`
+          +`<td class="tall">${r.app.toFixed(2)}</td>`
           +mndCelle(r.avvik,r.excel)
           +`<td class="sub">${r.storste_konsept?esc(r.storste_konsept.navn)+' '+(r.storste_konsept.avvik>0?'+':'')+r.storste_konsept.avvik.toFixed(2):'–'}</td></tr>`).join('')
-        +`<tr class="total"><td>Sum</td><td style="text-align:right">${m.sum_excel.toFixed(2)}</td>`
-        +`<td style="text-align:right">${m.sum_app.toFixed(2)}</td>`+mndCelle(m.sum_avvik,m.sum_excel)+'<td></td></tr>'
+        +`<tr class="total"><td>Sum</td><td class="tall">${m.sum_excel.toFixed(2)}</td>`
+        +`<td class="tall">${m.sum_app.toFixed(2)}</td>`+mndCelle(m.sum_avvik,m.sum_excel)+'<td></td></tr>'
         +'</tbody></table></div>';
       if(m.maaneder_utenfor_excel>0){
         html+=`<p class="sub" style="margin:4px 0 0">Appen har ${m.maaneder_utenfor_excel} måned(er) mer enn Excel-snapshotet — snapshotet er eldre enn ukedataene.</p>`;
@@ -4587,19 +4592,19 @@ async function sjekkParitet(){
       const e=d.estimat;
       html+='<h4 style="margin:16px 0 6px;font-size:13px">Årsestimat — Excel mot appens prognosemodell</h4>';
       html+='<div class="table-wrap"><table class="d-tabell" style="min-width:560px"><thead><tr>'
-        +'<th>Konsept</th><th style="text-align:right">Helår 2025</th><th style="text-align:right">Excel-estimat</th>'
-        +'<th style="text-align:right">App-estimat</th><th style="text-align:right">Differanse</th>'
-        +'<th style="text-align:right">Herav manuell justering</th></tr></thead><tbody>'
+        +'<th>Konsept</th><th class="tall">Helår 2025</th><th class="tall">Excel-estimat</th>'
+        +'<th class="tall">App-estimat</th><th class="tall">Differanse</th>'
+        +'<th class="tall">Herav manuell justering</th></tr></thead><tbody>'
         +e.konsepter.map(k=>`<tr><td>${esc(k.navn)}</td>`
-          +`<td style="text-align:right">${k.helar_2025.toFixed(1)}</td>`
-          +`<td style="text-align:right">${k.excel_estimat.toFixed(1)}</td>`
-          +`<td style="text-align:right;font-weight:600">${k.app_estimat.toFixed(1)}</td>`
-          +`<td style="text-align:right">${k.avvik>0?'+':''}${k.avvik.toFixed(1)}</td>`
-          +`<td style="text-align:right" class="sub">${k.justering?((k.justering>0?'+':'')+k.justering.toFixed(1)):'–'}</td></tr>`).join('')
+          +`<td class="tall">${k.helar_2025.toFixed(1)}</td>`
+          +`<td class="tall">${k.excel_estimat.toFixed(1)}</td>`
+          +`<td class="tall" style="font-weight:600">${k.app_estimat.toFixed(1)}</td>`
+          +`<td class="tall">${k.avvik>0?'+':''}${k.avvik.toFixed(1)}</td>`
+          +`<td class="tall sub">${k.justering?((k.justering>0?'+':'')+k.justering.toFixed(1)):'–'}</td></tr>`).join('')
         +`<tr class="total"><td>Total ekstern</td><td></td>`
-        +`<td style="text-align:right">${e.total.excel_estimat.toFixed(1)}</td>`
-        +`<td style="text-align:right;font-weight:600">${e.total.app_estimat.toFixed(1)}</td>`
-        +`<td style="text-align:right">${e.total.avvik>0?'+':''}${e.total.avvik.toFixed(1)}</td><td></td></tr>`
+        +`<td class="tall">${e.total.excel_estimat.toFixed(1)}</td>`
+        +`<td class="tall" style="font-weight:600">${e.total.app_estimat.toFixed(1)}</td>`
+        +`<td class="tall">${e.total.avvik>0?'+':''}${e.total.avvik.toFixed(1)}</td><td></td></tr>`
         +'</tbody></table></div>';
       html+=`<p class="sub" style="margin:4px 0 0">Regnet ved uke ${esc(String(e.cutoff_uke))} med ${esc(String(e.uker_igjen))} uker igjen av året. ${esc(e.merknad)}</p>`;
     }
@@ -4609,29 +4614,29 @@ async function sjekkParitet(){
       const BEV={ny:'Nye',tapt:'Tapte',venter:'Venter'};
       html+='<h4 style="margin:16px 0 6px;font-size:13px">Ny / tapt / venter (fase 3)</h4>';
       html+='<div class="table-wrap"><table class="d-tabell" style="min-width:560px"><thead><tr>'
-        +'<th>Konsept</th><th>Bevegelse</th><th style="text-align:right">Excel</th>'
-        +'<th style="text-align:right">App</th><th style="text-align:right">Avvik</th>'
-        +'<th style="text-align:right">Excel-rader uten D-kode</th></tr></thead><tbody>'
+        +'<th>Konsept</th><th>Bevegelse</th><th class="tall">Excel</th>'
+        +'<th class="tall">App</th><th class="tall">Avvik</th>'
+        +'<th class="tall">Excel-rader uten D-kode</th></tr></thead><tbody>'
         +kb.rader.map(r=>{
           // «ny» skal ligge OVER Excel (KundeDatas 2026-hull), «tapt»/«venter» ligger under
           // fordi kilden mangler kundenivå — begge deler er forklart, ikke logikkfeil.
           const farge=r.avvik===0?'var(--d-gronn)':(r.bevegelse==='ny'?'var(--d-gul)':'var(--d-roed)');
           return `<tr><td>${esc(r.konsept)}</td><td>${BEV[r.bevegelse]||esc(r.bevegelse)}</td>`
-            +`<td style="text-align:right">${r.excel_antall}</td>`
-            +`<td style="text-align:right">${r.app_antall}</td>`
+            +`<td class="tall">${r.excel_antall}</td>`
+            +`<td class="tall">${r.app_antall}</td>`
             +`<td style="text-align:right;font-weight:600;color:${farge}">${r.avvik>0?'+':''}${r.avvik}</td>`
-            +`<td style="text-align:right" class="sub">${r.excel_uten_grossistkode||''}</td></tr>`;
+            +`<td class="tall sub">${r.excel_uten_grossistkode||''}</td></tr>`;
         }).join('')
         +'</tbody></table></div>';
       const kbUten=kb.uten_excel_fasit||[];
       if(kbUten.length){
         html+='<p class="sub" style="margin:8px 0 4px"><b>Kun i appen</b> (ingen rader i masterfila å måle mot):</p>'
           +'<div class="table-wrap"><table class="d-tabell" style="min-width:380px"><thead><tr>'
-          +'<th>Konsept</th><th>Bevegelse</th><th style="text-align:right">App</th>'
-          +'<th style="text-align:right">MNOK</th></tr></thead><tbody>'
+          +'<th>Konsept</th><th>Bevegelse</th><th class="tall">App</th>'
+          +'<th class="tall">MNOK</th></tr></thead><tbody>'
           +kbUten.map(r=>`<tr><td>${esc(r.konsept)}</td><td>${BEV[r.bevegelse]||esc(r.bevegelse)}</td>`
-            +`<td style="text-align:right;font-weight:600">${r.app_antall||0}</td>`
-            +`<td style="text-align:right" class="sub">${(r.app_belop||0).toFixed(2)}</td></tr>`).join('')
+            +`<td class="tall" style="font-weight:600">${r.app_antall||0}</td>`
+            +`<td class="tall sub">${(r.app_belop||0).toFixed(2)}</td></tr>`).join('')
           +'</tbody></table></div>';
       }
       // Dekningen forklarer avvikene — vis den rett under
@@ -4647,12 +4652,12 @@ async function sjekkParitet(){
           const alvorlige=daarlige.filter(g=>g.alvorlig).length;
           html+=`<p class="sub" style="margin:4px 0">${alvorlige} grossist${alvorlige===1?'':'er'} med <b style="color:var(--d-roed)">alvorlige hull</b> (under 90 %) og ${daarlige.length-alvorlige} med mindre avvik. Viser de ${Math.min(8,daarlige.length)} verste:</p>`;
           html+='<div class="table-wrap"><table class="d-tabell" style="min-width:460px"><thead><tr>'
-            +'<th>Grossist</th><th style="text-align:right">2026 kundenivå / totalt</th><th style="text-align:right">Dekning</th>'
-            +'<th style="text-align:right">2025 kundenivå / totalt</th><th style="text-align:right">Dekning</th></tr></thead><tbody>'
+            +'<th>Grossist</th><th class="tall">2026 kundenivå / totalt</th><th class="tall">Dekning</th>'
+            +'<th class="tall">2025 kundenivå / totalt</th><th class="tall">Dekning</th></tr></thead><tbody>'
             +daarlige.slice(0,8).map(g=>`<tr><td><b>${esc(g.kode)}</b>${g.alvorlig?' <span style="color:var(--d-roed)">⚠</span>':''}</td>`
-              +`<td style="text-align:right">${(g.kundeniva_2026??0).toFixed(1)} / ${(g.grossistniva_2026??0).toFixed(1)}</td>`
+              +`<td class="tall">${(g.kundeniva_2026??0).toFixed(1)} / ${(g.grossistniva_2026??0).toFixed(1)}</td>`
               +`<td style="text-align:right;font-weight:600;color:${farge(g.dekning_2026)}">${g.dekning_2026==null?'–':g.dekning_2026+' %'}</td>`
-              +`<td style="text-align:right">${(g.kundeniva_2025??0).toFixed(1)} / ${(g.grossistniva_2025??0).toFixed(1)}</td>`
+              +`<td class="tall">${(g.kundeniva_2025??0).toFixed(1)} / ${(g.grossistniva_2025??0).toFixed(1)}</td>`
               +`<td style="text-align:right;font-weight:600;color:${farge(g.dekning_2025)}">${g.dekning_2025==null?'–':g.dekning_2025+' %'}</td>`
               +'</tr>').join('')
             +'</tbody></table></div>';
@@ -5497,29 +5502,29 @@ function renderTiltak(d){
     }
     h+=`<div class="table-wrap"><table class="d-tabell" style="min-width:760px"><thead><tr>
         <th>Grossist</th><th>Region</th>
-        <th style="text-align:right">Tapte</th><th style="text-align:right">Kjøper mindre</th>
-        <th style="text-align:right">Potensial</th><th style="text-align:right">Realistisk</th>
-        <th style="text-align:right">Må hente</th><th class="rap-noprint"></th></tr></thead><tbody>`;
+        <th class="tall">Tapte</th><th class="tall">Kjøper mindre</th>
+        <th class="tall">Potensial</th><th class="tall">Realistisk</th>
+        <th class="tall">Må hente</th><th class="rap-noprint"></th></tr></thead><tbody>`;
     for(const l of (k.linjer||[])){
       const id='kl_'+esc(k.navn).replace(/\W/g,'')+'_'+esc(l.kode);
       h+=`<tr><td>${esc(l.grossist)}</td><td>${esc(l.region||'')}</td>
-        <td style="text-align:right">${_pm(l.tapt)} <span class="sub">(${l.tapt_antall})</span></td>
-        <td style="text-align:right">${_pm(l.fallende)} <span class="sub">(${l.fallende_antall})</span></td>
-        <td style="text-align:right">${_pm(l.potensial)}</td>
-        <td style="text-align:right;font-weight:600">${_pm(l.realistisk)}</td>
+        <td class="tall">${_pm(l.tapt)} <span class="sub">(${l.tapt_antall})</span></td>
+        <td class="tall">${_pm(l.fallende)} <span class="sub">(${l.fallende_antall})</span></td>
+        <td class="tall">${_pm(l.potensial)}</td>
+        <td class="tall" style="font-weight:600">${_pm(l.realistisk)}</td>
         <td style="text-align:right;font-weight:700">${_pm(l.ma_hente)}</td>
         <td class="rap-noprint"><button class="d-knapp subtil sm" onclick="visKunder('${id}',this)">Vis kunder</button></td></tr>
         <tr id="${id}" style="display:none"><td colspan="8" style="background:var(--d-flate-2,#fafafa);padding:8px 12px">
           <div class="sub" style="margin-bottom:6px">${l.antall_kunder} kunder med potensial — viser de ${Math.min(l.antall_kunder,(d.maks_kunder_per_grossist||15))} største</div>
           <table class="d-tabell" style="min-width:520px"><thead><tr>
-            <th>Kunde</th><th>Type</th><th style="text-align:right">I fjor</th>
-            <th style="text-align:right">Hittil</th><th style="text-align:right">Verdi</th><th>Siste kjøp</th></tr></thead><tbody>`;
+            <th>Kunde</th><th>Type</th><th class="tall">I fjor</th>
+            <th class="tall">Hittil</th><th class="tall">Verdi</th><th>Siste kjøp</th></tr></thead><tbody>`;
       for(const ku of (l.kunder||[])){
         const navn=ku.kunde_id?`<a href="#" onclick="tiltakAapneKunde('${ku.kunde_id}');return false">${esc(ku.navn)}</a>`:esc(ku.navn);
         const merke=ku.type==='tapt'?'<span style="color:var(--d-roed)">Tapt</span>':'<span style="color:var(--d-oransje,#e8590c)">Kjøper mindre</span>';
         h+=`<tr><td>${navn} <span class="sub">${esc(ku.kundenr)}</span></td><td>${merke}</td>
-          <td style="text-align:right">${_pm(ku.i_fjor)}</td><td style="text-align:right">${_pm(ku.hittil)}</td>
-          <td style="text-align:right;font-weight:600">${_pm(ku.verdi)}</td>
+          <td class="tall">${_pm(ku.i_fjor)}</td><td class="tall">${_pm(ku.hittil)}</td>
+          <td class="tall" style="font-weight:600">${_pm(ku.verdi)}</td>
           <td>${ku.siste_uke?('uke '+ku.siste_uke):'<span class="sub">ingen i år</span>'}</td></tr>`;
       }
       h+='</tbody></table></td></tr>';
@@ -5565,10 +5570,10 @@ function renderPrognose(d){
   if(kb.ny){
     h+=`<div class="rap-card"><h3>Hva driver utviklingen</h3>
       <p class="sub" style="margin:0 0 10px">Kundebevegelse hittil i år mot samme periode i fjor. Forklarer tallet — styrer det ikke.</p>
-      <table class="d-tabell" style="min-width:420px"><thead><tr><th>Kohort</th><th style="text-align:right">Kunder</th><th style="text-align:right">Effekt (MNOK)</th></tr></thead><tbody>
+      <table class="d-tabell" style="min-width:420px"><thead><tr><th>Kohort</th><th class="tall">Kunder</th><th class="tall">Effekt (MNOK)</th></tr></thead><tbody>
       ${[['ny','Nye kunder'],['vokser','Kjøper mer'],['faller','Kjøper mindre'],['tapt','Tapte kunder']].map(([k,n])=>{
         const x=kb[k]||{}; const farge=(x.belop||0)>=0?'var(--d-gronn)':'var(--d-roed)';
-        return `<tr><td>${n}</td><td style="text-align:right">${x.antall||0}</td>
+        return `<tr><td>${n}</td><td class="tall">${x.antall||0}</td>
           <td style="text-align:right;font-weight:600;color:${farge}">${(x.belop>0?'+':'')}${_pm(x.belop)}</td></tr>`;
       }).join('')}
       </tbody></table></div>`;
@@ -5584,20 +5589,20 @@ function renderPrognose(d){
         ${k.justering?`<div><div class="sub">Manuell justering</div><div style="font-size:14px;font-weight:600">${(k.justering>0?'+':'')}${_pm(k.justering)}</div></div>`:''}
       </div>
       <div class="table-wrap"><table class="d-tabell" style="min-width:560px"><thead><tr>
-        <th>Region / grossist</th><th style="text-align:right">YTD</th><th style="text-align:right">Rest</th>
-        <th style="text-align:right">Estimat</th><th style="text-align:right">Vekst</th></tr></thead><tbody>`;
+        <th>Region / grossist</th><th class="tall">YTD</th><th class="tall">Rest</th>
+        <th class="tall">Estimat</th><th class="tall">Vekst</th></tr></thead><tbody>`;
     for(const r of (k.regioner||[])){
-      h+=`<tr class="total"><td><b>${esc(r.navn)}</b></td><td style="text-align:right">${_pm(r.ytd)}</td>
-        <td style="text-align:right"></td><td style="text-align:right"><b>${_pm(r.estimat)}</b></td>
-        <td style="text-align:right" class="sub">${_pm(r.lav)}–${_pm(r.hoy)}</td></tr>`;
+      h+=`<tr class="total"><td><b>${esc(r.navn)}</b></td><td class="tall">${_pm(r.ytd)}</td>
+        <td class="tall"></td><td class="tall"><b>${_pm(r.estimat)}</b></td>
+        <td class="tall sub">${_pm(r.lav)}–${_pm(r.hoy)}</td></tr>`;
       for(const g of (r.grossister||[])){
         const v=g.vekstfaktor!=null?((g.vekstfaktor-1)*100).toFixed(0)+' %':'–';
         const merk=[g.tynt_grunnlag?'tynt grunnlag':null,
                     g.justering_pst!=null?`justert ${g.justering_pst>0?'+':''}${g.justering_pst} %: ${g.justering_grunn}`:null]
                    .filter(Boolean).join(' · ');
         h+=`<tr><td style="padding-left:18px">${esc(g.navn)}${merk?`<div class="sub" style="font-size:11px">${esc(merk)}</div>`:''}</td>
-          <td style="text-align:right">${_pm(g.ytd)}</td><td style="text-align:right">${_pm(g.rest)}</td>
-          <td style="text-align:right">${_pm(g.estimat)}</td><td style="text-align:right">${v}</td></tr>`;
+          <td class="tall">${_pm(g.ytd)}</td><td class="tall">${_pm(g.rest)}</td>
+          <td class="tall">${_pm(g.estimat)}</td><td class="tall">${v}</td></tr>`;
       }
     }
     h+='</tbody></table></div></div>';
@@ -5642,12 +5647,12 @@ function renderRapFiks(){
   const regList=Object.values(regMap).sort((a,b)=>b.y2026-a.y2026);
   const regRows=regList.map(r=>{
     const c=rapCalc(r.y2025,r.y2026);
-    return `<tr><td>${r.region}</td><td style="text-align:right">${rapFmtM(r.y2026)}</td><td style="text-align:right">${rapFmtM(r.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td>
-      <td style="text-align:right">${rapFmtPP(g25?(r.y2026-r.y2025)/g25:0)}</td></tr>`;
+    return `<tr><td>${r.region}</td><td class="tall">${rapFmtM(r.y2026)}</td><td class="tall">${rapFmtM(r.y2025)}</td>
+      <td class="tall">${rapFmtM(c.delta)}</td><td class="tall">${rapStatusCalc(c)}</td>
+      <td class="tall">${rapFmtPP(g25?(r.y2026-r.y2025)/g25:0)}</td></tr>`;
   }).join('');
-  const regTotal=`<tr class="total"><td>TOTAL ALLE REGIONER</td><td style="text-align:right">${rapFmtM(g26)}</td><td style="text-align:right">${rapFmtM(g25)}</td>
-    <td style="text-align:right">${rapFmtM(grandC.delta)}</td><td style="text-align:right">${rapStatusCalc(grandC)}</td><td style="text-align:right">${rapFmtPP(grandC.pct)}</td></tr>`;
+  const regTotal=`<tr class="total"><td>TOTAL ALLE REGIONER</td><td class="tall">${rapFmtM(g26)}</td><td class="tall">${rapFmtM(g25)}</td>
+    <td class="tall">${rapFmtM(grandC.delta)}</td><td class="tall">${rapStatusCalc(grandC)}</td><td class="tall">${rapFmtPP(grandC.pct)}</td></tr>`;
 
   // per grossist
   gl.sort((a,b)=>b.y2026-a.y2026);
@@ -5655,10 +5660,10 @@ function renderRapFiks(){
     const c=rapCalc(g.y2025,g.y2026);
     const pen=g.y2026?g.dlvry_lsee_2026/g.y2026:0;
     return `<tr><td>${esc(g.navn)}</td><td class="rap-note" style="margin:0">${esc(g.region)}</td>
-      <td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td>
-      <td style="text-align:right">${rapFmtPP(g25?(g.y2026-g.y2025)/g25:0)}</td>
-      <td style="text-align:right">${rapFmtPctAbs(pen)}</td></tr>`;
+      <td class="tall">${rapFmtM(g.y2026)}</td><td class="tall">${rapFmtM(g.y2025)}</td>
+      <td class="tall">${rapFmtM(c.delta)}</td><td class="tall">${rapStatusCalc(c)}</td>
+      <td class="tall">${rapFmtPP(g25?(g.y2026-g.y2025)/g25:0)}</td>
+      <td class="tall">${rapFmtPctAbs(pen)}</td></tr>`;
   }).join('');
 
   const topPen=gl.slice().filter(g=>g.y2026>0).sort((a,b)=>(b.dlvry_lsee_2026/b.y2026)-(a.dlvry_lsee_2026/a.y2026))[0];
@@ -5678,16 +5683,16 @@ function renderRapFiks(){
     <div class="rap-card">
       <h3>Omsetning per region — alle grossister, alle produkter</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Region</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til totalens vekst</th>
+        <th>Region</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th>
       </tr></thead><tbody>${regRows}${regTotal}</tbody></table></div>
     </div>
     <div class="rap-card">
       <h3>Omsetning per grossist — alle leverandører, med andel LS + EE</h3>
       <div class="rap-card-note">Andel LS + EE = DLVRYs egen import (La Salumeria + East Essence) som del av grossistens fulle omsetning. Godt Lokalt (norske leverandører) og Wulff (kun delvis DLVRY-import) holdes utenfor.</div>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Grossist</th><th>Region</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Andel LS + EE</th>
+        <th>Grossist</th><th>Region</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th><th class="tall">Andel LS + EE</th>
       </tr></thead><tbody>${gRows}</tbody></table></div>
     </div>
     <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene (grossistenes fulle omsetning). Pære-mot-pære: 2025 kappet til samme uker som 2026 har data for. D06 Wulff & Co og D24 Foodbroker inngår ikke i denne pivoten (ikke regionsfordelt).</div>`;
@@ -5708,24 +5713,24 @@ function rapGrossistTrend(key){
     const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
     return `<tr>
       <td>${r.kode?esc(r.kode)+' ':''}${esc(r.navn)}</td>
-      <td style="text-align:right">${rapFmtM(r.y2026)}</td>
-      <td style="text-align:right">${rapFmtM(r.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(delta)}</td>
-      <td style="text-align:right">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
-      <td style="text-align:right">${statusHtml}</td>
+      <td class="tall">${rapFmtM(r.y2026)}</td>
+      <td class="tall">${rapFmtM(r.y2025)}</td>
+      <td class="tall">${rapFmtM(delta)}</td>
+      <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
+      <td class="tall">${statusHtml}</td>
     </tr>`;
   }).join('');
   const totalRow=`<tr class="total"><td>TOTAL ${navn.toUpperCase()}</td>
-    <td style="text-align:right">${rapFmtM(kons.y2026)}</td><td style="text-align:right">${rapFmtM(kons.y2025)}</td>
-    <td style="text-align:right">${rapFmtM((kons.y2026||0)-(kons.y2025||0))}</td>
-    <td style="text-align:right">${rapFmtPP(kons.vekst)}</td>
-    <td style="text-align:right">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td></tr>`;
+    <td class="tall">${rapFmtM(kons.y2026)}</td><td class="tall">${rapFmtM(kons.y2025)}</td>
+    <td class="tall">${rapFmtM((kons.y2026||0)-(kons.y2025||0))}</td>
+    <td class="tall">${rapFmtPP(kons.vekst)}</td>
+    <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td></tr>`;
 
   const card=`<div class="rap-card">
     <h3><span class="rap-dot" style="background:${kons.farge}"></span>${navn} — grossist-trend (YTD)</h3>
     <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-      <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-      <th style="text-align:right">Endring</th><th style="text-align:right">Bidrag til vekst</th><th style="text-align:right">Status</th>
+      <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+      <th class="tall">Endring</th><th class="tall">Bidrag til vekst</th><th class="tall">Status</th>
     </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
   </div>`;
 
@@ -5752,23 +5757,23 @@ function renderRapTotal(){
     const estK=est.find(e=>e.navn===k.navn);
     return `<tr>
       <td><span class="rap-dot" style="background:${k.farge}"></span>${k.navn}</td>
-      <td style="text-align:right">${rapFmtM(k.y2026)}</td>
-      <td style="text-align:right">${rapFmtM(k.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(delta)}</td>
-      <td style="text-align:right">${rapStatus(k.vekst>=0,rapFmtPct(k.vekst))}</td>
-      <td style="text-align:right">${rapFmtPP(bidragPP)}</td>
-      <td style="text-align:right">${estK?rapFmtM(estK.estimat_2026):'–'}</td>
+      <td class="tall">${rapFmtM(k.y2026)}</td>
+      <td class="tall">${rapFmtM(k.y2025)}</td>
+      <td class="tall">${rapFmtM(delta)}</td>
+      <td class="tall">${rapStatus(k.vekst>=0,rapFmtPct(k.vekst))}</td>
+      <td class="tall">${rapFmtPP(bidragPP)}</td>
+      <td class="tall">${estK?rapFmtM(estK.estimat_2026):'–'}</td>
     </tr>`;
   }).join('');
 
   const totalRow=`<tr class="total">
     <td>TOTAL EKSTERN</td>
-    <td style="text-align:right">${rapFmtM(totalY26)}</td>
-    <td style="text-align:right">${rapFmtM(totalY25)}</td>
-    <td style="text-align:right">${rapFmtM(totalDelta)}</td>
-    <td style="text-align:right">${rapStatus(t.vekst>=0,rapFmtPct(t.vekst))}</td>
-    <td style="text-align:right">${rapFmtPP(t.vekst)}</td>
-    <td style="text-align:right">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</td>
+    <td class="tall">${rapFmtM(totalY26)}</td>
+    <td class="tall">${rapFmtM(totalY25)}</td>
+    <td class="tall">${rapFmtM(totalDelta)}</td>
+    <td class="tall">${rapStatus(t.vekst>=0,rapFmtPct(t.vekst))}</td>
+    <td class="tall">${rapFmtPP(t.vekst)}</td>
+    <td class="tall">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</td>
   </tr>`;
 
   // Konsepter uten fjorårsgrunnlag (vekst=null) holdes utenfor «sterkest/svakest» — null
@@ -5801,9 +5806,9 @@ function renderRapTotal(){
     <div class="rap-card">
       <h3>1. Hovedtall — omsetning per konsept</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
-        <th style="text-align:right">Bidrag til totalens vekst</th><th style="text-align:right">Årsestimat</th>
+        <th>Konsept</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th>
+        <th class="tall">Bidrag til totalens vekst</th><th class="tall">Årsestimat</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen data lastet ennå.</td></tr>'}${kons.length?totalRow:''}</tbody></table></div>
     </div>
     ${ls.card}
@@ -5829,21 +5834,21 @@ function renderRapKonsept(key){
     const statusHtml=vekst===null?'<span class="rap-status flat">lav base</span>':rapStatus(vekst>=0,rapFmtPct(vekst));
     return `<tr>
       <td>${r.kode?esc(r.kode)+' ':''}${esc(r.navn)}</td>
-      <td style="text-align:right">${rapFmtM(r.y2026)}</td>
-      <td style="text-align:right">${rapFmtM(r.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(delta)}</td>
-      <td style="text-align:right">${statusHtml}</td>
-      <td style="text-align:right">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
+      <td class="tall">${rapFmtM(r.y2026)}</td>
+      <td class="tall">${rapFmtM(r.y2025)}</td>
+      <td class="tall">${rapFmtM(delta)}</td>
+      <td class="tall">${statusHtml}</td>
+      <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
     </tr>`;
   }).join('');
 
   const totalRow=`<tr class="total">
     <td>TOTAL ${navn.toUpperCase()}</td>
-    <td style="text-align:right">${rapFmtM(totalY26)}</td>
-    <td style="text-align:right">${rapFmtM(totalY25)}</td>
-    <td style="text-align:right">${rapFmtM(totalDelta)}</td>
-    <td style="text-align:right">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
-    <td style="text-align:right">${rapFmtPP(kons.vekst)}</td>
+    <td class="tall">${rapFmtM(totalY26)}</td>
+    <td class="tall">${rapFmtM(totalY25)}</td>
+    <td class="tall">${rapFmtM(totalDelta)}</td>
+    <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
+    <td class="tall">${rapFmtPP(kons.vekst)}</td>
   </tr>`;
 
   let best=null,worst=null;
@@ -5867,8 +5872,8 @@ function renderRapKonsept(key){
     <div class="rap-card">
       <h3>Grossist-trend (YTD)</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th><th style="text-align:right">Bidrag til vekst</th>
+        <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til vekst</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
     </div>
     <div class="rap-note">«Bidrag til vekst» er regnet mot ${navn}s eget 2025-tall, aldri mot en region.</div>
@@ -5915,11 +5920,11 @@ function renderRapRegion(regionNavn,filter){
     const c=rapCalc(v.y2025,v.y2026);
     const meta=DASH.konsepter.find(m=>m.navn===AN_NAVN_FOR_KEY[k])||{};
     return `<tr><td><span class="rap-dot" style="background:${meta.farge||'#999'}"></span>${AN_NAVN_FOR_KEY[k]}</td>
-      <td style="text-align:right">${rapFmtM(v.y2026)}</td><td style="text-align:right">${rapFmtM(v.y2025)}</td>
-      <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+      <td class="tall">${rapFmtM(v.y2026)}</td><td class="tall">${rapFmtM(v.y2025)}</td>
+      <td class="tall">${rapFmtM(c.delta)}</td><td class="tall">${rapStatusCalc(c)}</td></tr>`;
   }).join('');
-  const konseptTotalRow=`<tr class="total"><td>TOTAL REGION</td><td style="text-align:right">${rapFmtM(totY26)}</td><td style="text-align:right">${rapFmtM(totY25)}</td>
-    <td style="text-align:right">${rapFmtM(totC.delta)}</td><td style="text-align:right">${rapStatusCalc(totC)}</td></tr>`;
+  const konseptTotalRow=`<tr class="total"><td>TOTAL REGION</td><td class="tall">${rapFmtM(totY26)}</td><td class="tall">${rapFmtM(totY25)}</td>
+    <td class="tall">${rapFmtM(totC.delta)}</td><td class="tall">${rapStatusCalc(totC)}</td></tr>`;
 
   // grossist-tabell — filtrert til ett konsept, eller summert over alle
   let grossistRows;
@@ -5931,16 +5936,16 @@ function renderRapRegion(regionNavn,filter){
     }).sort((a,b)=>b.y2026-a.y2026);
     grossistRows=withTot.map(g=>{
       const c=rapCalc(g.y2025,g.y2026);
-      return `<tr><td>${esc(g.navn)}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
-        <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+      return `<tr><td>${esc(g.navn)}</td><td class="tall">${rapFmtM(g.y2026)}</td><td class="tall">${rapFmtM(g.y2025)}</td>
+        <td class="tall">${rapFmtM(c.delta)}</td><td class="tall">${rapStatusCalc(c)}</td></tr>`;
     }).join('');
   } else {
     const filtered=reg.grossister.map(g=>({navn:g.navn,...(g.perKonsept[filter]||{y2025:0,y2026:0})}))
       .filter(g=>g.y2025>0||g.y2026>0).sort((a,b)=>b.y2026-a.y2026);
     grossistRows=filtered.length?filtered.map(g=>{
       const c=rapCalc(g.y2025,g.y2026);
-      return `<tr><td>${esc(g.navn)}</td><td style="text-align:right">${rapFmtM(g.y2026)}</td><td style="text-align:right">${rapFmtM(g.y2025)}</td>
-        <td style="text-align:right">${rapFmtM(c.delta)}</td><td style="text-align:right">${rapStatusCalc(c)}</td></tr>`;
+      return `<tr><td>${esc(g.navn)}</td><td class="tall">${rapFmtM(g.y2026)}</td><td class="tall">${rapFmtM(g.y2025)}</td>
+        <td class="tall">${rapFmtM(c.delta)}</td><td class="tall">${rapStatusCalc(c)}</td></tr>`;
     }).join(''):`<tr><td colspan="5" class="rap-empty">Ingen omsetning for ${AN_NAVN_FOR_KEY[filter]} hos grossistene i denne regionen.</td></tr>`;
   }
 
@@ -5979,16 +5984,16 @@ function renderRapRegion(regionNavn,filter){
     <div class="rap-card">
       <h3>Omsetning per konsept i regionen</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Konsept</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
+        <th>Konsept</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th>
       </tr></thead><tbody>${konseptRows}${konseptTotalRow}</tbody></table></div>
     </div>
     <div class="rap-card">
       <h3>Omsetning per grossist${filter==='ALLE'?' (alle konsepter)':' — '+AN_NAVN_FOR_KEY[filter]}</h3>
       <div class="rap-card-note">«Bidrag til vekst» er ikke vist her — det regnes kun mot et konsepts eller totalens tall, se Konseptrapport/Totalrapport.</div>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Grossist</th><th style="text-align:right">2026 YTD</th><th style="text-align:right">2025 (samme uker)</th>
-        <th style="text-align:right">Endring</th><th style="text-align:right">Status</th>
+        <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th class="tall">Endring</th><th class="tall">Status</th>
       </tr></thead><tbody>${grossistRows}</tbody></table></div>
     </div>
     <div class="rap-card">
@@ -6192,8 +6197,8 @@ function renderFaktura(d){
     const matchVis=m?('<b>'+(f.byttetTil?esc(f.byttetTil.navn):esc(m.prod.navn))+'</b><br><span class="sub">Art '+(f.byttetTil?f.byttetTil.art:m.prod.art)+'</span>'+'<br><input style="font-size:11px;width:120px;margin-top:3px" placeholder="Bytt produkt…" oninput="byttProdukt('+i+',this.value)" list="byttProdList'+i+'">'+'<datalist id="byttProdList'+i+'">'+DB.slice(0,5).map(p=>'<option value="'+esc(p.navn)+'">').join('')+'</datalist>'):'<span class="sub">Søk opp manuelt</span>';
     return '<tr>'
       +'<td>'+esc(f.faktura.beskrivelse??'—')+'</td>'
-      +'<td style="text-align:right">'+(f.faktura.antall??'—')+'</td>'
-      +'<td style="text-align:right">'+(f.faktura.enhetspris??'—')+'</td>'
+      +'<td class="tall">'+(f.faktura.antall??'—')+'</td>'
+      +'<td class="tall">'+(f.faktura.enhetspris??'—')+'</td>'
       +'<td>'+matchVis+'</td>'
       +'<td style="text-align:center">'+konf+'</td></tr>';
   }).join('');

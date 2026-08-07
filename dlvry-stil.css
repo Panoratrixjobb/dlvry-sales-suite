@@ -98,6 +98,8 @@
 /* ---------- Panel / kort ---------- */
 .d-panel{background:var(--panel); border:1px solid var(--d-ramme);
   border-radius:var(--d-radius); box-shadow:var(--d-skygge); padding:var(--s5);}
+/* Paneloverskrift. Sto tidligere som inline-stil på 17 h3-er, med tre ulike marger. */
+.d-panel > h3{margin:0 0 var(--s4); font-size:14px; font-weight:600; color:var(--d-tekst);}
 .d-panel-hode{display:flex; align-items:flex-start; justify-content:space-between;
   margin-bottom:var(--s4); gap:var(--s3);}
 .d-panel-hode .d-lenke{color:var(--primaer); font-size:13px; font-weight:550; text-decoration:none;}
@@ -168,6 +170,59 @@
 .d-tabell tbody tr:last-child td{border-bottom:none;}
 .d-tabell .d-navn{font-weight:600;}
 .d-tabell .d-sub{color:var(--d-tekst-3); font-size:12px;}
+
+/* ---------- Tabell-varianter (fase 2, 2026-08-07) ----------
+   Lagt til fordi mønstrene under sto skrevet for hånd i hver enkelt tabell: høyrejusterte
+   tallkolonner, tett radhøyde for lange lister, og klikkbare rader. */
+/* Ikke scopet til .d-tabell med vilje: flere tabeller i appen (bl.a. kalkylens
+   handlekurv) har ennå ikke klassen, og en tallkolonne skal justeres uansett. */
+td.tall, th.tall{text-align:right; font-variant-numeric:tabular-nums;}
+.d-tabell.tett tbody td{padding:6px var(--s3);}
+.d-tabell.tett thead th{padding:7px var(--s3);}
+.d-tabell.klikkbar tbody tr{cursor:pointer;}
+/* Sticky hode: lange tabeller mister overskriftene ved rulling, og da vet man ikke lenger
+   hvilken kolonne som er hva. Krever at tabellen står i en .table-wrap med maks-høyde. */
+.d-tabell.fast-hode thead th{position:sticky; top:0; z-index:2;}
+.d-tabell tfoot td{padding:11px var(--s3); border-top:2px solid var(--d-ramme);
+  font-weight:700; background:#fafaf8;}
+
+/* ---------- Panelhode med undertittel ----------
+   .d-panel-hode fantes fra før, men uten plass til den forklarende linja de fleste
+   panelene har. Nå ligger tittel + undertittel til venstre, handling til høyre. */
+.d-panel-hode h3{margin:0; font-size:14px; font-weight:600; color:var(--d-tekst);}
+.d-panel-hode .d-under{font-size:12.5px; color:var(--d-tekst-2); margin-top:3px; font-weight:400;}
+.d-panel-hode.midtstilt{align-items:center;}
+
+/* ---------- Verktøylinje (filtre over en tabell) ---------- */
+.d-verktoy{display:flex; gap:var(--s3); flex-wrap:wrap; align-items:center;
+  margin-bottom:var(--s3);}
+.d-verktoy .d-input,.d-verktoy .d-select{width:auto;}
+
+/* ---------- Tomtilstand ----------
+   «Ingen data» var skrevet på ni ulike måter. En tomtilstand skal si hva som mangler OG
+   hva man gjør med det — derfor to linjer, ikke én. */
+.d-tom{padding:var(--s6) var(--s4); text-align:center; color:var(--d-tekst-2);
+  font-size:13px;}
+.d-tom .d-tom-tit{font-weight:600; color:var(--d-tekst); margin-bottom:4px;}
+.d-tom .d-tom-hjelp{font-size:12.5px; color:var(--d-tekst-3);}
+
+/* ---------- Inline forbehold ----------
+   Ikke en status-pille (.d-badge), men et lite forbehold festet til et tall: «⚠ usikker».
+   Skal leses som en fotnote, ikke som en advarsel som stjeler blikket. */
+.d-merke{display:inline-flex; align-items:center; gap:3px; font-size:11px;
+  font-weight:600; padding:1px 6px; border-radius:var(--d-radius-pille);
+  vertical-align:middle; white-space:nowrap;}
+.d-merke.advarsel{color:var(--d-gul); background:var(--d-gul-bg);}
+.d-merke.feil    {color:var(--d-roed); background:var(--d-roed-bg);}
+.d-merke.ok      {color:var(--d-gronn); background:var(--d-gronn-bg);}
+.d-merke.noytral {color:var(--d-graa); background:var(--d-graa-bg);}
+
+/* ---------- Tastaturfokus ----------
+   Manglet helt. Uten synlig fokus er appen ubrukelig med tastatur, og skjermlesere
+   mister stedet. :focus-visible treffer bare tastaturbruk, ikke museklikk. */
+.d-knapp:focus-visible, .d-fane:focus-visible, .rap-pill:focus-visible,
+.d-meny a:focus-visible, .d-input:focus-visible, .d-select:focus-visible{
+  outline:2px solid var(--primaer); outline-offset:2px;}
 
 /* ---------- Faner (kundekort) ---------- */
 .d-faner{display:flex; gap:4px; border-bottom:2px solid var(--d-ramme);

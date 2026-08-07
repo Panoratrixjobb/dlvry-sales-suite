@@ -50,9 +50,9 @@ async function hentFraPowerBI(bekreft){
         html+=' · <span style="color:var(--d-gronn);font-weight:600">100 % kundenivå-dekning</span>';
       }else{
         html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
-          +'<th>Grossist</th><th style="text-align:right">Kundenivå</th><th style="text-align:right">Totalt</th><th style="text-align:right">Dekning</th></tr></thead><tbody>'
-          +daarlig.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.kundeniva}</td>`
-            +`<td style="text-align:right">${g.grossistniva}</td>`
+          +'<th>Grossist</th><th class="tall">Kundenivå</th><th class="tall">Totalt</th><th class="tall">Dekning</th></tr></thead><tbody>'
+          +daarlig.map(g=>`<tr><td>${esc(g.kode)}</td><td class="tall">${g.kundeniva}</td>`
+            +`<td class="tall">${g.grossistniva}</td>`
             +`<td style="text-align:right;font-weight:600;color:${g.dekning>=90?'var(--d-gul)':'var(--d-roed)'}">${g.dekning} %</td></tr>`).join('')
           +'</tbody></table></div>';
       }
@@ -122,9 +122,9 @@ async function hentProduktMargin(bekreft){
       const svake=(s.kostdekning_per_grossist||[]).filter(g=>!g.kost_palitelig);
       if(svake.length){
         html+='<div class="table-wrap" style="margin-top:6px"><table class="d-tabell" style="min-width:380px"><thead><tr>'
-          +'<th>Grossist</th><th style="text-align:right">Omsetning</th><th style="text-align:right">Kost</th><th style="text-align:right">DG</th></tr></thead><tbody>'
-          +svake.map(g=>`<tr><td>${esc(g.kode)}</td><td style="text-align:right">${g.mnok}</td>`
-            +`<td style="text-align:right">${g.kost_mnok}</td>`
+          +'<th>Grossist</th><th class="tall">Omsetning</th><th class="tall">Kost</th><th class="tall">DG</th></tr></thead><tbody>'
+          +svake.map(g=>`<tr><td>${esc(g.kode)}</td><td class="tall">${g.mnok}</td>`
+            +`<td class="tall">${g.kost_mnok}</td>`
             +`<td style="text-align:right;font-weight:600;color:var(--d-roed)">${g.dg_pct} %</td></tr>`).join('')
           +'</tbody></table><div class="sub" style="margin-top:4px">Disse rapporterer ikke varekost — marginene deres er for høye og merkes som usikre i produktlista.</div></div>';
       }else{
@@ -192,14 +192,14 @@ async function visProduktMargin(){
     if(!d.antall){el.innerHTML='<span class="sub">Ingen treff. Er dataene hentet for dette året?</span>';btn.disabled=false;return;}
     const mnok=v=>(v/1e6).toFixed(2);
     el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:640px"><thead><tr>'
-      +'<th>Varenr</th><th>Produkt</th><th style="text-align:right">MNOK</th>'
-      +'<th style="text-align:right">DB MNOK</th><th style="text-align:right">DG</th><th style="text-align:right">Grossister</th></tr></thead><tbody>'
+      +'<th>Varenr</th><th>Produkt</th><th class="tall">MNOK</th>'
+      +'<th class="tall">DB MNOK</th><th class="tall">DG</th><th class="tall">Grossister</th></tr></thead><tbody>'
       +d.produkter.map(r=>`<tr><td>${esc(r.varenummer||'–')}</td>`
         +`<td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="sub" title="Minst én grossist bak tallet rapporterer ikke varekost">⚠ usikker</span>':''}</td>`
-        +`<td style="text-align:right">${mnok(r.belop)}</td>`
-        +`<td style="text-align:right">${mnok(r.db)}</td>`
-        +`<td style="text-align:right;font-weight:600">${r.dg_pct==null?'–':r.dg_pct+' %'}</td>`
-        +`<td style="text-align:right">${r.grossister}</td></tr>`).join('')
+        +`<td class="tall">${mnok(r.belop)}</td>`
+        +`<td class="tall">${mnok(r.db)}</td>`
+        +`<td class="tall" style="font-weight:600">${r.dg_pct==null?'–':r.dg_pct+' %'}</td>`
+        +`<td class="tall">${r.grossister}</td></tr>`).join('')
       +'</tbody></table></div>';
   }catch(e){ el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>'; }
   finally{ btn.disabled=false; }
