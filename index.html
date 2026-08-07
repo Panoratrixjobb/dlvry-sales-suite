@@ -4380,29 +4380,97 @@ async function mountBrukere(){
   await Promise.all([lastBrukere(), lastInvitasjoner(), lastFeedback()]);
 }
 
+// Feedback-lista holdes her så kopier-knappen slipper å hente på nytt.
+let FEEDBACK=[];
+
+// Hvor i koden en tilbakemelding sannsynligvis hører hjemme. Dette er halve verdien av
+// kopier-knappen: uten filpekere bruker Claude de første meldingene på å lete, og det
+// koster mer enn hele resten av prompten.
+const FB_FILER={
+  dashboard:'dlvry-sales-suite/index.html (view-dashboard, loadDash), konseptsuite-backend/app/routers/dashboard.py',
+  kalkulator:'dlvry-sales-suite/index.html (view-kalkulator, compute/render), dlvry-sales-suite/js/kalkyle-margin.js, konseptsuite-backend/app/routers/kalkyler.py',
+  kunder:'dlvry-sales-suite/index.html (view-kunder), konseptsuite-backend/app/routers/kunder.py',
+  brukere:'dlvry-sales-suite/index.html (view-brukere), dlvry-sales-suite/js/oppsett-faner.js, dlvry-sales-suite/js/oppsett-datainnhenting.js, konseptsuite-backend/app/routers/brukere.py',
+  konkurrenter:'dlvry-sales-suite/index.html (view-konkurrenter), konseptsuite-backend/app/routers/konkurrenter.py',
+  besoksplan:'dlvry-sales-suite/index.html (view-besoksplan), konseptsuite-backend/app/routers/besoksplan.py',
+  rapporter:'dlvry-sales-suite/index.html (view-rapporter, renderRapporter), dlvry-sales-suite/js/rapport-produkt.js, konseptsuite-backend/app/routers/rapport.py',
+};
+
+function feedbackPrompt(f){
+  const dato=new Date(f.opprettet_tid).toLocaleDateString('no-NO',{dateStyle:'short'});
+  const filer=FB_FILER[f.side]||'finn selv — tilbakemeldingen sier ikke hvilken side';
+  // Kort med vilje. Alt Claude kan lese seg til i repoet, står ikke her.
+  return `Endring i KonseptSuite, ønsket av ${f.bruker_navn||'en bruker'}`
+    +`${f.side?' på '+f.side+'-siden':''} (${dato}).\n\n`
+    +`Tilbakemeldingen, ordrett:\n"""\n${f.tekst}\n"""\n\n`
+    +`Start her: ${filer}\n\n`
+    +`Tolk ønsket slik en kollega ville gjort, gjør hele endringen, `
+    +`og si fra hvis den er en dårlig idé i stedet for å bygge den blindt.`;
+}
+
+async function kopierFeedbackPrompt(id){
+  const f=FEEDBACK.find(x=>x.id===id);
+  if(!f)return;
+  const tekst=feedbackPrompt(f);
+  const btn=document.getElementById('fbKopi-'+id);
+  try{
+    await navigator.clipboard.writeText(tekst);
+  }catch(e){
+    // clipboard-API krever https eller localhost. Faller tilbake til det gamle trikset.
+    const ta=document.createElement('textarea');
+    ta.value=tekst;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy')}catch(_){ alert(tekst); }
+    ta.remove();
+  }
+  if(btn){const org=btn.textContent;btn.textContent='✓ Kopiert';btn.disabled=true;
+    setTimeout(()=>{btn.textContent=org;btn.disabled=false},1500);}
+}
+
+async function slettFeedback(id,erAvvis){
+  const f=FEEDBACK.find(x=>x.id===id);
+  const start=(f&&f.tekst?f.tekst.slice(0,60):'').replace(/\s+/g,' ');
+  if(!confirm((erAvvis?'Avvise og slette denne tilbakemeldingen?':'Slette denne tilbakemeldingen?')
+      +'\n\n'+start+(f&&f.tekst.length>60?'…':'')+'\n\nDette kan ikke angres.'))return;
+  try{
+    await api('/api/feedback/'+id,{method:'DELETE'});
+    await lastFeedback();
+  }catch(e){ alert('Kunne ikke slette: '+e.message); }
+}
+
 async function lastFeedback(){
   const el=document.getElementById('feedbackListe');
   if(!el)return;
   try{
     const liste=await api('/api/feedback')||[];
-    if(!liste.length){el.innerHTML='<em>Ingen feedback innsendt.</em>';return;}
+    FEEDBACK=liste;   // kopier-knappen trenger teksten uten å hente på nytt
+    if(!liste.length){el.innerHTML='<div class="d-tom"><div class="d-tom-tit">Ingen feedback</div>'
+      +'<div class="d-tom-hjelp">Tilbakemeldinger fra brukerne dukker opp her.</div></div>';return;}
     el.innerHTML=liste.map(f=>{
       const dato=new Date(f.opprettet_tid).toLocaleString('no-NO',{dateStyle:'short',timeStyle:'short'});
       const badge = f.status==='godkjent'
-        ? '<span style="background:var(--d-gronn-bg);color:var(--d-gronn);border-radius:6px;padding:2px 8px;font-size:11px">Godkjent</span>'
+        ? '<span class="d-merke ok">Godkjent</span>'
         : f.status==='avvist'
-        ? '<span style="background:var(--d-roed-bg);color:var(--d-roed);border-radius:6px;padding:2px 8px;font-size:11px">Avvist</span>'
-        : '<span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">Ny</span>';
+        ? '<span class="d-merke feil">Avvist (gammel)</span>'
+        : '<span class="d-merke noytral">Ny</span>';
+      // Ny: godkjenn eller avvis (avvis = slett). Godkjent: kopier som ferdig Claude-prompt,
+      // og slett når saken er gjort. «Avvist» finnes bare på rader fra før endringen.
+      const slettKnapp='<button class="d-knapp subtil sm" onclick="slettFeedback(\''+f.id+'\',false)">Slett</button>';
+      const knapper = f.status==='ny'
+        ? '<button class="d-knapp subtil sm" onclick="settFeedbackStatus(\''+f.id+'\',\'godkjent\')">Godkjenn</button> '
+          +'<button class="d-knapp subtil sm" onclick="slettFeedback(\''+f.id+'\',true)">Avvis og slett</button>'
+        : f.status==='godkjent'
+        ? '<button class="d-knapp sekundar sm" onclick="kopierFeedbackPrompt(\''+f.id+'\')" id="fbKopi-'+f.id+'">⧉ Kopier som Claude-prompt</button> '
+          +slettKnapp
+        // Rader fra før «avvist = slett». De skal bare bort, ikke bygges.
+        : slettKnapp;
       return '<div style="padding:10px 0;border-bottom:1px solid var(--line)">'
         +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px">'
         +'<span style="font-size:12px;color:var(--muted)">'+esc(f.bruker_navn||'Ukjent')+' · '+dato+(f.side?' · '+esc(f.side):'')+'</span>'
         + badge
         +'</div>'
         +'<div style="font-size:13px;color:var(--ink);margin-bottom:6px;white-space:pre-wrap">'+esc(f.tekst)+'</div>'
-        + (f.status==='ny'
-          ? '<button class="d-knapp subtil sm" onclick="settFeedbackStatus(\''+f.id+'\',\'godkjent\')">Godkjenn</button> '
-            +'<button class="d-knapp subtil sm" onclick="settFeedbackStatus(\''+f.id+'\',\'avvist\')">Avvis</button>'
-          : '')
+        + knapper
         +'</div>';
     }).join('');
   }catch(e){el.innerHTML='<em>Feil: '+esc(e.message)+'</em>';}
