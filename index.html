@@ -4,8 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tilbudsverktøy — KonseptSuite</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- Lokale kopier (jsPDF 2.5.1, AutoTable 3.8.2). Lastet fra cdnjs tidligere: et internt
+     verktøy med kundedata skal ikke være avhengig av at et tredjepartsnett svarer, og
+     cdnjs trenger ikke vite når DLVRY skriver ut et tilbud. -->
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
 <link rel="stylesheet" href="dlvry-stil.css">
 <style>
 :root{
@@ -442,9 +445,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <div class="sidebar-tekst" style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--sidebar-ink);opacity:.7;padding:2px 12px 8px">Salesapp</div>
     <nav class="d-meny">
       <a class="aktiv" data-view="dashboard" onclick="setView('dashboard')"><span class="ic">▦</span> Dashboard</a>
-      <a class="deaktivert"><span class="ic">◈</span> Konsepter</a>
+      <!-- «Konsepter» og «Kundeanalyse» sto her som døde lenker (class="deaktivert") og har
+           aldri gjort noe. Konsepter dekkes av Rapporter → Konseptrapport. Kundeanalyse
+           kommer tilbake når kunde × produkt-hentingen er på plass og den har noe å vise. -->
       <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Tilbudsverktøy</a>
-      <a class="deaktivert"><span class="ic">📊</span> Kundeanalyse</a>
       <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
       <a data-view="rapporter" onclick="setView('rapporter')"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
@@ -896,11 +900,21 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
     <!-- ===== BRUKERE VIEW (steg 7) ===== -->
     <div id="view-brukere" style="display:none">
-      <div class="topbar"><h1>Brukere &amp; invitasjoner</h1></div>
-      <div class="crumb">Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.</div>
+      <div class="topbar"><h1>Innstillinger</h1></div>
+      <div class="crumb" id="oppsettCrumb">Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.</div>
+
+      <!-- Fjorten paneler i én kolonne var uleselig, og de fire som er datainnhenting må
+           kjøres i rekkefølge uten å stå spredt mellom brukeradmin og import. Fanene
+           skjuler og viser paneler der de står — ingen DOM flyttes. -->
+      <div class="rap-subrow rap-noprint" id="oppsettFaner" style="margin:0 0 18px">
+        <button class="rap-pill aktiv" data-oppsettfane="brukere" onclick="settOppsettFane('brukere')">Brukere</button>
+        <button class="rap-pill" data-oppsettfane="data" onclick="settOppsettFane('data')">Datainnhenting</button>
+        <button class="rap-pill" data-oppsettfane="beregning" onclick="settOppsettFane('beregning')">Beregning</button>
+        <button class="rap-pill" data-oppsettfane="import" onclick="settOppsettFane('import')">Import</button>
+      </div>
 
       <!-- Inviter bruker-form -->
-      <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px">
+      <div id="brukerFormRad" style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:24px">
         <div class="d-panel" style="min-width:320px;flex:1;max-width:480px">
           <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Inviter ny bruker</h3>
           <div class="d-felt" style="margin-bottom:10px">
@@ -962,7 +976,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <div id="brukerkort-steg4" style="margin-bottom:24px"></div>
 
       <!-- Invitasjonsliste -->
-      <div class="d-panel">
+      <div class="d-panel" id="invitasjonPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <h3 style="margin:0;font-size:14px;font-weight:600">Sendte invitasjoner</h3>
           <button class="d-knapp subtil sm" onclick="lastInvitasjoner()">↻ Oppdater</button>
@@ -971,7 +985,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
 
       <!-- Feedback -->
-      <div class="d-panel" style="margin-top:18px">
+      <div class="d-panel" style="margin-top:18px" id="feedbackPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
           <h3 style="margin:0;font-size:14px;font-weight:600">Feedback fra brukere</h3>
           <button class="d-knapp subtil sm" onclick="lastFeedback()">↻ Oppdater</button>
@@ -980,7 +994,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
 
       <!-- BRREG-oppdatering -->
-      <div class="d-panel" style="margin-top:18px">
+      <div class="d-panel" style="margin-top:18px" id="brregPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <h3 style="margin:0;font-size:14px;font-weight:600">BRREG-oppdatering</h3>
           <button id="brregRefreshBtn" class="d-knapp primar sm" onclick="sjekkBrregNa()">Sjekk BRREG nå</button>
@@ -990,39 +1004,29 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
 
       <!-- Dashboard-opplasting (FIKS-13/14) — admin/superadmin -->
-      <div class="d-panel" style="margin-top:18px" id="dashUploadPanel">
-        <h3 style="margin:0 0 14px;font-size:14px;font-weight:600">Dashboard-data (Excel-opplasting)</h3>
-        <div style="display:flex;gap:18px;flex-wrap:wrap">
-          <div style="flex:1;min-width:280px">
-            <p class="sub" style="margin:0 0 8px">Last opp «KONSEPT DASHBOARD MASTER»-fila — oppdaterer total/konsepter/estimat/månedsgraf/LS-grossister.</p>
-            <input type="file" id="dashUploadFil" accept=".xlsx">
-            <button class="d-knapp primar sm" style="margin-left:8px" onclick="lastOppDashboard()" id="dashUploadBtn">Last opp dashboard</button>
-            <div id="dashUploadStatus" style="font-size:13px;margin-top:10px"></div>
-          </div>
-          <div style="flex:1;min-width:280px">
-            <p class="sub" style="margin:0 0 8px">Last opp kundedata-pivot («Total 2025» + «Total 2026») — oppdaterer regioner/toppkunder/toppvinnere OG salgshistorikk/grossist-avvik pr. kunde i kundekortet (krever org.nr i fila).</p>
-            <input type="file" id="kundedataUploadFil" accept=".xlsx">
-            <button class="d-knapp primar sm" style="margin-left:8px" onclick="lastOppKundedata()" id="kundedataUploadBtn">Last opp kundedata</button>
-            <div id="kundedataUploadStatus" style="font-size:13px;margin-top:10px"></div>
-          </div>
+      <!-- Tokenet gjelder BEGGE hentingene under, og sto tidligere inne i Power BI-panelet.
+           Det ga forvirring da produktpanelet lånte det. Nå står det ett sted, øverst. -->
+      <div class="d-panel" style="margin-top:18px" id="tokenPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Tilkobling til Power BI</h3>
+          <span class="sub" id="pbStatusLinje"></span>
         </div>
+        <details style="margin-bottom:10px">
+          <summary class="sub" style="cursor:pointer">Slik henter du et token (mens service principal-en mangler)</summary>
+          <p class="sub" style="margin:8px 0 0">Kjør i PowerShell, og lim inn verdien under. Tokenet varer ca. én time, lagres aldri, og sendes bare med hentingene du kjører nå:</p>
+          <code style="display:block;background:var(--d-gul-bg);padding:8px;border-radius:6px;font-size:11.5px;margin-top:6px;overflow-x:auto">az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv</code>
+        </details>
+        <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Token</b>
+          <input type="password" id="pbToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>
       </div>
 
       <!-- Hent rådata rett fra Power BI-modellen — erstatningen for kundedata-pivoten -->
       <div class="d-panel" style="margin-top:18px" id="powerbiPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Hent fra Power BI (uten Excel)</h3>
-          <span class="sub" id="pbStatusLinje"></span>
+          <h3 style="margin:0;font-size:14px;font-weight:600">1 · Salgstall (kunde × konsept × uke)</h3>
         </div>
         <p class="sub" style="margin:0 0 10px">Henter kunde × konsept × uke rett fra den semantiske modellen og fyller de samme tabellene som kundedata-opplastingen. Målt 2026-08-05 gir denne veien <b>100 % kundenivå-dekning</b> mot pivotens 51 % — D06 og D15 kommer komplett med. Kjør alltid tørrkjøring først. Tar det for lang tid og henger seg opp, ta ett år om gangen — hvert år er fem spørringer mot modellen.</p>
-        <details style="margin-bottom:10px">
-          <summary class="sub" style="cursor:pointer">Slik henter du et token (mens service principal-en mangler)</summary>
-          <p class="sub" style="margin:8px 0 0">Kjør i PowerShell, og lim inn verdien under. Tokenet varer ca. én time, lagres aldri, og sendes bare med denne ene hentingen:</p>
-          <code style="display:block;background:var(--d-gul-bg);padding:8px;border-radius:6px;font-size:11.5px;margin-top:6px;overflow-x:auto">az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv</code>
-        </details>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
-          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;flex:1;min-width:260px"><b>Token</b>
-            <input type="password" id="pbToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>
           <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Modell-ID</b>
             <input id="pbDataset" class="d-input" style="width:290px" placeholder="semantisk modell, ikke rapport" autocomplete="off"></label>
           <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Arbeidsområde-ID</b>
@@ -1043,10 +1047,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
            «Consolidated Model», ikke i modellen panelet over henter salgstall fra. -->
       <div class="d-panel" style="margin-top:18px" id="produktPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px;font-weight:600">Hent produkt- og margindata</h3>
+          <h3 style="margin:0;font-size:14px;font-weight:600">2 · Produkt og margin (produkt × grossist × uke)</h3>
           <span class="sub">Consolidated Model</span>
         </div>
-        <p class="sub" style="margin:0 0 10px">Henter <b>produkt × grossist × uke</b> med omsetning, varekost og dekningsbidrag — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. <b>Tokenet limes inn i feltet i panelet over</b> — det samme brukes til begge hentingene, mens modell-ID-en der bare gjelder salgstallene. Ca. 300 000 rader per år, så regn med noen minutter.</p>
+        <p class="sub" style="margin:0 0 10px">Henter omsetning, varekost og dekningsbidrag per vare — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. Bruker tokenet øverst; modell-ID-en i panelet over gjelder bare salgstallene. Ca. 300 000 rader per år, så regn med noen minutter.</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <span class="sub">År:</span>
           <label style="font-size:12.5px"><input type="checkbox" id="pmAr2024"> 2024</label>
@@ -1076,6 +1080,25 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           </div>
           <div id="pmTabell" style="font-size:13px"></div>
         </div>
+      </div>
+
+      <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
+           over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
+           tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet
+           /last-opp-kundedata står igjen i backend og kan gjenopprettes. Masterfil-
+           opplastingen blir til paritetssjekken er grønn på alle felt. -->
+      <div class="d-panel" style="margin-top:18px" id="dashUploadPanel">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h3 style="margin:0;font-size:14px;font-weight:600">Excel-opplasting (reserveløsning)</h3>
+          <span class="sub">Bruk hentingene over</span>
+        </div>
+        <details>
+          <summary class="sub" style="cursor:pointer">Last opp «KONSEPT DASHBOARD MASTER»</summary>
+          <p class="sub" style="margin:8px 0">Oppdaterer total/konsepter/estimat/månedsgraf/LS-grossister. Beholdes fordi paritetssjekken måler appens egne tall mot denne fila.</p>
+          <input type="file" id="dashUploadFil" accept=".xlsx">
+          <button class="d-knapp subtil sm" style="margin-left:8px" onclick="lastOppDashboard()" id="dashUploadBtn">Last opp dashboard</button>
+          <div id="dashUploadStatus" style="font-size:13px;margin-top:10px"></div>
+        </details>
       </div>
 
       <!-- Fase 4: hvilken kilde hvert dashboard-felt leses fra -->
@@ -4376,7 +4399,9 @@ async function _lastOppFil(filInputId, endepunkt, statusId, btnId, feltNavn){
   }
 }
 function lastOppDashboard(){return _lastOppFil('dashUploadFil','/api/dashboard-excel/last-opp','dashUploadStatus','dashUploadBtn','oppdatert');}
-function lastOppKundedata(){return _lastOppFil('kundedataUploadFil','/api/dashboard-excel/last-opp-kundedata','kundedataUploadStatus','kundedataUploadBtn','rader_lastet');}
+// lastOppKundedata() er fjernet 2026-08-07 sammen med panelet — Power BI-hentingen gir
+// 100 % kundenivå-dekning mot pivotens 51 %. Endepunktet /last-opp-kundedata lever i
+// backend hvis noe må gjenopprettes.
 
 // Bytter mellom «t.o.m. i dag» (med den påbegynte uka) og «bare hele uker».
 // Begge er riktige — de svarer på ulike spørsmål: hva har vi solgt, kontra hva kan
@@ -6339,25 +6364,51 @@ async function showApp(){
   const erAdmin = ['admin','superadmin'].includes(_brukerRolle);
   const exportKnapper = ['kunderExportBtn','leadsExportBtn'];
   exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
-  const dashUploadPanel=document.getElementById('dashUploadPanel');
-  if(dashUploadPanel)dashUploadPanel.style.display=erAdmin?'':'none';
-  const paritetPanel=document.getElementById('paritetPanel');
-  if(paritetPanel)paritetPanel.style.display=erAdmin?'':'none';
-  const powerbiPanel=document.getElementById('powerbiPanel');
-  if(powerbiPanel){powerbiPanel.style.display=erAdmin?'':'none'; if(erAdmin)pbFyllStandard();}
-  const produktPanel=document.getElementById('produktPanel');
-  if(produktPanel)produktPanel.style.display=erAdmin?'':'none';
-  const kildePanel=document.getElementById('kildePanel');
-  if(kildePanel){kildePanel.style.display=erAdmin?'':'none'; if(erAdmin)lastKilder();}
-  const formelkonfigPanel=document.getElementById('formelkonfigPanel');
-  if(formelkonfigPanel)formelkonfigPanel.style.display=erAdmin?'':'none';
-  const leadsImportPanel=document.getElementById('leadsImportPanel');
-  if(leadsImportPanel)leadsImportPanel.style.display=erAdmin?'':'none';
+  // Ni paneler ble tidligere vist/skjult hver for seg her. Nå eier faneinndelingen
+  // synligheten, og rollen avgjør bare hvilke faner som finnes i det hele tatt.
+  OPPSETT_ER_ADMIN=erAdmin;
+  settOppsettFane(erAdmin?OPPSETT_FANE:'brukere');
+  if(erAdmin){pbFyllStandard();lastKilder();}
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
   document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
   setView('dashboard');
+}
+
+// ===== Innstillinger: faner =====
+// Panelene blir stående der de er i DOM-en; fanene styrer bare synlighet. Rekkefølgen
+// under er den de vises i, og for Datainnhenting er den KJØREREKKEFØLGEN: token, så
+// salgstall, så produkt/margin, med Excel-reserven sist.
+const OPPSETT_GRUPPER={
+  brukere:['brukerFormRad','brukerkort-steg4','invitasjonPanel','feedbackPanel','bulkImportPanel'],
+  data:['tokenPanel','powerbiPanel','produktPanel','dashUploadPanel'],
+  beregning:['kildePanel','paritetPanel','formelkonfigPanel'],
+  import:['brregPanel','leadsImportPanel'],
+};
+const OPPSETT_TEKST={
+  brukere:'Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.',
+  data:'Hent salgs- og margindata fra Power BI. Kjør panelene i rekkefølge — tørrkjør alltid før du lagrer.',
+  beregning:'Hvilken kilde dashbordet leser fra, og om appens egne tall stemmer med regnearket.',
+  import:'Engangs- og periodiske importer: firmadata fra Brønnøysund og den nasjonale leads-databasen.',
+};
+// Bare superadmin når Innstillinger i det hele tatt, men de tre siste fanene er
+// datateknisk arbeid — leder-/admin-roller skal ikke kunne skrive til dashbordet.
+let OPPSETT_ER_ADMIN=false, OPPSETT_FANE='brukere';
+
+function settOppsettFane(fane){
+  if(!OPPSETT_GRUPPER[fane]||(!OPPSETT_ER_ADMIN&&fane!=='brukere'))fane='brukere';
+  OPPSETT_FANE=fane;
+  Object.entries(OPPSETT_GRUPPER).forEach(([navn,ider])=>ider.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=(navn===fane)?'':'none';
+  }));
+  document.querySelectorAll('[data-oppsettfane]').forEach(b=>{
+    b.classList.toggle('aktiv',b.dataset.oppsettfane===fane);
+    b.style.display=(OPPSETT_ER_ADMIN||b.dataset.oppsettfane==='brukere')?'':'none';
+  });
+  const crumb=document.getElementById('oppsettCrumb');
+  if(crumb)crumb.textContent=OPPSETT_TEKST[fane]||'';
 }
 
 // Enter-tast i login
