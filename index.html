@@ -508,6 +508,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
       <a data-view="besoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
+      <!-- Egen side (fastfood.html), ikke en setView-fane — samme mønster som en ekstern
+           lenke. Åpnes i ny fane så admin sin hovedapp-økt (kalkyle i arbeid, filtre osv.)
+           ikke forsvinner. Synlig for admin-sporet, se kanSeFastFood i showApp(). -->
+      <a id="navFastFood" style="display:none" onclick="window.open('fastfood.html','_blank')"><span class="ic">🍔</span> Fast Food</a>
     </nav>
     <div class="d-side-bruker">
       <div class="avatar" id="userAvatar">MF</div>
@@ -6397,6 +6401,10 @@ async function showApp(){
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
   document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
+  // Samme rolleliste som backend sin ADMIN_TRACK_SER_ALT (deps.py) — hold i sync.
+  const kanSeFastFood = CURRENT_USER && ['leder','admin','superadmin','salgsdirektor',
+    'regionansvarlig','kommersiell_direktor','ceo'].includes(CURRENT_USER.rolle);
+  document.getElementById('navFastFood').style.display = kanSeFastFood ? '' : 'none';
   setView('dashboard');
 }
 
