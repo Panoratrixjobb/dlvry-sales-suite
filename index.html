@@ -482,7 +482,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     </div>
     <div style="font-size:12.5px;color:var(--d-tekst-3);margin-bottom:22px">Skriv inn e-posten din, så sender vi deg en lenke for å sette nytt passord.</div>
     <label style="display:block;font-size:12px;color:var(--d-tekst-3);margin-bottom:5px">E-post</label>
-    <input id="glemtEpost" type="email" autocomplete="username" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
+    <input id="glemtEpost" type="email" autocomplete="username" data-enter="glemtBtn" style="width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:8px;font-family:inherit;box-sizing:border-box">
     <div id="glemtMelding" style="font-size:12px;min-height:16px;margin-bottom:8px"></div>
     <button id="glemtBtn" onclick="sendGlemtPassord()" style="width:100%;background:var(--primaer);color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit">Send lenke</button>
     <div style="text-align:center;margin-top:10px">
@@ -989,7 +989,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3>Inviter ny bruker</h3>
           <div class="d-felt" style="margin-bottom:10px">
             <label>E-post</label>
-            <input id="invEpost" type="email" class="d-input" placeholder="ny.bruker@firma.no">
+            <input id="invEpost" type="email" class="d-input" placeholder="ny.bruker@firma.no" data-enter="invBtn">
           </div>
           <div class="d-felt" style="margin-bottom:10px">
             <label>Rolle</label>
@@ -1328,6 +1328,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="pris" onclick="setRapTab('pris')">Prisendringer</button>
       </div>
 
+      <div id="rapUkeRad"></div>
       <div id="rapSubKonsept" class="rap-subrow rap-noprint" style="display:none"></div>
 
       <div id="rapInnhold" style="margin-top:14px"></div>
@@ -1592,13 +1593,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
     <div class="modal-body">
       <div class="d-felt" style="margin-bottom:10px">
         <label>Din tilbakemelding *</label>
-        <textarea id="fbTekst" class="d-input" rows="5" placeholder="Hva fungerer bra, hva bør forbedres?" style="width:100%;resize:vertical;font-family:inherit"></textarea>
+        <textarea id="fbTekst" class="d-input" rows="5" placeholder="Hva fungerer bra, hva bør forbedres?  (Ctrl+Enter sender)" style="width:100%;resize:vertical;font-family:inherit" data-enter="fbSendBtn"></textarea>
       </div>
       <div id="fbErr" style="font-size:12px;color:var(--red);min-height:16px"></div>
     </div>
     <div class="modal-actions">
       <button class="d-knapp sekundar" onclick="closeModal('feedbackModal')">Avbryt</button>
-      <button class="d-knapp primar" onclick="sendFeedback()">Send</button>
+      <button id="fbSendBtn" class="d-knapp primar" onclick="sendFeedback()">Send</button>
     </div>
   </div>
 </div>
@@ -1752,6 +1753,10 @@ function normalizeDash(d){
   return {
     meta:d.meta||f.meta,
     cutoff_uke:d.cutoff_uke||f.cutoff_uke,
+    // Nyeste uke som finnes i salgstabellene — øvre grense for uke-velgeren i Rapporter.
+    // MÅ nevnes her: normalizeDash returnerer et eksplisitt objekt, så et felt som ikke
+    // står i lista blir stille kastet (samme felle som importhus, se under).
+    siste_uke_med_data:d.siste_uke_med_data||null,
     periode:d.periode||null,
     heleUker:hel,
     total:d.total||f.total,
@@ -5471,7 +5476,96 @@ async function slettBruker(id, navn){
 // Fast Food etter Wulff (95 MNOK/år, på størrelse med La Salumeria), Sabor sist (12).
 const KONSEPT_ORDER_RAP=['la_salumeria','east_essence','godt_lokalt','wulff_co','fast_food','sabor'];
 const REGION_ORDER_RAP=['Nord','Sør','Vest','Øst'];
-let rapState={tab:'total',konsept:'la_salumeria',region:'Nord',regionFilter:'ALLE'};
+let rapState={tab:'total',konsept:'la_salumeria',region:'Nord',regionFilter:'ALLE',uke:null};
+
+// ============ Valgt uke i rapportene ============
+// Ønsket av Manuele 07.08.2026: «jeg må kunne velge hvilket uke rapporten gjelder».
+// rapState.uke === null betyr nyeste uke med data — nøyaktig dagens oppførsel, og det
+// backend svarer med når parameteren utelates.
+//
+// Tallene for en valgt uke hentes i et EGET objekt. Dashbordet og analysesiden leser samme
+// globale DASH, og hadde vi skrevet den valgte uka inn der, ville et rapportvalg stille
+// endret forsiden også — uten at noen hadde bedt om det.
+let RAP_DASH=null, RAP_UKE_LASTET=null, RAP_HENTER=false;
+
+// Rapportfunksjonene (og hjelperne deres, som rapGrossistTrend) leser DASH direkte. I stedet
+// for å tre en parameter gjennom alle sammen — der ett glemt sted ville gitt en rapport med
+// uke 28 i én tabell og uke 32 i den neste — bytter vi DASH for akkurat den synkrone
+// rendringen og setter den tilbake etterpå. Ingen av dem gjør noe asynkront.
+function medRapDash(fn){
+  if(!RAP_DASH)return fn();
+  const forrige=DASH;
+  DASH=RAP_DASH;
+  try{ return fn(); }finally{ DASH=forrige; }
+}
+
+// Øvre grense for nedtrekket. Leses fra det UFILTRERTE dashbordet og settes i
+// mountRapporter — inne i medRapDash peker DASH på den valgte uka, og da ville lista over
+// valgbare uker krympet til den uka man allerede står på.
+let RAP_UKE_MAKS=52;
+function rapUkeMaks(){ return RAP_UKE_MAKS; }
+
+async function setRapUke(verdi){
+  const ny=verdi===''||verdi==null?null:parseInt(verdi,10);
+  if(ny===rapState.uke)return;
+  rapState.uke=ny;
+  if(ny===null){ RAP_DASH=null; RAP_UKE_LASTET=null; renderRapporter(); return; }
+  await hentRapUke();
+}
+
+async function hentRapUke(){
+  if(rapState.uke===null||RAP_HENTER)return;
+  if(RAP_UKE_LASTET===rapState.uke)return;
+  RAP_HENTER=true;
+  const ba=rapState.uke;
+  renderRapporter();   // viser «Henter uke N…» mens vi venter
+  try{
+    const d=await api('/api/dashboard-excel?uke='+ba);
+    if(rapState.uke!==ba)return;        // brukeren byttet uke mens vi ventet
+    RAP_DASH=normalizeDash(d);
+    RAP_DASH.uke_valgt=d.uke_valgt;
+    RAP_DASH.uke_gjelder_ikke=d.uke_gjelder_ikke||{};
+    // Periodeteksten står i BÅDE brødsmulen og toppen av hver rapport, og kommer fra
+    // snapshotet — den ville fortsatt sagt uke 1–32 på en rapport regnet til uke 28.
+    // Skrives om her, ett sted, så ingen overskrift kan love feil periode.
+    RAP_DASH.meta=Object.assign({},RAP_DASH.meta,
+      {periode:`YTD uke 1–${d.uke_valgt} · 2026 vs 2025 (pære-mot-pære)`});
+    // Backend kapper til siste uke med data; da skal nedtrekket vise den uka, ikke den
+    // brukeren ba om.
+    if(d.uke_valgt&&d.uke_valgt!==ba)rapState.uke=d.uke_valgt;
+    RAP_UKE_LASTET=rapState.uke;
+  }catch(e){
+    RAP_DASH=null; RAP_UKE_LASTET=null; rapState.uke=null;
+    alert('Kunne ikke hente uke '+ba+': '+e.message);
+  }finally{
+    RAP_HENTER=false;
+    renderRapporter();
+  }
+}
+
+// Uke-velgeren vises bare på fanene der tallene faktisk regnes om. Prognose og Tiltak
+// gjelder hele året, og Produktmargin/Prisendringer har egne filtre — en uke-velger der
+// ville vært en bryter som ikke gjorde noe.
+const RAP_UKE_FANER={total:1,fiks:1,konsept:1,region:1};
+
+function rapUkeVelgerHtml(){
+  if(!RAP_UKE_FANER[rapState.tab])return '';
+  const maks=rapUkeMaks();
+  const valg=[];
+  for(let u=maks;u>=1;u--)valg.push(`<option value="${u}" ${rapState.uke===u?'selected':''}>Uke ${u}</option>`);
+  const laaste=RAP_DASH&&RAP_DASH.uke_gjelder_ikke?Object.values(RAP_DASH.uke_gjelder_ikke):[];
+  return `<div class="rap-subrow rap-noprint" style="margin-top:6px">
+    <span class="rap-sublbl">Uke</span>
+    <select class="d-select" style="min-width:150px" onchange="setRapUke(this.value)"
+            title="Rapporten regnes til og med denne uka i 2026">
+      <option value="" ${rapState.uke===null?'selected':''}>Nyeste (uke ${maks})</option>
+      ${valg.join('')}
+    </select>
+    ${RAP_HENTER?'<span class="sub">Henter uke '+rapState.uke+'…</span>':''}
+    ${rapState.uke!==null&&!RAP_HENTER?`<span class="sub">Rapporten gjelder t.o.m. uke ${rapState.uke}, 2026 mot samme uker i 2025.</span>`:''}
+    ${rapState.uke!==null&&laaste.length?`<span class="sub" style="color:var(--advarsel)" title="${esc(laaste.join(' '))}">⚠ ${laaste.length} felt følger ikke uke-valget</span>`:''}
+  </div>`;
+}
 
 function rapFmtM(n){return (isFinite(n)?n:0).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' MNOK';}
 function rapFmtPct(n){const v=(n||0)*100;return (v>=0?'+':'−')+Math.abs(v).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';}
@@ -5493,6 +5587,10 @@ function rapHeader(kicker,eyebrow,tpl,title,sub,dotColor){
 
 function mountRapporter(){
   if(!DASH)DASH=DASH_FALLBACK;
+  RAP_UKE_MAKS=(DASH.siste_uke_med_data||DASH.cutoff_uke)||52;
+  // En valgt uke som ikke lenger finnes (nytt år, tømt tabell) ville gitt en tom rapport
+  // uten forklaring. Da faller vi tilbake til nyeste.
+  if(rapState.uke!==null&&rapState.uke>RAP_UKE_MAKS){rapState.uke=null;RAP_DASH=null;RAP_UKE_LASTET=null;}
   const crumb=document.getElementById('rapCrumb');
   if(crumb)crumb.textContent=(DASH.meta&&DASH.meta.periode)||'';
   renderRapporter();
@@ -5507,9 +5605,19 @@ function setRapRegion(r){rapState.region=r;renderRapporter();}
 function setRapRegionFilter(f){rapState.regionFilter=f;renderRapporter();}
 
 function renderRapporter(){
+  return medRapDash(_renderRapporter);
+}
+
+function _renderRapporter(){
   const el=document.getElementById('rapInnhold');
   const sub=document.getElementById('rapSubKonsept');
   if(!el)return;
+  const ukeRad=document.getElementById('rapUkeRad');
+  if(ukeRad)ukeRad.innerHTML=rapUkeVelgerHtml();
+  // Brødsmulen følger den valgte uka — den står øverst på siden og ville ellers vært det
+  // ene stedet som fortsatt påsto at rapporten gjaldt nyeste uke.
+  const crumb=document.getElementById('rapCrumb');
+  if(crumb)crumb.textContent=(DASH.meta&&DASH.meta.periode)||'';
   // Egne grener fordi disse henter fra API-et: skallet tegnes nå, tabellen når svaret kommer.
   if(rapState.tab==='produkt'){
     sub.style.display='none';
@@ -5611,8 +5719,9 @@ function renderTiltak(d){
         <div><div class="sub">Prognose</div><div style="font-size:22px;font-weight:700">${_pm(k.estimat)}</div></div>
         <div><div class="sub">Mål (MNOK)</div>
           <input id="malInp_${esc(k.navn)}" class="d-input" style="width:90px;font-size:16px;font-weight:600"
-                 value="${harMal?k.mal:''}" placeholder="sett mål">
-          <button class="d-knapp primar sm" style="margin-left:6px" onclick="lagreMal('${esc(k.navn)}')">Lagre</button></div>
+                 value="${harMal?k.mal:''}" placeholder="sett mål" data-enter="malBtn_${esc(k.navn)}"
+                 title="Skriv målet og trykk Enter — eller klikk Lagre">
+          <button id="malBtn_${esc(k.navn)}" class="d-knapp primar sm" style="margin-left:6px" onclick="lagreMal('${esc(k.navn)}')">Lagre</button></div>
         ${harMal?`<div><div class="sub">${gap>0?'Mangler':'Over målet'}</div>
           <div style="font-size:22px;font-weight:700;color:${farge}">${gap>0?'':'+'}${_pm(Math.abs(gap))}</div></div>`:''}
       </div>`;
@@ -6275,9 +6384,39 @@ async function showApp(){
   setView('dashboard');
 }
 
-// Enter-tast i login
+// Enter-tast i login. Hopper over felt som selv sier hvilken knapp de hører til (data-enter):
+// «Glemt passord»-kortet ligger INNE i loginScreen, så uten unntaket forsøkte Enter i
+// e-postfeltet der å logge inn — og svarte med en innloggingsfeil på en handling brukeren
+// ikke hadde bedt om.
 document.addEventListener('keydown',e=>{
-  if(e.key==='Enter'&&document.getElementById('loginScreen').style.display!=='none'){doLogin();}
+  if(e.key!=='Enter')return;
+  if(e.target&&e.target.dataset&&e.target.dataset.enter)return;
+  if(document.getElementById('loginScreen').style.display!=='none'){doLogin();}
+});
+
+// ============ Enter utfører feltets knapp ============
+// Ønsket av Manuele 07.08.2026: «mulighet til å trykke på enter og koble til knappen send».
+// Løst som en REGEL og ikke som enkelttilfeller: et felt merket data-enter="<knapp-id>"
+// utfører den knappen på Enter. Da slipper neste skjema å bli en ny feilmelding.
+//
+// Skillet mellom input og textarea er med vilje. I et enlinjes felt er Enter «ferdig»; i et
+// flerlinjes felt er Enter et linjeskift, og å kapre den ville gjort det umulig å skrive et
+// avsnitt i feedback-boksen. Der gjelder Ctrl/Cmd+Enter — samme konvensjon som Slack, GitHub
+// og Teams, og den står i plassholderteksten så den er mulig å oppdage.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  const felt=e.target;
+  if(!felt||!felt.dataset||!felt.dataset.enter)return;
+  const flerlinjes=felt.tagName==='TEXTAREA';
+  if(flerlinjes&&!(e.ctrlKey||e.metaKey))return;   // vanlig Enter = linjeskift, som forventet
+  if(!flerlinjes&&(e.ctrlKey||e.metaKey||e.altKey))return;
+  const knapp=document.getElementById(felt.dataset.enter);
+  if(!knapp||knapp.disabled)return;
+  e.preventDefault();
+  // Blur først: felt som lagrer på onchange (rapportfiltrene) skal rekke å skrive verdien
+  // sin før knappen leser den. Uten dette lagret Enter forrige verdi.
+  if(!flerlinjes)felt.blur();
+  knapp.click();
 });
 
 boot();
