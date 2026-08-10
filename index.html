@@ -2224,16 +2224,22 @@ async function kbHent(){
   return data;
 }
 
-function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt){
+// Listene er sortert på ESTIMERT dekningsbidrag når margindata finnes (backend gjør
+// sorteringen — se hent_kundebevegelse_reell), ellers på omsetning som før. Derfor vises
+// DB-en ved siden av beløpet: uten den ser rekkefølgen tilfeldig ut for den som leser
+// kolonnen med kroner og ser en mindre kunde stå øverst.
+function kbKort(tittel,farge,antall,sumKr,liste,expandKey,expandFlag,navnFelt,sumDbKr){
   const visAntall=expandFlag?liste.length:Math.min(10,liste.length);
-  const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px">
+  const dbTekst=k=>k.db_kr==null?'':`<span style="color:var(--d-tekst-3);font-weight:500"> · DB ~${fmtKr(k.db_kr)}</span>`;
+  const dbTittel=k=>k.db_kr==null?'':` title="Estimert dekningsbidrag: ${fmtKr(k.db_kr)} (${k.dg_pct} % DG fra ${k.db_grunnlag==='celle'?'konseptet hos denne grossisten':'konseptsnittet'}). Estimat — kundens egne varelinjer er ikke hentet."`;
+  const rader=liste.slice(0,visAntall).map(k=>`<div style="display:flex;justify-content:space-between;font-size:12px;gap:8px;margin-bottom:8px"${dbTittel(k)}>
     <span style="color:var(--d-tekst-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.navn||k[navnFelt]||'')}</span>
-    <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}</span></div>`).join('');
+    <span style="font-weight:600;flex-shrink:0">${fmtKr(k.belop)}${dbTekst(k)}</span></div>`).join('');
   const expandLbl=liste.length<=10?'':(expandFlag?'Vis færre':'Vis flere (av '+liste.length+')');
   return `<div class="d-panel">
     <div style="font-size:13.5px;font-weight:700">${tittel}</div>
     <div style="font-size:25px;font-weight:700;color:${farge};margin-top:8px">${antall}</div>
-    ${sumKr!=null?`<div style="font-size:12px;color:var(--d-tekst-3);margin-top:2px">${fmtKr(sumKr)}</div>`:''}
+    ${sumKr!=null?`<div style="font-size:12px;color:var(--d-tekst-3);margin-top:2px">${fmtKr(sumKr)}${sumDbKr!=null?` · DB ~${fmtKr(sumDbKr)} <span title="Estimert dekningsbidrag. Dekningsgraden er konseptets hos den aktuelle grossisten, ikke kundens egne varelinjer.">(est.)</span>`:''}</div>`:''}
     ${liste.length?`<div style="margin-top:14px">${rader}</div>${expandLbl?`<div class="an-expand-link" onclick="toggleAnalyseExpand('${expandKey}')">${expandLbl}</div>`:''}`:
       '<div style="margin-top:12px;font-size:11.5px;color:var(--d-tekst-3);font-style:italic">Ingen rader.</div>'}
   </div>`;
@@ -2251,8 +2257,8 @@ function kbTegnStatisk(isAllKonsept){
     kbKort('Tapte kunder (sesongjustert)','var(--red)',alle.tapt||0,null,[],'lost',s.expandLost)+
     kbKort('Sesongkunder på vent','#c9930f',alle.venter||0,null,[],'wait',s.expandWait)
     :
-    kbKort('Nye kunder','var(--green)',kb.ny.antall,kb.ny.sum_kr,kb.ny.liste,'new',s.expandNew,'kundenr')+
-    kbKort('Tapte kunder (sesongjustert)','var(--red)',kb.tapt.antall,kb.tapt.sum_kr,kb.tapt.liste,'lost',s.expandLost,'kundenr')+
+    kbKort('Nye kunder','var(--green)',kb.ny.antall,kb.ny.sum_kr,kb.ny.liste,'new',s.expandNew,'kundenr',kb.ny.sum_db_kr)+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',kb.tapt.antall,kb.tapt.sum_kr,kb.tapt.liste,'lost',s.expandLost,'kundenr',kb.tapt.sum_db_kr)+
     kbKort('Sesongkunder på vent','#c9930f',kb.venter.antall,null,kb.venter.liste,'wait',s.expandWait,'kundenr');
 }
 
@@ -2332,8 +2338,8 @@ async function renderAnalyseKundebevegelse(){
   }
   // navn kommer fra Excel-kundekontoen (autoritativt); kundenr er fallback hvis navnet mangler.
   document.getElementById('anKundebevegelse').innerHTML=
-    kbKort('Nye kunder','var(--green)',data.ny.antall,data.ny.sum_kr,data.ny.liste,'new',s.expandNew,'kundenr')+
-    kbKort('Tapte kunder (sesongjustert)','var(--red)',data.tapt.antall,data.tapt.sum_kr,data.tapt.liste,'lost',s.expandLost,'kundenr')+
+    kbKort('Nye kunder','var(--green)',data.ny.antall,data.ny.sum_kr,data.ny.liste,'new',s.expandNew,'kundenr',data.ny.sum_db_kr)+
+    kbKort('Tapte kunder (sesongjustert)','var(--red)',data.tapt.antall,data.tapt.sum_kr,data.tapt.liste,'lost',s.expandLost,'kundenr',data.tapt.sum_db_kr)+
     kbKort('Sesongkunder på vent','#c9930f',data.venter.antall,null,data.venter.liste,'wait',s.expandWait,'kundenr');
 }
 

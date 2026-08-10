@@ -803,6 +803,57 @@ const Steg4 = (() => {
   const KOMMER =
     '<span class="d-kommer" title="Data kommer når ordre-/Excel-kobling er på plass">kommer</span>';
 
+  /* Samme merkelapp, annet ord: tallet finnes, men det er avledet og ikke målt på kunden.
+     Uten den ville et estimert dekningsbidrag stått grafisk likt med omsetningen ved siden
+     av, som ER målt — og da leses begge som like sikre. */
+  const ESTIMAT =
+    '<span class="d-kommer" title="Avledet tall — se forklaringen på boksen">estimat</span>';
+
+  /* Backend svarer med appens konseptnøkler; kortet skal vise konseptnavnene folk bruker. */
+  const KONSEPTNAVN = {
+    la_salumeria: "La Salumeria", east_essence: "East Essence", godt_lokalt: "Godt Lokalt",
+    wulff_co: "Wulff & Co", fast_food: "Fast Food", sabor: "Sabor",
+  };
+
+  /* KPI-boksen «Totalmargin»: estimert dekningsbidrag fra /salgshistorikk (margin_per_ar).
+     ESTIMAT, og det skal stå i teksten — dekningsgraden kommer fra konsept × grossist i
+     produktdataene, ikke fra kundens egne varelinjer. Den ser derfor hvilken MIKS kunden
+     kjøper, men ikke hvilken pris kunden har fått. Avviket mot snittet er en miks-effekt;
+     å skrive «dårlig margin» her ville påstått noe tallet ikke kan vite. */
+  function marginKpi(salgshist, ar) {
+    const m = (salgshist.margin_per_ar || {})[String(ar)];
+    if (!m || m.db_kr == null) {
+      return { lbl: "Totalmargin", sub: "dekningsbidrag", verdi: "—", kommer: true,
+               tittel: "Ingen margindata hentet ennå — kjør Produkt- og margindata i Oppsett." };
+    }
+    const mot = m.snitt_dg_pct;
+    const diff = mot != null ? Math.round((m.dg_pct - mot) * 10) / 10 : null;
+    const topp = (m.linjer || []).slice(0, 3)
+      .map((l) => `${KONSEPTNAVN[l.konsept] || l.konsept || "ukjent"} ${l.grossist_kode || ""}: `
+        + (l.dg_pct == null ? "–" : l.dg_pct.toLocaleString("nb-NO")) + " %")
+      .join("\n");
+    return {
+      lbl: "Totalmargin",
+      sub:
+        m.dg_pct.toLocaleString("nb-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) +
+        " % DG" +
+        (diff == null ? "" :
+          ` · ${diff >= 0 ? "+" : ""}${diff.toLocaleString("nb-NO")} pp mot snittet`),
+      verdi: kr(m.db_kr),
+      estimat: true,
+      tittel:
+        "ESTIMAT. Dekningsgraden er hentet fra konsept × grossist i produktdataene og ganget " +
+        "med kundens omsetning — den kjenner ikke kundens egne varelinjer eller rabatter.\n" +
+        (diff != null
+          ? `Avviket mot snittet (${mot.toLocaleString("nb-NO")} %) skyldes MIKSEN kunden kjøper i, ikke prisen kunden får.\n`
+          : "") +
+        (m.andel_estimert_pct
+          ? `${m.andel_estimert_pct.toLocaleString("nb-NO")} % av omsetningen mangler egen måling og arver konseptsnittet.\n`
+          : "") +
+        (topp ? "\nStørste bidrag:\n" + topp : ""),
+    };
+  }
+
   function placeholderFane(tit, tekst) {
     return (
       '<div class="d-kk-tomstat">' +
@@ -906,7 +957,7 @@ const Steg4 = (() => {
         verdi: harOmsData ? kr(oms2026) : "—",
         kommer: !harOmsData,
       },
-      { lbl: "Totalmargin", sub: "dekningsbidrag", verdi: "—", kommer: true },
+      marginKpi(salgshist, 2026),
       {
         lbl: "Siste kjøp",
         sub: sisteKjopSub || "ingen salgsdata ennå",
@@ -927,7 +978,8 @@ const Steg4 = (() => {
       .map(
         (k) =>
           '<div class="kort"' + (k.tittel ? ` title="${esc(k.tittel)}"` : "") + '>' +
-          '<div class="lbl">' + esc(k.lbl) + (k.kommer ? KOMMER : "") + "</div>" +
+          '<div class="lbl">' + esc(k.lbl) +
+          (k.kommer ? KOMMER : k.estimat ? ESTIMAT : "") + "</div>" +
           '<div class="verdi' + (k.kommer ? " d-ph" : "") + '">' + esc(k.verdi) + "</div>" +
           '<div class="sub">' + esc(k.sub) + "</div>" +
           "</div>"
