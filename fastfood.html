@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fast Food — DLVRY</title>
+<link rel="stylesheet" href="dlvry-stil.css">
+<style>
+  body{background:var(--bg);color:var(--d-tekst);font-family:var(--d-font);margin:0}
+  #loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#3A2D2A,#5A3830);
+    z-index:600;display:flex;align-items:center;justify-content:center}
+  #loginScreen .kort{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);
+    padding:34px 32px;width:340px;max-width:90vw;box-sizing:border-box}
+  #loginScreen input{width:100%;border:1px solid #e7ebf3;border-radius:9px;padding:10px 12px;
+    font-size:13px;margin-bottom:14px;font-family:inherit;box-sizing:border-box}
+  #loginScreen label{display:block;font-size:12px;color:var(--d-tekst-3);margin-bottom:5px}
+  #loginScreen button{width:100%;background:var(--primaer);color:#fff;border:none;border-radius:9px;
+    padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  #loginScreen button:disabled{opacity:.6;cursor:not-allowed}
+  #loginErr{color:var(--d-roed);font-size:12px;min-height:16px;margin-bottom:8px}
+  .d-login-logo{height:26px}
+  #app{display:none;max-width:1180px;margin:0 auto;padding:var(--s6) var(--s5) 60px}
+  header.topp{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s6)}
+  header.topp .merke{display:flex;align-items:center;gap:var(--s3)}
+  header.topp .bruker{display:flex;align-items:center;gap:var(--s3);font-size:13px;color:var(--d-tekst-2)}
+  header.topp button{background:none;border:1px solid var(--d-ramme-mork);border-radius:var(--d-radius-sm);
+    padding:7px 12px;cursor:pointer;font-size:12.5px;font-family:inherit;color:var(--d-tekst-2)}
+  header.topp button:hover{background:var(--bg)}
+  .kpi-rad{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s4);margin-bottom:var(--s5)}
+  .banner{background:var(--d-gul-bg);color:var(--d-gul);border-radius:var(--d-radius-sm);
+    padding:var(--s3) var(--s4);font-size:12.5px;margin-bottom:var(--s5);display:none}
+  .verktoylinje{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap}
+  .verktoylinje select,.verktoylinje input{padding:8px 10px;border:1px solid var(--d-ramme-mork);
+    border-radius:var(--d-radius-sm);font-size:13px;font-family:inherit}
+  .verktoylinje input[type=search]{flex:1;min-width:200px}
+  .tom{color:var(--d-tekst-3);font-size:13px;padding:24px;text-align:center}
+  .sortpil{opacity:.4;font-size:10px;margin-left:3px}
+  th.sortbar{cursor:pointer;user-select:none}
+  tr.kunde-rad{cursor:pointer}
+  tr.detalj-rad td{background:var(--bg);padding:var(--s4)!important}
+  #loadOverlay{position:fixed;inset:0;background:var(--bg);z-index:700;display:flex;
+    align-items:center;justify-content:center;color:var(--d-tekst-3);font-size:13px}
+</style>
+</head>
+<body>
+
+<div id="loadOverlay">Laster…</div>
+
+<div id="loginScreen" style="display:none">
+  <div class="kort">
+    <div style="margin-bottom:4px"><img src="dlvry-logo-full.png" alt="DLVRY" class="d-login-logo"></div>
+    <div style="font-size:12.5px;color:var(--d-tekst-3);margin:6px 0 22px">Fast Food-oversikt · Innkjøp</div>
+    <label>E-post</label>
+    <input id="loginEpost" type="email" autocomplete="username" data-enter="loginBtn">
+    <label>Passord</label>
+    <input id="loginPassord" type="password" autocomplete="current-password" data-enter="loginBtn">
+    <div id="loginErr"></div>
+    <button id="loginBtn" onclick="doLogin()">Logg inn</button>
+    <div style="font-size:11px;color:#a0a8ba;text-align:center;margin-top:14px;line-height:1.4">
+      Første kall kan ta ~50 sek mens serveren våkner.</div>
+  </div>
+</div>
+
+<div id="ingenTilgang" style="display:none;max-width:420px;margin:80px auto;text-align:center;padding:0 20px">
+  <img src="dlvry-logo-full.png" alt="DLVRY" class="d-login-logo" style="margin-bottom:18px">
+  <h2 class="d-t-h1">Ingen tilgang</h2>
+  <p style="color:var(--d-tekst-2);font-size:13.5px">Denne kontoen har ikke tilgang til Fast Food-siden.</p>
+  <button onclick="logout()" style="margin-top:14px;background:var(--primaer);color:#fff;border:none;
+    border-radius:9px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer">Logg ut</button>
+</div>
+
+<div id="app">
+  <header class="topp">
+    <div class="merke">
+      <img src="dlvry-logo-full.png" alt="DLVRY" style="height:22px">
+      <span class="d-t-h1" style="margin-left:6px">Fast Food</span>
+    </div>
+    <div class="bruker">
+      <span id="brukerNavn"></span>
+      <button onclick="logout()">Logg ut</button>
+    </div>
+  </header>
+
+  <div class="banner" id="bannerProdukt">
+    ⚠ Per-kunde produktmiks er ikke hentet ennå — tallene under viser total omsetning per
+    kunde og et samlet produktbilde for hele porteføljen. Klikk en kunde for detaljer når
+    det er klart.
+  </div>
+
+  <div class="kpi-rad">
+    <div class="d-kpi"><div class="d-label">Kunder</div>
+      <div class="d-rad"><span class="d-tall" id="kpiAntall">–</span></div>
+      <div class="d-vs" id="kpiTreff"></div></div>
+    <div class="d-kpi"><div class="d-label">Omsetning i år</div>
+      <div class="d-rad"><span class="d-tall" id="kpiOms">–</span></div>
+      <div class="d-vs" id="kpiVekst"></div></div>
+    <div class="d-kpi"><div class="d-label">Omsetning i fjor</div>
+      <div class="d-rad"><span class="d-tall" id="kpiOmsFjor">–</span></div></div>
+    <div class="d-kpi"><div class="d-label">Est. DG hele porteføljen</div>
+      <div class="d-rad"><span class="d-tall" id="kpiDg">–</span></div>
+      <div class="d-vs">Estimat, ikke målt margin — se forklaring under tabellen</div></div>
+  </div>
+
+  <div class="d-panel">
+    <div class="d-panel-hode">
+      <div><h3>Kunder</h3><div class="d-under">Klikk en rad for produktmiks (når hentet)</div></div>
+      <select id="arVelger" class="d-select" onchange="lastAlt()"></select>
+    </div>
+    <div class="verktoylinje">
+      <input type="search" id="sokKunde" placeholder="Søk kundenavn, kjede, segment…" oninput="tegnKunder()">
+    </div>
+    <div style="overflow-x:auto">
+      <table class="d-tabell fast-hode" id="tabellKunder">
+        <thead><tr>
+          <th class="sortbar" data-sort="kundenavn">Kunde<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="segmentering">Segment<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="kjede">Kjede<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="omsetning_i_ar" style="text-align:right">Oms. i år<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="vekst_pct" style="text-align:right">Vekst<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="estimert_dg_pct" style="text-align:right">Est. DG<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="estimert_db_kr" style="text-align:right">Est. DB<span class="sortpil"></span></th>
+        </tr></thead>
+        <tbody id="kroppKunder"></tbody>
+      </table>
+    </div>
+    <div class="tom" id="tomKunder" style="display:none">Ingen kunder matcher søket.</div>
+  </div>
+
+  <div class="d-panel" style="margin-top:var(--s5)">
+    <div class="d-panel-hode">
+      <div><h3>Produkter — hele Fast Food-porteføljen</h3>
+        <div class="d-under">Samlet for alle fast food-kunder, ikke splittet per kunde ennå</div></div>
+    </div>
+    <div class="verktoylinje">
+      <input type="search" id="sokProdukt" placeholder="Søk produktnavn eller varenummer…"
+        oninput="_prodSokTimer && clearTimeout(_prodSokTimer); _prodSokTimer=setTimeout(lastProdukter,300)">
+    </div>
+    <div style="overflow-x:auto">
+      <table class="d-tabell fast-hode">
+        <thead><tr>
+          <th>Varenummer</th><th>Produkt</th><th>Kategori</th>
+          <th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>
+        </tr></thead>
+        <tbody id="kroppProdukter"></tbody>
+      </table>
+    </div>
+    <div class="tom" id="tomProdukter" style="display:none">Ingen produkter matcher søket.</div>
+  </div>
+
+  <p style="font-size:11.5px;color:var(--d-tekst-3);margin-top:var(--s5);line-height:1.6;max-width:760px">
+    <b>Om estimert margin:</b> «Est. DG»/«Est. DB» er IKKE kundens egen pris — det er
+    dekningsgraden målt for konseptet/grossisten kunden handler i, ganget med kundens egen
+    omsetning. To kunder med identisk vareutvalg hos samme grossist får samme estimat, selv om
+    den ene har fremforhandlet en annen rabatt. Ekte per-kunde margin krever et eget
+    Fabric-uttrekk (kunde × produkt) — se banneret øverst.
+  </p>
+</div>
+
+<script>
+const API_BASE = 'https://app-konseptsuite-dlvry.azurewebsites.net';
+let TOKEN = sessionStorage.getItem('ks_token') || null;
+let BRUKER = null;
+let KUNDER = [];
+let SORT = {felt:'omsetning_i_ar', retning:-1};
+
+function setToken(t){ TOKEN=t; if(t) sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); }
+
+async function api(path, opts={}){
+  const headers = {'Content-Type':'application/json'};
+  if(TOKEN) headers['Authorization'] = 'Bearer '+TOKEN;
+  const r = await fetch(API_BASE+path, {
+    method: opts.method||'GET', headers,
+    body: opts.body!=null ? JSON.stringify(opts.body) : undefined,
+  });
+  if(r.status===401){ setToken(null); BRUKER=null; visLogin(); throw new Error('Økt utløpt.'); }
+  if(r.status===204) return null;
+  const txt = await r.text();
+  let data; try{ data = txt ? JSON.parse(txt) : null; }catch(_){ data = txt; }
+  if(!r.ok){
+    const msg = (data&&data.detail) ? data.detail : 'HTTP '+r.status;
+    throw new Error(typeof msg==='string' ? msg : JSON.stringify(msg));
+  }
+  return data;
+}
+
+const fmtKr = n => (n==null||!isFinite(n)) ? '–' : Math.round(n).toLocaleString('nb-NO')+' kr';
+const fmtPct = n => (n==null||!isFinite(n)) ? '–' : n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
+
+function visLogin(){
+  document.getElementById('loadOverlay').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('ingenTilgang').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  setTimeout(()=>document.getElementById('loginEpost').focus(),50);
+}
+
+function visIngenTilgang(){
+  document.getElementById('loadOverlay').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='none';
+  document.getElementById('ingenTilgang').style.display='';
+}
+
+async function doLogin(){
+  const epost = document.getElementById('loginEpost').value.trim();
+  const passord = document.getElementById('loginPassord').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent='';
+  if(!epost || !passord){ errEl.textContent='Fyll inn e-post og passord.'; return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled=true; btn.textContent='Logger inn…';
+  try{
+    const res = await api('/api/auth/logg-inn', {method:'POST', body:{epost,passord}});
+    setToken(res.access_token || res.token);
+    BRUKER = await api('/api/auth/meg');
+    document.getElementById('loginPassord').value='';
+    await visApp();
+  }catch(e){
+    errEl.textContent = e.message;
+  }finally{
+    btn.disabled=false; btn.textContent='Logg inn';
+  }
+}
+
+function logout(){
+  setToken(null); BRUKER=null;
+  visLogin();
+}
+
+const TILLATE_ROLLER = ['innkjop','leder','admin','superadmin'];
+
+async function visApp(){
+  if(!TILLATE_ROLLER.includes(BRUKER.rolle)){ visIngenTilgang(); return; }
+  document.getElementById('loadOverlay').style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('ingenTilgang').style.display='none';
+  document.getElementById('app').style.display='';
+  document.getElementById('brukerNavn').textContent = BRUKER.navn || BRUKER.epost || '';
+  fyllArVelger();
+  await lastAlt();
+}
+
+function fyllArVelger(){
+  const sel = document.getElementById('arVelger');
+  if(sel.options.length) return;
+  const iAr = new Date().getFullYear();
+  for(const a of [iAr, iAr-1]){
+    const o = document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o);
+  }
+}
+
+async function lastAlt(){
+  const ar = document.getElementById('arVelger').value;
+  await Promise.all([lastKunder(ar), lastProdukter()]);
+}
+
+async function lastKunder(ar){
+  try{
+    const res = await api('/api/fastfood/kunder' + (ar ? ('?ar='+ar) : ''));
+    KUNDER = res.kunder;
+    document.getElementById('kpiAntall').textContent = res.antall_kunder.toLocaleString('nb-NO');
+    document.getElementById('kpiTreff').textContent = res.antall_med_omsetningsdata + ' med omsetningsdata';
+    document.getElementById('kpiOms').textContent = fmtKr(res.sum_omsetning_i_ar);
+    document.getElementById('kpiOmsFjor').textContent = fmtKr(res.sum_omsetning_i_fjor);
+    const vekst = res.sum_omsetning_i_fjor ? 100*(res.sum_omsetning_i_ar-res.sum_omsetning_i_fjor)/res.sum_omsetning_i_fjor : null;
+    document.getElementById('kpiVekst').textContent = vekst!=null ? ('vs. i fjor: '+fmtPct(vekst)) : '';
+    document.getElementById('bannerProdukt').style.display = res.produkt_per_kunde_hentet ? 'none' : '';
+    tegnKunder();
+  }catch(e){
+    document.getElementById('kroppKunder').innerHTML =
+      '<tr><td colspan="7" class="tom">Feil ved henting: '+e.message+'</td></tr>';
+  }
+}
+
+function tegnKunder(){
+  const sok = document.getElementById('sokKunde').value.trim().toLowerCase();
+  let rader = KUNDER.filter(k =>
+    !sok ||
+    (k.kundenavn||'').toLowerCase().includes(sok) ||
+    (k.segmentering||'').toLowerCase().includes(sok) ||
+    (k.kjede||'').toLowerCase().includes(sok)
+  );
+  rader = rader.slice().sort((a,b)=>{
+    const va = a[SORT.felt], vb = b[SORT.felt];
+    if(va==null && vb==null) return 0;
+    if(va==null) return 1;
+    if(vb==null) return -1;
+    if(typeof va === 'string') return SORT.retning * va.localeCompare(vb, 'nb-NO');
+    return SORT.retning * (va - vb);
+  });
+  const tbody = document.getElementById('kroppKunder');
+  const dgTotal = KUNDER.reduce((s,k)=>s+(k.estimert_db_kr||0),0);
+  const omsTotal = KUNDER.reduce((s,k)=>s+(k.omsetning_i_ar||0),0);
+  document.getElementById('kpiDg').textContent = omsTotal ? fmtPct(100*dgTotal/omsTotal) : '–';
+
+  if(!rader.length){
+    tbody.innerHTML = '';
+    document.getElementById('tomKunder').style.display = '';
+    return;
+  }
+  document.getElementById('tomKunder').style.display = 'none';
+  tbody.innerHTML = rader.map(k => `
+    <tr class="kunde-rad" data-konto="${k.kundekonto}" onclick="apneDetalj('${k.kundekonto}', this)">
+      <td><div class="d-navn">${esc(k.kundenavn)}</div>
+          <div class="d-sub">${esc(k.kundekonto)}${k.har_omsetningsdata ? '' : ' · ingen omsetningsdata'}</div></td>
+      <td>${esc(k.segmentering||'–')}</td>
+      <td>${esc(k.kjede||'–')}</td>
+      <td style="text-align:right">${fmtKr(k.omsetning_i_ar)}</td>
+      <td style="text-align:right">${k.vekst_pct!=null ? fmtPct(k.vekst_pct) : '–'}</td>
+      <td style="text-align:right">${k.estimert_dg_pct!=null ? fmtPct(k.estimert_dg_pct) : '–'}</td>
+      <td style="text-align:right">${fmtKr(k.estimert_db_kr)}</td>
+    </tr>
+  `).join('');
+}
+
+document.querySelectorAll('#tabellKunder th.sortbar').forEach(th => {
+  th.addEventListener('click', () => {
+    const felt = th.dataset.sort;
+    SORT.retning = (SORT.felt===felt) ? -SORT.retning : -1;
+    SORT.felt = felt;
+    document.querySelectorAll('#tabellKunder .sortpil').forEach(s=>s.textContent='');
+    th.querySelector('.sortpil').textContent = SORT.retning===1 ? '▲' : '▼';
+    tegnKunder();
+  });
+});
+
+let _apenDetaljRad = null;
+async function apneDetalj(kundekonto, trEl){
+  if(_apenDetaljRad){ _apenDetaljRad.remove(); _apenDetaljRad=null; if(trEl.dataset.var===kundekonto){ trEl.dataset.var=''; return; } }
+  trEl.dataset.var = kundekonto;
+  const ar = document.getElementById('arVelger').value;
+  const tr = document.createElement('tr');
+  tr.className = 'detalj-rad';
+  tr.innerHTML = '<td colspan="7">Laster produktmiks…</td>';
+  trEl.after(tr);
+  _apenDetaljRad = tr;
+  try{
+    const res = await api(`/api/fastfood/kunder/${encodeURIComponent(kundekonto)}/produkter` + (ar?('?ar='+ar):''));
+    if(!res.hentet || !res.produkter.length){
+      tr.querySelector('td').innerHTML =
+        '<span style="color:var(--d-tekst-3)">Produktmiks ikke hentet for denne kunden ennå — se banneret øverst.</span>';
+      return;
+    }
+    tr.querySelector('td').innerHTML = '<table class="d-tabell tett"><thead><tr>' +
+      '<th>Varenummer</th><th>Produkt</th><th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>' +
+      '</tr></thead><tbody>' +
+      res.produkter.map(p => `<tr><td>${esc(p.varenummer||'–')}</td><td>${esc(p.navn||'–')}</td>` +
+        `<td style="text-align:right">${fmtKr(p.belop)}</td><td style="text-align:right">${p.dg_pct!=null?fmtPct(p.dg_pct):'–'}</td></tr>`).join('') +
+      '</tbody></table>';
+  }catch(e){
+    tr.querySelector('td').innerHTML = 'Feil: '+esc(e.message);
+  }
+}
+
+async function lastProdukter(){
+  const ar = document.getElementById('arVelger').value;
+  const sok = document.getElementById('sokProdukt').value.trim();
+  try{
+    const qs = new URLSearchParams({...(ar?{ar}:{}), ...(sok?{sok}:{})});
+    const res = await api('/api/fastfood/produkter?'+qs.toString());
+    const tbody = document.getElementById('kroppProdukter');
+    if(!res.produkter.length){
+      tbody.innerHTML = '';
+      document.getElementById('tomProdukter').style.display = '';
+      return;
+    }
+    document.getElementById('tomProdukter').style.display = 'none';
+    tbody.innerHTML = res.produkter.map(p => `
+      <tr>
+        <td>${esc(p.varenummer||'–')}</td>
+        <td>${esc(p.navn||'–')}${p.margin_usikker ? ' <span class="d-badge gul flat" title="Minst én grossist bak tallet rapporterer ikke varekost">usikker</span>' : ''}</td>
+        <td>${esc(p.kategori||'–')}</td>
+        <td style="text-align:right">${fmtKr(p.belop)}</td>
+        <td style="text-align:right">${p.dg_pct!=null?fmtPct(p.dg_pct):'–'}</td>
+      </tr>
+    `).join('');
+  }catch(e){
+    document.getElementById('kroppProdukter').innerHTML =
+      '<tr><td colspan="5" class="tom">Feil ved henting: '+esc(e.message)+'</td></tr>';
+  }
+}
+
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.addEventListener('keydown', e => {
+  if(e.key!=='Enter') return;
+  if(e.target && e.target.dataset && e.target.dataset.enter){ document.getElementById(e.target.dataset.enter).click(); }
+});
+
+async function boot(){
+  if(TOKEN){
+    try{
+      BRUKER = await api('/api/auth/meg');
+      await visApp();
+      return;
+    }catch(e){ setToken(null); }
+  }
+  visLogin();
+}
+boot();
+</script>
+</body>
+</html>
