@@ -179,6 +179,56 @@ async function hentPrisliste(bekreft){
   }finally{knapper.forEach(b=>b.disabled=false);}
 }
 
+// ============ Fast Food: produkt per kunde (fastfood.py fase 2) ============
+async function hentFastFoodProduktPerKunde(bekreft){
+  const el=document.getElementById('ffpResultat');
+  const knapper=['ffpTorrBtn','ffpHentBtn'].map(id=>document.getElementById(id));
+  const aar=[2024,2025,2026].filter(a=>document.getElementById('ffpAr'+a).checked);
+  if(!aar.length){el.innerHTML='<span style="color:var(--d-roed)">Velg minst ett år.</span>';return;}
+  const token=document.getElementById('pbToken').value.trim();
+  if(!token){
+    let sp=false;
+    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
+    if(!sp){
+      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet øverst først</span>'
+        +' <span class="sub">— samme token brukes til alle hentingene.</span>';
+      const felt=document.getElementById('pbToken');
+      felt.focus(); felt.scrollIntoView({block:'center'});
+      return;
+    }
+  }
+  if(bekreft&&!confirm('Skrive produkt per Fast Food-kunde for '+aar.join(', ')+' til databasen? Året erstattes i sin helhet.'))return;
+  knapper.forEach(b=>b.disabled=true);
+  const start=Date.now();
+  const timer=setInterval(()=>{
+    el.innerHTML='<span class="sub">Henter kunde × produkt for Fast Food… '+Math.round((Date.now()-start)/1000)+' s</span>';
+  },1000);
+  el.innerHTML='<span class="sub">Henter kunde × produkt for Fast Food…</span>';
+  try{
+    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
+    const d=await api('/api/fastfood/produkt-per-kunde/hent?'+qs,{method:'POST',body:{token:token||null}});
+    clearInterval(timer);
+    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
+    for(const [ar,s] of Object.entries(d.sammendrag||{})){
+      html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
+        +`${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, ${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK`;
+      if(s.kundenr_utenfor_lista){
+        html+=`<div class="sub" style="margin-top:2px">${s.kundenr_utenfor_lista.toLocaleString('nb-NO')} rader hørte til et kundenr på en annen grossist enn Fast Food-lista — droppet.</div>`;
+      }
+      if(s.droppet_fram_i_tid){
+        html+=`<div class="sub" style="margin-top:2px">Hoppet over ${s.droppet_fram_i_tid} rader datert fram i tid.</div>`;
+      }
+      html+='</div>';
+    }
+    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
+    el.innerHTML=html;
+    if(bekreft)document.getElementById('pbToken').value='';
+  }catch(e){
+    clearInterval(timer);
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
 async function visProduktMargin(){
   const el=document.getElementById('pmTabell');
   const btn=document.getElementById('pmVisBtn');

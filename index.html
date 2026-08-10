@@ -1175,6 +1175,27 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="plResultat" style="font-size:13px"></div>
       </div>
 
+      <!-- Fast Food-sidens per-kunde produktmiks (fase 2, se konseptsuite-backend
+           routers/fastfood.py). Avgrenset til kundenumrene i fastfood_kunde — IKKE alle
+           DLVRYs kunder — så uttrekket blir mye mindre enn panel 2 over. Bruker samme
+           token-felt øverst. -->
+      <div class="d-panel" style="margin-top:18px" id="ffProduktPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>4 · Fast Food: produkt per kunde</h3>
+          <span class="sub">Consolidated Model</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Henter ekte omsetning, varekost og DB per Fast Food-kunde OG produkt — det Fast Food-siden viser under hver kunde. Avgrenset til kundenumrene i fastfood_kunde (kjør import_fastfood_kunder.py først om lista er tom). Bruker tokenet øverst.</p>
+        <div class="d-verktoy">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2025"> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2026" checked> 2026</label>
+          <button class="d-knapp subtil sm" onclick="hentFastFoodProduktPerKunde(false)" id="ffpTorrBtn">Tørrkjør (skriver ingenting)</button>
+          <button class="d-knapp primar sm" onclick="hentFastFoodProduktPerKunde(true)" id="ffpHentBtn">Hent og lagre</button>
+        </div>
+        <div id="ffpResultat" style="font-size:13px"></div>
+      </div>
+
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
            over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
            tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet

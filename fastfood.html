@@ -162,6 +162,7 @@
       <table class="d-tabell fast-hode">
         <thead><tr>
           <th>Varenummer</th><th>Produkt</th><th>Kategori</th>
+          <th style="text-align:right">Innkjøpspris</th>
           <th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>
         </tr></thead>
         <tbody id="kroppProdukter"></tbody>
@@ -185,6 +186,23 @@ let TOKEN = sessionStorage.getItem('ks_token') || null;
 let BRUKER = null;
 let KUNDER = [];
 let SORT = {felt:'omsetning_i_ar', retning:-1};
+let INNKJOPSPRIS = new Map();   // varenummer(art) -> kostbase, fra produkter.json (samme fil Tilbudsverktøyet bruker)
+
+// produkter.json er en statisk fil uten auth (samme som index.html henter den) — brukes
+// her BARE til innkjøpspris-oppslag, ikke til kalkyler. kostbase er samme fallback
+// (fbkostpris ?? grossistkost) som Tilbudsverktøyets egen compute() bruker, se index.html.
+async function lastInnkjopspris(){
+  try{
+    const r = await fetch('produkter.json');
+    if(!r.ok) return;
+    const p = await r.json();
+    const iArt = p.k.indexOf('art'), iKostbase = p.k.indexOf('kostbase');
+    for(const row of p.rows){
+      const kb = row[iKostbase];
+      if(kb != null) INNKJOPSPRIS.set(String(row[iArt]), kb);
+    }
+  }catch(e){ console.warn('Fant ikke produkter.json — innkjøpspris vises ikke.', e); }
+}
 
 // Sikkerhetsnett (se #krasjBanner i <body>): en uventet feil ANYWHERE skal vise seg selv,
 // aldri bare la siden stå blank. Fanger både synkrone feil OG avviste Promises — boot() og
@@ -276,6 +294,7 @@ async function visApp(){
   document.getElementById('app').style.display='block';
   document.getElementById('brukerNavn').textContent = BRUKER.navn || BRUKER.epost || '';
   fyllArVelger();
+  await lastInnkjopspris();   // FØR lastAlt(): lastProdukter() slår opp i INNKJOPSPRIS ved rendring
   await lastAlt();
 }
 
@@ -381,9 +400,11 @@ async function apneDetalj(kundekonto, trEl){
       return;
     }
     tr.querySelector('td').innerHTML = '<table class="d-tabell tett"><thead><tr>' +
-      '<th>Varenummer</th><th>Produkt</th><th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>' +
+      '<th>Varenummer</th><th>Produkt</th><th style="text-align:right">Innkjøpspris</th>'+
+      '<th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>' +
       '</tr></thead><tbody>' +
       res.produkter.map(p => `<tr><td>${esc(p.varenummer||'–')}</td><td>${esc(p.navn||'–')}</td>` +
+        `<td style="text-align:right">${fmtInnkjopspris(p.varenummer)}</td>`+
         `<td style="text-align:right">${fmtKr(p.belop)}</td><td style="text-align:right">${p.dg_pct!=null?fmtPct(p.dg_pct):'–'}</td></tr>`).join('') +
       '</tbody></table>';
   }catch(e){
@@ -409,14 +430,22 @@ async function lastProdukter(){
         <td>${esc(p.varenummer||'–')}</td>
         <td>${esc(p.navn||'–')}${p.margin_usikker ? ' <span class="d-badge gul flat" title="Minst én grossist bak tallet rapporterer ikke varekost">usikker</span>' : ''}</td>
         <td>${esc(p.kategori||'–')}</td>
+        <td style="text-align:right">${fmtInnkjopspris(p.varenummer)}</td>
         <td style="text-align:right">${fmtKr(p.belop)}</td>
         <td style="text-align:right">${p.dg_pct!=null?fmtPct(p.dg_pct):'–'}</td>
       </tr>
     `).join('');
   }catch(e){
     document.getElementById('kroppProdukter').innerHTML =
-      '<tr><td colspan="5" class="tom">Feil ved henting: '+esc(e.message)+'</td></tr>';
+      '<tr><td colspan="6" class="tom">Feil ved henting: '+esc(e.message)+'</td></tr>';
   }
+}
+
+// Innkjøpspris finnes kun for varenumre som er i produktkatalogen (produkter.json) —
+// mangler et treff der, viser vi «–», ikke 0 kr (0 kr ville lest som gratis vare).
+function fmtInnkjopspris(varenummer){
+  const kb = INNKJOPSPRIS.get(String(varenummer||''));
+  return kb == null ? '–' : fmtKr(kb);
 }
 
 function esc(s){
