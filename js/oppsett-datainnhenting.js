@@ -300,21 +300,30 @@ async function hentFastFoodProduktPerKunde(bekreft){
       }
       html+='</div>';
     }
-    const tvetydige=d.tvetydige_kundenr||[];
-    if(tvetydige.length){
-      const vis=tvetydige.slice(0,30);
+    // tvetydige_kundenr_detaljer viser de FAKTISKE radene som ikke lot seg plassere denne
+    // kjøringen — kjente kandidater (hvem kundenr ELLERS tilhører) OG hvilken grossist/navn
+    // den ukjente raden faktisk hadde, så det er synlig om det er en åpenbart urelatert
+    // bedrift (forvent drop) eller noe som burde vært i kundelista.
+    const detaljer=d.tvetydige_kundenr_detaljer||[];
+    if(detaljer.length){
+      const vis=detaljer.slice(0,30);
+      const sumDroppet=detaljer.reduce((s,t)=>s+(t.sum_droppet||0),0);
       html+=`<details style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">`
-        +`${tvetydige.length.toLocaleString('nb-NO')} kundenr finnes på flere Fast Food-kunder (ulike grossister) — vis eksempler</summary>`
-        +'<div style="margin-top:6px;max-height:260px;overflow:auto" class="sub">';
+        +`${detaljer.length.toLocaleString('nb-NO')} kundenr kunne ikke plasseres (~${Math.round(sumDroppet/1000).toLocaleString('nb-NO')} TNOK droppet) — vis eksempler</summary>`
+        +'<div style="margin-top:6px;max-height:320px;overflow:auto" class="sub">';
       for(const t of vis){
-        html+=`<div style="margin-bottom:4px"><b>kundenr ${esc(t.kundenr)}</b>: `
-          +t.kandidater.map(k=>`${esc(k.kundekonto)} ${esc(k.kundenavn||'')}`.trim()).join(' vs. ')
-          +'</div>';
+        const kjente=(t.kjente_kandidater||[]).map(k=>`${esc(k.kundekonto)} ${esc(k.kundenavn||'')}`.trim()).join(' vs. ');
+        const ukjente=(t.ukjente_rader||[]).map(u=>`${esc(u.grossist_kode)} ${esc(u.kundenavn||'')} (${Math.round(u.belop).toLocaleString('nb-NO')} kr)`.trim()).join(', ');
+        html+=`<div style="margin-bottom:6px"><b>kundenr ${esc(t.kundenr)}</b> — kjent: ${kjente || '(ingen registrert)'}<br>`
+          +`<span style="color:var(--d-roed)">droppet:</span> ${ukjente || '(ukjent kilde)'}</div>`;
       }
-      if(tvetydige.length>vis.length){
-        html+=`<div>… og ${(tvetydige.length-vis.length).toLocaleString('nb-NO')} til.</div>`;
+      if(detaljer.length>vis.length){
+        html+=`<div>… og ${(detaljer.length-vis.length).toLocaleString('nb-NO')} til.</div>`;
       }
       html+='</div></details>';
+    }else if((d.tvetydige_kundenr||[]).length){
+      const tvetydige=d.tvetydige_kundenr;
+      html+=`<div class="sub" style="margin:0 0 8px">${tvetydige.length.toLocaleString('nb-NO')} kundenr deler flere Fast Food-kunder i kundelista, men ingen av dem forårsaket droppede rader denne kjøringen.</div>`;
     }
     html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
     el.innerHTML=html;
