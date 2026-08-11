@@ -1354,11 +1354,27 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
          se app/routers/foodbroker.py). -->
     <div id="view-foodbroker" style="display:none">
       <div class="topbar"><h1>Foodbroker direktesalg</h1></div>
-      <div class="crumb">Kunder Foodbroker (D24) fakturerer DIREKTE, utenom DLVRYs vanlige grossist-distribusjon (Carl Evensen, Gilberg Engros m.fl. — det er intern varestrøm, ikke direktesalg). Kilde: FBs eget regneark — Power BI fanger ikke opp hele denne omsetningen.</div>
+      <div class="crumb">Kunder Foodbroker (D24) fakturerer DIREKTE, utenom DLVRYs vanlige grossist-distribusjon (Carl Evensen, Gilberg Engros m.fl. — det er intern varestrøm, ikke direktesalg). Foretrukket kilde: hele kundeporteføljen rett fra Consolidated Model. Foodbrokers eget regneark fyller bare inn år Power BI-hentingen ikke dekker ennå.</div>
+
+      <div class="d-panel" id="fbPbiPanel" style="margin-top:16px;display:none">
+        <div class="d-panel-hode midtstilt"><h3>Hent fra Power BI (Consolidated Model)</h3></div>
+        <p class="sub" style="margin:0 0 10px">Henter HELE D24s eksterne kundeportefølje direkte fra modellen — ingen manuell «Salg til X»-linje nødvendig. Bruker samme token-bro som resten av appen; et nylig limt inn token i Oppsett kan gjenbrukes i ~50 min.</p>
+        <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px;max-width:420px"><b>Token (valgfritt hvis nylig brukt)</b>
+          <input type="password" id="fbPbiToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>
+        <div class="d-verktoy" style="margin-top:8px">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="fbPbiAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="fbPbiAr2025" checked> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="fbPbiAr2026" checked> 2026</label>
+          <button class="d-knapp subtil sm" onclick="fbHentPowerBI(false)">Tørrkjør</button>
+          <button class="d-knapp primar sm" onclick="fbHentPowerBI(true)">Hent og lagre</button>
+        </div>
+        <div id="fbPbiResultat" style="font-size:13px;margin-top:10px"></div>
+      </div>
 
       <div class="d-panel" id="fbImportPanel" style="margin-top:16px;display:none">
-        <div class="d-panel-hode midtstilt"><h3>Importer fra Foodbrokers regneark</h3></div>
-        <p class="sub" style="margin:0 0 10px">Last opp Excel-filen med «Salg til …»-linjer per konsept (ett ark per år, arknavn = rent årstall). Full erstatning for de årene fila inneholder.</p>
+        <div class="d-panel-hode midtstilt"><h3>Importer fra Foodbrokers regneark (reserve)</h3></div>
+        <p class="sub" style="margin:0 0 10px">Bare nødvendig for år Power BI-hentingen over ikke dekker ennå. Last opp Excel-filen med «Salg til …»-linjer per konsept (ett ark per år, arknavn = rent årstall).</p>
         <div class="d-verktoy">
           <input type="file" id="fbFil" accept=".xlsx">
           <button class="d-knapp subtil sm" onclick="fbImporter(false)">Tørrkjør</button>
