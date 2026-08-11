@@ -265,6 +265,22 @@ async function hentFastFoodProduktPerKunde(bekreft){
       }
       html+='</div>';
     }
+    const tvetydige=d.tvetydige_kundenr||[];
+    if(tvetydige.length){
+      const vis=tvetydige.slice(0,30);
+      html+=`<details style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">`
+        +`${tvetydige.length.toLocaleString('nb-NO')} kundenr finnes på flere Fast Food-kunder (ulike grossister) — vis eksempler</summary>`
+        +'<div style="margin-top:6px;max-height:260px;overflow:auto" class="sub">';
+      for(const t of vis){
+        html+=`<div style="margin-bottom:4px"><b>kundenr ${esc(t.kundenr)}</b>: `
+          +t.kandidater.map(k=>`${esc(k.kundekonto)} ${esc(k.kundenavn||'')}`.trim()).join(' vs. ')
+          +'</div>';
+      }
+      if(tvetydige.length>vis.length){
+        html+=`<div>… og ${(tvetydige.length-vis.length).toLocaleString('nb-NO')} til.</div>`;
+      }
+      html+='</div></details>';
+    }
     html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
     el.innerHTML=html;
     if(bekreft)document.getElementById('pbToken').value='';
