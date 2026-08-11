@@ -5877,7 +5877,11 @@ function renderTiltak(d){
       for(const ku of (l.kunder||[])){
         const navn=ku.kunde_id?`<a href="#" onclick="tiltakAapneKunde('${ku.kunde_id}');return false">${esc(ku.navn)}</a>`:esc(ku.navn);
         const merke=ku.type==='tapt'?'<span style="color:var(--d-roed)">Tapt</span>':'<span style="color:var(--d-oransje,#e8590c)">Kjøper mindre</span>';
-        h+=`<tr><td>${navn} <span class="sub">${esc(ku.kundenr)}</span></td><td>${merke}</td>
+        // antall_kontoer>1: flere kundenr-kontoer med samme orgnr er slått sammen til
+        // denne raden (RETTET 2026-08-11, Olivia Import-saken) — vist så det er synlig
+        // HVORFOR tallet kan avvike fra en rapport som fortsatt ser på rå kundenr.
+        const kontoer=ku.antall_kontoer?` <span class="sub" title="Flere kundenr-kontoer med samme org.nr er slått sammen">(${ku.antall_kontoer} kontoer slått sammen)</span>`:'';
+        h+=`<tr><td>${navn} <span class="sub">${esc(ku.kundenr)}</span>${kontoer}</td><td>${merke}</td>
           <td class="tall">${_pm(ku.i_fjor)}</td><td class="tall">${_pm(ku.hittil)}</td>
           <td class="tall" style="font-weight:600">${_pm(ku.verdi)}</td>
           <td>${ku.siste_uke?('uke '+ku.siste_uke):'<span class="sub">ingen i år</span>'}</td></tr>`;
