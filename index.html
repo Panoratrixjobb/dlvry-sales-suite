@@ -507,6 +507,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <a data-view="rapporter" onclick="setView('rapporter')"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
+      <a data-view="foodbroker" id="navFoodbroker" style="display:none" onclick="setView('foodbroker')"><span class="ic">📦</span> Foodbroker</a>
       <a data-view="besoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
       <!-- Egen side (fastfood.html), ikke en setView-fane — samme mønster som en ekstern
            lenke. Åpnes i ny fane så admin sin hovedapp-økt (kalkyle i arbeid, filtre osv.)
@@ -1345,6 +1346,35 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       </div>
     </div>
 
+    <!-- ===== FOODBROKER VIEW (steg 2026-08-11) ===== -->
+    <!-- Egen underside, IKKE Fast Food-mønsteret (window.open) — bruker setView() som
+         Konkurrenter, se navFoodbroker over. Sporer FBs DIREKTE fakturerte kunder
+         (utenom DLVRYs vanlige grossist-distribusjon) — Excel-drevet fordi «Total 3 år»-
+         modellen målt til å fange under 20 % av denne omsetningen (Olivia-saken,
+         se app/routers/foodbroker.py). -->
+    <div id="view-foodbroker" style="display:none">
+      <div class="topbar"><h1>Foodbroker direktesalg</h1></div>
+      <div class="crumb">Kunder Foodbroker (D24) fakturerer DIREKTE, utenom DLVRYs vanlige grossist-distribusjon (Carl Evensen, Gilberg Engros m.fl. — det er intern varestrøm, ikke direktesalg). Kilde: FBs eget regneark — Power BI fanger ikke opp hele denne omsetningen.</div>
+
+      <div class="d-panel" id="fbImportPanel" style="margin-top:16px;display:none">
+        <div class="d-panel-hode midtstilt"><h3>Importer fra Foodbrokers regneark</h3></div>
+        <p class="sub" style="margin:0 0 10px">Last opp Excel-filen med «Salg til …»-linjer per konsept (ett ark per år, arknavn = rent årstall). Full erstatning for de årene fila inneholder.</p>
+        <div class="d-verktoy">
+          <input type="file" id="fbFil" accept=".xlsx">
+          <button class="d-knapp subtil sm" onclick="fbImporter(false)">Tørrkjør</button>
+          <button class="d-knapp primar sm" onclick="fbImporter(true)">Importer og lagre</button>
+        </div>
+        <div id="fbImportResultat" style="font-size:13px;margin-top:10px"></div>
+      </div>
+
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px">
+        <div class="d-panel" style="flex:1;min-width:180px"><div class="sub">Direktekunder</div><div style="font-size:24px;font-weight:700" id="fbKpiAntall">–</div></div>
+        <div class="d-panel" style="flex:1;min-width:180px"><div class="sub">Sum alle år</div><div style="font-size:24px;font-weight:700" id="fbKpiSum">–</div></div>
+      </div>
+
+      <div id="fbTabell" style="margin-top:16px"></div>
+    </div>
+
     <!-- ===== BESØKSPLAN VIEW ===== -->
     <div id="view-besoksplan" style="display:none">
       <div class="topbar">
@@ -1699,6 +1729,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/oppsett-datainnhenting.js"></script>
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
+<script src="js/foodbroker.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -4469,6 +4500,7 @@ const FB_FILER={
   kunder:'dlvry-sales-suite/index.html (view-kunder), konseptsuite-backend/app/routers/kunder.py',
   brukere:'dlvry-sales-suite/index.html (view-brukere), dlvry-sales-suite/js/oppsett-faner.js, dlvry-sales-suite/js/oppsett-datainnhenting.js, konseptsuite-backend/app/routers/brukere.py',
   konkurrenter:'dlvry-sales-suite/index.html (view-konkurrenter), konseptsuite-backend/app/routers/konkurrenter.py',
+  foodbroker:'dlvry-sales-suite/index.html (view-foodbroker), dlvry-sales-suite/js/foodbroker.js, konseptsuite-backend/app/routers/foodbroker.py',
   besoksplan:'dlvry-sales-suite/index.html (view-besoksplan), konseptsuite-backend/app/routers/besoksplan.py',
   rapporter:'dlvry-sales-suite/index.html (view-rapporter, renderRapporter), dlvry-sales-suite/js/rapport-produkt.js, konseptsuite-backend/app/routers/rapport.py',
 };
@@ -6319,6 +6351,7 @@ function setView(v){
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
   document.getElementById('view-brukere').style.display=v==='brukere'?'':'none';
   document.getElementById('view-konkurrenter').style.display=v==='konkurrenter'?'':'none';
+  document.getElementById('view-foodbroker').style.display=v==='foodbroker'?'':'none';
   document.getElementById('view-besoksplan').style.display=v==='besoksplan'?'':'none';
   document.getElementById('view-rapporter').style.display=v==='rapporter'?'':'none';
   document.querySelectorAll('.d-meny a[data-view]').forEach(a=>a.classList.toggle('aktiv',a.dataset.view===v));
@@ -6334,6 +6367,7 @@ function setView(v){
   if(v==='kalkulator'){ if(!state.calcId){setKalkSub('liste');lastKalkyleListe();} else setKalkSub('editor'); }
   if(v==='brukere'){mountBrukere();if(state.brukerId)Steg4.monterBrukerkort(state.brukerId,document.getElementById('brukerkort-steg4'),CURRENT_USER?.rolle);}
   if(v==='konkurrenter')mountKonkurrenter();
+  if(v==='foodbroker')mountFoodbroker();
   if(v==='besoksplan')mountBesoksplan();
   if(v==='rapporter')mountRapporter();
 }
@@ -6455,6 +6489,9 @@ async function showApp(){
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
   const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
   document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
+  // Samme rollekrav som Konkurrenter — internt salgstall for et konsernselskap, ikke
+  // noe en vanlig selger trenger tilgang til.
+  document.getElementById('navFoodbroker').style.display = kanSeKonkurrenter ? '' : 'none';
   // Samme rolleliste som backend sin ADMIN_TRACK_SER_ALT (deps.py) — hold i sync.
   const kanSeFastFood = CURRENT_USER && ['leder','admin','superadmin','salgsdirektor',
     'regionansvarlig','kommersiell_direktor','ceo'].includes(CURRENT_USER.rolle);
