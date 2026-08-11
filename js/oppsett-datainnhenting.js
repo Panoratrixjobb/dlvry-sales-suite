@@ -251,8 +251,11 @@ async function hentFastFoodProduktPerKunde(bekreft){
     for(const [ar,s] of Object.entries(d.sammendrag||{})){
       html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
         +`${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, ${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK`;
+      if(s.matchet_pa_orgnr){
+        html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_orgnr.toLocaleString('nb-NO')} rader matchet på organisasjonsnummer hos en annen grossist enn kunden ble registrert med — tatt med (sikker match, samme reelle bedrift).</div>`;
+      }
       if(s.matchet_pa_annen_grossist){
-        html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_annen_grossist.toLocaleString('nb-NO')} rader matchet på kundenr hos en annen grossist enn kunden ble registrert med — tatt med (samme kunde kan handle hos flere grossister).</div>`;
+        html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_annen_grossist.toLocaleString('nb-NO')} rader matchet på kundenr alene (orgnr manglet) hos en annen grossist enn kunden ble registrert med — tatt med.</div>`;
       }
       if(s.kundenr_utenfor_lista){
         html+=`<div class="sub" style="margin-top:2px">${s.kundenr_utenfor_lista.toLocaleString('nb-NO')} rader matchet ingen Fast Food-kunde i det hele tatt — droppet.</div>`;
