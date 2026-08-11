@@ -119,9 +119,9 @@
       <div class="d-vs" id="kpiVekst"></div></div>
     <div class="d-kpi"><div class="d-label">Omsetning i fjor</div>
       <div class="d-rad"><span class="d-tall" id="kpiOmsFjor">–</span></div></div>
-    <div class="d-kpi"><div class="d-label">Est. DG hele porteføljen</div>
+    <div class="d-kpi"><div class="d-label">DG hele porteføljen</div>
       <div class="d-rad"><span class="d-tall" id="kpiDg">–</span></div>
-      <div class="d-vs">Estimat, ikke målt margin — se forklaring under tabellen</div></div>
+      <div class="d-vs" id="kpiDgKilde">se forklaring under tabellen</div></div>
   </div>
 
   <div class="d-panel">
@@ -140,8 +140,8 @@
           <th class="sortbar" data-sort="kjede">Kjede<span class="sortpil"></span></th>
           <th class="sortbar" data-sort="omsetning_i_ar" style="text-align:right">Oms. i år<span class="sortpil"></span></th>
           <th class="sortbar" data-sort="vekst_pct" style="text-align:right">Vekst<span class="sortpil"></span></th>
-          <th class="sortbar" data-sort="estimert_dg_pct" style="text-align:right">Est. DG<span class="sortpil"></span></th>
-          <th class="sortbar" data-sort="estimert_db_kr" style="text-align:right">Est. DB<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="estimert_dg_pct" style="text-align:right">DG<span class="sortpil"></span></th>
+          <th class="sortbar" data-sort="estimert_db_kr" style="text-align:right">DB<span class="sortpil"></span></th>
         </tr></thead>
         <tbody id="kroppKunder"></tbody>
       </table>
@@ -317,7 +317,8 @@ async function lastKunder(ar){
     const res = await api('/api/fastfood/kunder' + (ar ? ('?ar='+ar) : ''));
     KUNDER = res.kunder;
     document.getElementById('kpiAntall').textContent = res.antall_kunder.toLocaleString('nb-NO');
-    document.getElementById('kpiTreff').textContent = res.antall_med_omsetningsdata + ' med omsetningsdata';
+    document.getElementById('kpiTreff').textContent = res.antall_med_omsetningsdata + ' med omsetningsdata'
+      + (res.antall_med_ekte_omsetning ? ' · '+res.antall_med_ekte_omsetning+' med ekte (målt) omsetning' : '');
     document.getElementById('kpiOms').textContent = fmtKr(res.sum_omsetning_i_ar);
     document.getElementById('kpiOmsFjor').textContent = fmtKr(res.sum_omsetning_i_fjor);
     const vekst = res.sum_omsetning_i_fjor ? 100*(res.sum_omsetning_i_ar-res.sum_omsetning_i_fjor)/res.sum_omsetning_i_fjor : null;
@@ -350,6 +351,10 @@ function tegnKunder(){
   const dgTotal = KUNDER.reduce((s,k)=>s+(k.estimert_db_kr||0),0);
   const omsTotal = KUNDER.reduce((s,k)=>s+(k.omsetning_i_ar||0),0);
   document.getElementById('kpiDg').textContent = omsTotal ? fmtPct(100*dgTotal/omsTotal) : '–';
+  const nEkte = KUNDER.filter(k=>k.omsetning_kilde==='ekte').length;
+  document.getElementById('kpiDgKilde').textContent = nEkte
+    ? `Ekte (målt) for ${nEkte} av ${KUNDER.length} kunder, estimat for resten`
+    : 'Estimat, ikke målt margin — se forklaring under tabellen';
 
   if(!rader.length){
     tbody.innerHTML = '';
@@ -365,10 +370,16 @@ function tegnKunder(){
       <td>${esc(k.kjede||'–')}</td>
       <td style="text-align:right">${fmtKr(k.omsetning_i_ar)}</td>
       <td style="text-align:right">${k.vekst_pct!=null ? fmtPct(k.vekst_pct) : '–'}</td>
-      <td style="text-align:right">${k.estimert_dg_pct!=null ? fmtPct(k.estimert_dg_pct) : '–'}</td>
+      <td style="text-align:right">${k.estimert_dg_pct!=null ? fmtPct(k.estimert_dg_pct) : '–'}${kildeBadge(k.omsetning_kilde)}</td>
       <td style="text-align:right">${fmtKr(k.estimert_db_kr)}</td>
     </tr>
   `).join('');
+}
+
+function kildeBadge(kilde){
+  if(kilde==='ekte') return ' <span class="d-badge gronn flat" title="Målt i Consolidated Model, ikke estimert">ekte</span>';
+  if(kilde==='estimat') return ' <span class="d-badge graa flat" title="Miks-basert estimat, se forklaring under tabellen">est.</span>';
+  return '';
 }
 
 document.querySelectorAll('#tabellKunder th.sortbar').forEach(th => {
