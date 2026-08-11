@@ -189,6 +189,23 @@ async function hentProduktMargin(bekreft){
       if(s.droppet_fram_i_tid){
         html+=`<div class="sub" style="margin-top:4px">Hoppet over ${s.droppet_fram_i_tid} rader datert etter uke ${s.siste_godtatte_uke}.</div>`;
       }
+      // vs_konsept_grossist_uke: samme sjekk som avdekket Fast Food- og Foodbroker-
+      // dekningsgapene 2026-08-11 — produktnivå (denne hentingen) mot konsept_grossist_uke
+      // (Total 3 år, ingen produktkobling). Stor differanse = samme mønster her også.
+      const vs=(s.vs_konsept_grossist_uke||[]).filter(v=>v.differanse_pct!=null);
+      if(vs.length){
+        const storeGap=vs.filter(v=>Math.abs(v.differanse_pct)>10);
+        html+='<div class="table-wrap" style="margin-top:8px"><table class="d-tabell" style="min-width:420px"><thead><tr>'
+          +'<th>Konsept</th><th class="tall">Produktnivå</th><th class="tall">Total 3 år (uten produkt)</th><th class="tall">Differanse</th></tr></thead><tbody>'
+          +vs.map(v=>`<tr><td>${esc(v.konsept)}</td><td class="tall">${v.produkt_mnok}</td>`
+            +`<td class="tall">${v.konsept_grossist_uke_mnok}</td>`
+            +`<td style="text-align:right;font-weight:${Math.abs(v.differanse_pct)>10?600:400};color:${Math.abs(v.differanse_pct)>10?'var(--d-roed)':'inherit'}">${v.differanse_pct} %</td></tr>`).join('')
+          +'</tbody></table>'
+          +(storeGap.length
+            ? `<div class="sub" style="margin-top:4px;color:var(--d-roed)">${storeGap.map(v=>esc(v.konsept)).join(', ')}: produktnivå fanger vesentlig mindre enn Total 3 år — samme mønster som Fast Food/Foodbroker-sakene, verdt å granske.</div>`
+            : '<div class="sub" style="margin-top:4px">Ingen konsept med stort avvik — produktnivå ser ut til å dekke det samme som Total 3 år.</div>')
+          +'</div>';
+      }
       html+='</div>';
     }
     html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
