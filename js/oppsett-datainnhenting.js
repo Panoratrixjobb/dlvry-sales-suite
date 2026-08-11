@@ -1,5 +1,33 @@
 // Innstillinger > Datainnhenting: Power BI, produkt/margin og leverandorpriser.
 // Skilt ut av index.html 2026-08-07.
+
+// ============ Diagnostikk: kunde-orgnr / konsern-eksklusjon (2026-08-11) ============
+async function orgnrDiagKjor(){
+  const sok=document.getElementById('orgnrDiagSok').value.trim();
+  const el=document.getElementById('orgnrDiagResultat');
+  if(sok.length<2){el.innerHTML='<span style="color:var(--d-roed)">Skriv minst 2 tegn.</span>';return;}
+  el.innerHTML='<span class="sub">Søker…</span>';
+  try{
+    const d=await api('/api/dashboard-excel/diagnostikk/kunde-orgnr?sok='+encodeURIComponent(sok));
+    if(!d.treff.length){el.innerHTML='<span class="sub">Ingen treff i kunde_salg_uke for «'+esc(sok)+'».</span>';return;}
+    let html='<table class="d-tabell" style="width:100%"><thead><tr>'
+      +'<th>Kunde</th><th>Kundenr</th><th>Grossist</th><th>År</th><th style="text-align:right">Beløp</th>'
+      +'<th>Orgnr</th><th>Konsern-treff</th><th>Intern-regel</th></tr></thead><tbody>';
+    for(const r of d.treff){
+      const konsern=r.konsern_selskap_navn
+        ? `<span class="d-badge roed flat" title="${r.konsern_selskap_aktiv?'aktiv':'inaktiv'}">${esc(r.konsern_selskap_navn)}</span>`
+        : '<span class="sub">–</span>';
+      html+=`<tr><td>${esc(r.navn||'')}</td><td>${esc(r.kundenr||'')}</td><td>${esc(r.grossist||'')}</td>`
+        +`<td>${esc(String(r.ar))}</td><td style="text-align:right">${Math.round(r.belop).toLocaleString('nb-NO')} kr</td>`
+        +`<td>${esc(r.orgnr||'(mangler)')}</td><td>${konsern}</td>`
+        +`<td>${r.intern_kunde_regel_treff?'<span class="d-badge gul flat">ja</span>':'<span class="sub">–</span>'}</td></tr>`;
+    }
+    html+='</tbody></table><p class="sub" style="margin-top:8px">'+esc(d.forklaring)+'</p>';
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }
+}
 // ============ Hent fra Power BI (erstatter kundedata-opplastingen) ============
 // Modell-ID og arbeidsområde fylles fra serveren, så admin bare limer inn tokenet.
 // Serveren har en innebygd standard som App Service-konfigurasjon overstyrer — og

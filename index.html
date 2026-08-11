@@ -1083,6 +1083,18 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Dashboard-opplasting (FIKS-13/14) — admin/superadmin -->
       <!-- Tokenet gjelder BEGGE hentingene under, og sto tidligere inne i Power BI-panelet.
            Det ga forvirring da produktpanelet lånte det. Nå står det ett sted, øverst. -->
+      <div class="d-panel" style="margin-top:18px" id="orgnrDiagPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>Diagnostikk: kunde-orgnr / konsern-eksklusjon</h3>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Viser en kundes rå kunde_salg_uke-rader (orgnr, grossist, år, beløp) og om orgnr treffer konsern_selskap — for å finne ut hvorfor en kundes omsetning forsvinner fra Rapporter.</p>
+        <div class="d-verktoy">
+          <input id="orgnrDiagSok" class="d-input" style="width:280px" placeholder="Kundenavn eller kundenr, f.eks. olivia" autocomplete="off">
+          <button class="d-knapp primar sm" onclick="orgnrDiagKjor()">Søk</button>
+        </div>
+        <div id="orgnrDiagResultat" style="font-size:13px;margin-top:10px"></div>
+      </div>
+
       <div class="d-panel" style="margin-top:18px" id="tokenPanel">
         <div class="d-panel-hode midtstilt">
           <h3>Tilkobling til Power BI</h3>
