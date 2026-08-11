@@ -11,13 +11,14 @@ async function orgnrDiagKjor(){
     const d=await api('/api/dashboard-excel/diagnostikk/kunde-orgnr?sok='+encodeURIComponent(sok));
     if(!d.treff.length){el.innerHTML='<span class="sub">Ingen treff i kunde_salg_uke for «'+esc(sok)+'».</span>';return;}
     let html='<table class="d-tabell" style="width:100%"><thead><tr>'
-      +'<th>Kunde</th><th>Kundenr</th><th>Grossist</th><th>År</th><th style="text-align:right">Beløp</th>'
+      +'<th>Kunde</th><th>Kundenr</th><th>Grossist</th><th>Konsept</th><th>Region</th><th>År</th><th style="text-align:right">Beløp</th>'
       +'<th>Orgnr</th><th>Konsern-treff</th><th>Intern-regel</th></tr></thead><tbody>';
     for(const r of d.treff){
       const konsern=r.konsern_selskap_navn
         ? `<span class="d-badge roed flat" title="${r.konsern_selskap_aktiv?'aktiv':'inaktiv'}">${esc(r.konsern_selskap_navn)}</span>`
         : '<span class="sub">–</span>';
       html+=`<tr><td>${esc(r.navn||'')}</td><td>${esc(r.kundenr||'')}</td><td>${esc(r.grossist||'')}</td>`
+        +`<td>${esc(r.konsept||'(mangler)')}</td><td>${esc(r.region||'(mangler)')}</td>`
         +`<td>${esc(String(r.ar))}</td><td style="text-align:right">${Math.round(r.belop).toLocaleString('nb-NO')} kr</td>`
         +`<td>${esc(r.orgnr||'(mangler)')}</td><td>${konsern}</td>`
         +`<td>${r.intern_kunde_regel_treff?'<span class="d-badge gul flat">ja</span>':'<span class="sub">–</span>'}</td></tr>`;
