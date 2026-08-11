@@ -292,38 +292,46 @@ async function hentFastFoodProduktPerKunde(bekreft){
       if(s.kundenr_utenfor_lista){
         html+=`<div class="sub" style="margin-top:2px">${s.kundenr_utenfor_lista.toLocaleString('nb-NO')} rader matchet ingen Fast Food-kunde i det hele tatt — droppet.</div>`;
       }
+      if(s.annen_bedrift_kundenr_kollisjon){
+        html+=`<div class="sub" style="margin-top:2px">${s.annen_bedrift_kundenr_kollisjon.toLocaleString('nb-NO')} rader droppet: kundenr deles med en Fast Food-kunde, men navnet i modellen viser at det er en helt annen bedrift — trygt ekskludert, ingen handling nødvendig.</div>`;
+      }
       if(s.kundenr_tvetydig_droppet){
-        html+=`<div class="sub" style="margin-top:2px">${s.kundenr_tvetydig_droppet.toLocaleString('nb-NO')} rader droppet: kundenr finnes på flere ulike Fast Food-kunder (ulike grossister) — kunne ikke avgjøre hvilken.</div>`;
+        html+=`<div class="sub" style="margin-top:2px">${s.kundenr_tvetydig_droppet.toLocaleString('nb-NO')} rader droppet: kundenr er tvetydig OG navnet i modellen mangler eller matcher flere kandidater — kunne ikke avgjøre hvilken.</div>`;
       }
       if(s.droppet_fram_i_tid){
         html+=`<div class="sub" style="margin-top:2px">Hoppet over ${s.droppet_fram_i_tid} rader datert fram i tid.</div>`;
       }
       html+='</div>';
     }
-    // tvetydige_kundenr_detaljer viser de FAKTISKE radene som ikke lot seg plassere denne
-    // kjøringen — kjente kandidater (hvem kundenr ELLERS tilhører) OG hvilken grossist/navn
-    // den ukjente raden faktisk hadde, så det er synlig om det er en åpenbart urelatert
-    // bedrift (forvent drop) eller noe som burde vært i kundelista.
-    const detaljer=d.tvetydige_kundenr_detaljer||[];
-    if(detaljer.length){
-      const vis=detaljer.slice(0,30);
-      const sumDroppet=detaljer.reduce((s,t)=>s+(t.sum_droppet||0),0);
-      html+=`<details style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">`
-        +`${detaljer.length.toLocaleString('nb-NO')} kundenr kunne ikke plasseres (~${Math.round(sumDroppet/1000).toLocaleString('nb-NO')} TNOK droppet) — vis eksempler</summary>`
+    // tvetydige_kundenr_detaljer / annen_bedrift_detaljer viser de FAKTISKE radene som ikke
+    // lot seg plassere — kjente kandidater (hvem kundenr ELLERS tilhører) OG hvilken
+    // grossist/navn den ukjente raden faktisk hadde. Delt i to lister siden bruker-
+    // tilbakemelding 2026-08-11 påpekte at «kunne ikke avgjøre hvilken» var misvisende når
+    // radens navn tydelig viser at det er en helt annen, urelatert bedrift (D06 Tønsberg
+    // Fisk AS o.l.) — det er ikke en uløst tvetydighet, bare en kundenr-kollisjon uten
+    // videre betydning.
+    const lagDetaljListe=(tittel, liste, farge)=>{
+      if(!liste.length)return'';
+      const vis=liste.slice(0,30);
+      const sum=liste.reduce((s,t)=>s+(t.sum_belop||0),0);
+      let h=`<details style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">`
+        +`${liste.length.toLocaleString('nb-NO')} ${tittel} (~${Math.round(sum/1000).toLocaleString('nb-NO')} TNOK) — vis eksempler</summary>`
         +'<div style="margin-top:6px;max-height:320px;overflow:auto" class="sub">';
       for(const t of vis){
         const kjente=(t.kjente_kandidater||[]).map(k=>`${esc(k.kundekonto)} ${esc(k.kundenavn||'')}`.trim()).join(' vs. ');
         const ukjente=(t.ukjente_rader||[]).map(u=>`${esc(u.grossist_kode)} ${esc(u.kundenavn||'')} (${Math.round(u.belop).toLocaleString('nb-NO')} kr)`.trim()).join(', ');
-        html+=`<div style="margin-bottom:6px"><b>kundenr ${esc(t.kundenr)}</b> — kjent: ${kjente || '(ingen registrert)'}<br>`
-          +`<span style="color:var(--d-roed)">droppet:</span> ${ukjente || '(ukjent kilde)'}</div>`;
+        h+=`<div style="margin-bottom:6px"><b>kundenr ${esc(t.kundenr)}</b> — kjent: ${kjente || '(ingen registrert)'}<br>`
+          +`<span style="color:var(${farge})">droppet:</span> ${ukjente || '(ukjent kilde)'}</div>`;
       }
-      if(detaljer.length>vis.length){
-        html+=`<div>… og ${(detaljer.length-vis.length).toLocaleString('nb-NO')} til.</div>`;
+      if(liste.length>vis.length){
+        h+=`<div>… og ${(liste.length-vis.length).toLocaleString('nb-NO')} til.</div>`;
       }
-      html+='</div></details>';
-    }else if((d.tvetydige_kundenr||[]).length){
-      const tvetydige=d.tvetydige_kundenr;
-      html+=`<div class="sub" style="margin:0 0 8px">${tvetydige.length.toLocaleString('nb-NO')} kundenr deler flere Fast Food-kunder i kundelista, men ingen av dem forårsaket droppede rader denne kjøringen.</div>`;
+      return h+'</div></details>';
+    };
+    html+=lagDetaljListe('kundenr kunne IKKE avgjøres (navn manglet eller var flertydig)', d.tvetydige_kundenr_detaljer||[], '--d-roed');
+    html+=lagDetaljListe('kundenr trygt ekskludert (navnet viser en annen bedrift — ingen handling nødvendig)', d.annen_bedrift_detaljer||[], '--d-graa');
+    if(!(d.tvetydige_kundenr_detaljer||[]).length && !(d.annen_bedrift_detaljer||[]).length && (d.tvetydige_kundenr||[]).length){
+      html+=`<div class="sub" style="margin:0 0 8px">${d.tvetydige_kundenr.length.toLocaleString('nb-NO')} kundenr deler flere Fast Food-kunder i kundelista, men ingen av dem forårsaket droppede rader denne kjøringen.</div>`;
     }
     html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
     el.innerHTML=html;
