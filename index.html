@@ -1091,7 +1091,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <details style="margin-bottom:10px">
           <summary class="sub" style="cursor:pointer">Slik henter du et token (mens service principal-en mangler)</summary>
           <p class="sub" style="margin:8px 0 0">Kjør i PowerShell, og lim inn verdien under. Tokenet varer ca. én time, lagres aldri, og sendes bare med hentingene du kjører nå:</p>
-          <code style="display:block;background:var(--d-gul-bg);padding:8px;border-radius:6px;font-size:11.5px;margin-top:6px;overflow-x:auto">az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv</code>
+          <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+            <code id="pbKommando" style="flex:1;display:block;background:var(--d-gul-bg);padding:8px;border-radius:6px;font-size:11.5px;overflow-x:auto">az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv</code>
+            <button class="d-knapp subtil sm" id="pbKopierKommandoBtn" onclick="kopierPbKommando()" style="flex-shrink:0">⧉ Kopier</button>
+          </div>
         </details>
         <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Token</b>
           <input type="password" id="pbToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>

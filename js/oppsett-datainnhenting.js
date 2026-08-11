@@ -21,6 +21,27 @@ async function pbFyllStandard(){
   }catch(e){ linje.textContent=''; }
 }
 
+// Bruker-tilbakemelding 2026-08-11 (fra Brukere-siden): manuell drag-select over
+// PowerShell-kommandoen var tungvint. Kopier-knapp ved siden av <code>-blokken, samme
+// mønster som kopierFeedbackPrompt (index.html) — clipboard-API krever https/localhost,
+// derfor textarea-fallbacket.
+async function kopierPbKommando(){
+  const tekst=document.getElementById('pbKommando').textContent;
+  const btn=document.getElementById('pbKopierKommandoBtn');
+  try{
+    await navigator.clipboard.writeText(tekst);
+  }catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=tekst;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy')}catch(_){ alert(tekst); }
+    ta.remove();
+  }
+  if(btn){const org=btn.textContent;btn.textContent='✓ Kopiert';btn.disabled=true;
+    setTimeout(()=>{btn.textContent=org;btn.disabled=false},1500);}
+  if(typeof toast==='function')toast('Kommando kopiert');
+}
+
 // Tokenet holdes bare i DOM-feltet og sendes i kroppen (aldri i URL-en, som havner i
 // tilgangslogger). Det lagres verken i localStorage eller i basen — utløper av seg selv.
 async function hentFraPowerBI(bekreft){
@@ -264,6 +285,9 @@ async function hentFastFoodProduktPerKunde(bekreft){
       }
       if(s.matchet_pa_annen_grossist){
         html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_annen_grossist.toLocaleString('nb-NO')} rader matchet på kundenr alene (orgnr manglet) hos en annen grossist enn kunden ble registrert med — tatt med.</div>`;
+      }
+      if(s.matchet_pa_navn){
+        html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_navn.toLocaleString('nb-NO')} rader matchet på kundenavn (kundenr var tvetydig og orgnr manglet) — tatt med.</div>`;
       }
       if(s.kundenr_utenfor_lista){
         html+=`<div class="sub" style="margin-top:2px">${s.kundenr_utenfor_lista.toLocaleString('nb-NO')} rader matchet ingen Fast Food-kunde i det hele tatt — droppet.</div>`;
