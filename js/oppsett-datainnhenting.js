@@ -11,9 +11,13 @@ async function pbFyllStandard(){
     const d=document.getElementById('pbDataset'), g=document.getElementById('pbGruppe');
     if(d&&!d.value&&s.dataset_id)d.value=s.dataset_id;
     if(g&&!g.value&&s.group_id)g.value=s.group_id;
-    linje.textContent=s.konfigurert
-      ? 'Service principal er satt opp — token trengs ikke.'
-      : 'Modell: '+(s.dataset_kilde||'')+'. Token må limes inn.';
+    if(s.token_bufret_sekunder>0){
+      linje.textContent='Token bufret enda '+Math.ceil(s.token_bufret_sekunder/60)+' min — kan kjøre hentinger uten å lime inn på nytt.';
+    }else{
+      linje.textContent=s.konfigurert
+        ? 'Service principal er satt opp — token trengs ikke.'
+        : 'Modell: '+(s.dataset_kilde||'')+'. Token må limes inn.';
+    }
   }catch(e){ linje.textContent=''; }
 }
 
@@ -209,6 +213,10 @@ async function hentFastFoodKunderFraSegment(bekreft){
       +(s.deaktiveres_falt_ut?` · <span style="color:var(--d-gul)">${s.deaktiveres_falt_ut} faller ut (deaktiveres)</span>`:'')+'</div>';
     if(s.ugyldig_kundekonto_format){
       html+=`<div class="sub" style="margin-top:4px">${s.ugyldig_kundekonto_format} rader hadde et kundekonto-format som ikke matcher DNN-mønsteret — hoppet over.</div>`;
+    }
+    if(s.gyldige_kunder){
+      const orgnrOk=s.med_orgnr||0, andel=Math.round(100*orgnrOk/s.gyldige_kunder);
+      html+=`<div class="sub" style="margin-top:4px">${orgnrOk.toLocaleString('nb-NO')} av ${s.gyldige_kunder.toLocaleString('nb-NO')} (${andel} %) fikk orgnr med — det panel 5 bruker til å plassere salg hos andre grossister riktig. Lavt tall her betyr panel 5 faller tilbake til det svakere kundenr-matchet.</div>`;
     }
     html+='<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
     el.innerHTML=html;
