@@ -280,6 +280,13 @@ async function hentFastFoodProduktPerKunde(bekreft){
     for(const [ar,s] of Object.entries(d.sammendrag||{})){
       html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
         +`${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, ${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK`;
+      if(s.kundesalg_uten_produkt_mnok!=null){
+        const diff=s.kundesalg_uten_produkt_mnok-s.mnok;
+        const diffFarge=diff>s.mnok*0.1?'--d-roed':'--d-graa';
+        html+=`<div class="sub" style="margin-top:2px">Til sammenligning, UTEN produktkobling: <b>${s.kundesalg_uten_produkt_mnok} MNOK</b> `
+          +`på ${(s.kunder_med_salg_uten_produkt||0).toLocaleString('nb-NO')} kunder `
+          +`— <span style="color:var(${diffFarge})">${diff>=0?'+':''}${diff.toFixed(1)} MNOK differanse mot produkt-tallet over</span>.</div>`;
+      }
       if(s.matchet_pa_kundekonto){
         html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_kundekonto.toLocaleString('nb-NO')} rader matchet direkte på kundekonto (primærveien — bør være så godt som alle).</div>`;
       }
