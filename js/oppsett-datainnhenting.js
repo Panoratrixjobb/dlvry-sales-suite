@@ -280,6 +280,9 @@ async function hentFastFoodProduktPerKunde(bekreft){
     for(const [ar,s] of Object.entries(d.sammendrag||{})){
       html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
         +`${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, ${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK`;
+      if(s.matchet_pa_kundekonto){
+        html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_kundekonto.toLocaleString('nb-NO')} rader matchet direkte på kundekonto (primærveien — bør være så godt som alle).</div>`;
+      }
       if(s.matchet_pa_orgnr){
         html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_orgnr.toLocaleString('nb-NO')} rader matchet på organisasjonsnummer hos en annen grossist enn kunden ble registrert med — tatt med (sikker match, samme reelle bedrift).</div>`;
       }
