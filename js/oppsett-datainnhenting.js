@@ -179,6 +179,45 @@ async function hentPrisliste(bekreft){
   }finally{knapper.forEach(b=>b.disabled=false);}
 }
 
+// ============ Fast Food: kundeliste fra Segment1 (erstatter 100TNOK-Excel-fila) ============
+async function hentFastFoodKunderFraSegment(bekreft){
+  const el=document.getElementById('ffkResultat');
+  const knapper=['ffkTorrBtn','ffkHentBtn'].map(id=>document.getElementById(id));
+  const token=document.getElementById('pbToken').value.trim();
+  if(!token){
+    let sp=false;
+    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
+    if(!sp){
+      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet øverst først</span>'
+        +' <span class="sub">— samme token brukes til alle hentingene.</span>';
+      const felt=document.getElementById('pbToken');
+      felt.focus(); felt.scrollIntoView({block:'center'});
+      return;
+    }
+  }
+  if(bekreft&&!confirm('Erstatte Fast Food-kundelista med hele Segment1=FASTFOOD fra modellen? Kunder som faller ut deaktiveres (slettes ikke).'))return;
+  knapper.forEach(b=>b.disabled=true);
+  el.innerHTML='<span class="sub">Henter kundeliste fra Segment1…</span>';
+  try{
+    const d=await api('/api/fastfood/kunder/hent-fra-segment?bekreft='+(bekreft?'true':'false'),
+                      {method:'POST',body:{token:token||null}});
+    const s=d.sammendrag||{};
+    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b></p>';
+    html+=`<div>${(s.funnet_i_modellen||0).toLocaleString('nb-NO')} funnet i modellen · `
+      +`<b>${(s.gyldige_kunder||0).toLocaleString('nb-NO')}</b> gyldige · `
+      +`${(s.nye_kunder||0).toLocaleString('nb-NO')} nye · ${(s.oppdaterte||0).toLocaleString('nb-NO')} oppdaterte`
+      +(s.deaktiveres_falt_ut?` · <span style="color:var(--d-gul)">${s.deaktiveres_falt_ut} faller ut (deaktiveres)</span>`:'')+'</div>';
+    if(s.ugyldig_kundekonto_format){
+      html+=`<div class="sub" style="margin-top:4px">${s.ugyldig_kundekonto_format} rader hadde et kundekonto-format som ikke matcher DNN-mønsteret — hoppet over.</div>`;
+    }
+    html+='<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
+    el.innerHTML=html;
+    if(bekreft)document.getElementById('pbToken').value='';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
 // ============ Fast Food: produkt per kunde (fastfood.py fase 2) ============
 async function hentFastFoodProduktPerKunde(bekreft){
   const el=document.getElementById('ffpResultat');
