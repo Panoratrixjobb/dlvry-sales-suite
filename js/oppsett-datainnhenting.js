@@ -278,15 +278,13 @@ async function hentFastFoodProduktPerKunde(bekreft){
     clearInterval(timer);
     let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
     for(const [ar,s] of Object.entries(d.sammendrag||{})){
-      html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — ${s.rader.toLocaleString('nb-NO')} rader, `
-        +`${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, ${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK`;
-      if(s.kundesalg_uten_produkt_mnok!=null){
-        const diff=s.kundesalg_uten_produkt_mnok-s.mnok;
-        const diffFarge=diff>s.mnok*0.1?'--d-roed':'--d-graa';
-        html+=`<div class="sub" style="margin-top:2px">Til sammenligning, UTEN produktkobling: <b>${s.kundesalg_uten_produkt_mnok} MNOK</b> `
-          +`på ${(s.kunder_med_salg_uten_produkt||0).toLocaleString('nb-NO')} kunder `
-          +`— <span style="color:var(${diffFarge})">${diff>=0?'+':''}${diff.toFixed(1)} MNOK differanse mot produkt-tallet over</span>.</div>`;
-      }
+      html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — `
+        +`<b>${s.ekte_kundeomsetning_mnok!=null?s.ekte_kundeomsetning_mnok+' MNOK':'–'}</b> ekte kundeomsetning `
+        +`(${(s.ekte_kunder_med_salg||0).toLocaleString('nb-NO')} kunder) — dette skrives som kundens totale omsetning/DG.</div>`;
+      html+=`<div style="margin-bottom:8px" class="sub">Produktmiks (egen, delvis kilde — kun til «vis produkter» per kunde): `
+        +`${s.rader.toLocaleString('nb-NO')} rader, ${s.kunder_med_treff.toLocaleString('nb-NO')} kunder med treff, `
+        +`${s.produkter.toLocaleString('nb-NO')} produkter, ${s.mnok} MNOK — vesentlig lavere enn kundeomsetningen over er FORVENTET `
+        +`(produktkoblingen i modellen dekker ikke alt salget for dette segmentet).</div>`;
       if(s.matchet_pa_kundekonto){
         html+=`<div class="sub" style="margin-top:2px">${s.matchet_pa_kundekonto.toLocaleString('nb-NO')} rader matchet direkte på kundekonto (primærveien — bør være så godt som alle).</div>`;
       }
