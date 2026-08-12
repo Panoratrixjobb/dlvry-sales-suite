@@ -314,14 +314,35 @@ async function hentFastFoodProduktPerKunde(bekreft){
   if(bekreft&&!confirm('Skrive produkt per Fast Food-kunde for '+aar.join(', ')+' til databasen? Året erstattes i sin helhet.'))return;
   knapper.forEach(b=>b.disabled=true);
   const start=Date.now();
-  const timer=setInterval(()=>{
-    el.innerHTML='<span class="sub">Henter kunde × produkt for Fast Food… '+Math.round((Date.now()-start)/1000)+' s</span>';
-  },1000);
-  el.innerHTML='<span class="sub">Henter kunde × produkt for Fast Food…</span>';
+  el.innerHTML='<span class="sub">Starter henting…</span>';
   try{
+    // Kjører som BAKGRUNNSJOBB (rettet 2026-08-12): et synkront kall som tar 10+ minutter
+    // blir stille kuttet av Azure App Service sin front-end-timeout lenge før jobben er
+    // ferdig. Se app/jobber.py. Denne funksjonen bare starter jobben og poller status.
     const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
-    const d=await api('/api/fastfood/produkt-per-kunde/hent?'+qs,{method:'POST',body:{token:token||null}});
-    clearInterval(timer);
+    const start_svar=await api('/api/fastfood/produkt-per-kunde/hent?'+qs,{method:'POST',body:{token:token||null}});
+    const jobbId=start_svar.jobb_id;
+    let j=null;
+    while(true){
+      await new Promise(r=>setTimeout(r,3000));
+      const sek=Math.round((Date.now()-start)/1000);
+      try{
+        j=await api('/api/jobb/'+jobbId);
+      }catch(e){
+        el.innerHTML=`<span class="sub">Kjører… ${sek} s (mistet kontakt med statussjekken et øyeblikk, prøver igjen)</span>`;
+        continue;
+      }
+      if(j.status==='kjorer'){
+        el.innerHTML=`<span class="sub">${esc(j.fremdrift||'Kjører…')} (${sek} s)</span>`;
+        continue;
+      }
+      break;
+    }
+    if(j.status==='feilet'){
+      el.innerHTML='<span style="color:var(--d-roed)">Jobben feilet: '+esc(j.feilmelding||'ukjent feil')+'</span>';
+      return;
+    }
+    const d=j.resultat;
     let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
     for(const [ar,s] of Object.entries(d.sammendrag||{})){
       html+=`<div style="margin-bottom:8px"><b>${esc(ar)}</b> — `
@@ -391,7 +412,6 @@ async function hentFastFoodProduktPerKunde(bekreft){
     el.innerHTML=html;
     if(bekreft)document.getElementById('pbToken').value='';
   }catch(e){
-    clearInterval(timer);
     el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
   }finally{knapper.forEach(b=>b.disabled=false);}
 }
