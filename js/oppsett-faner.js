@@ -32,4 +32,32 @@ function settOppsettFane(fane){
   });
   const crumb=document.getElementById('oppsettCrumb');
   if(crumb)crumb.textContent=OPPSETT_TEKST[fane]||'';
+  // Bakgrunnsjobbene (Fast Food + alle kunder produktmiks) overlever et sideoppfriskning
+  // på SERVEREN, men panelene sin lokale poll-tilstand gjør ikke det — uten dette ser et
+  // ferdig/pågående kjøring ut som om ingenting noensinne skjedde. Vis siste kjente status
+  // hver gang fanen åpnes, ikke bare mens man selv står og poller.
+  if(fane==='data'&&OPPSETT_ER_ADMIN)visSisteBakgrunnsjobber();
+}
+
+async function visSisteBakgrunnsjobber(){
+  for(const [type,elId] of [['fastfood_produkt_per_kunde','ffpResultat'],['kunde_produkt_hent','kpResultat']]){
+    const el=document.getElementById(elId);
+    if(!el||el.innerHTML.trim())continue;   // ikke overskriv en poll som pågår akkurat nå
+    try{
+      const j=await api('/api/jobb/siste/'+type);
+      if(!j||j.status==='ingen_kjoring_ennaa')continue;
+      const tid=j.startet_tid?new Date(j.startet_tid).toLocaleString('nb-NO'):'ukjent tid';
+      if(j.status==='kjorer'){
+        el.innerHTML=`<span class="sub">⏳ En kjøring startet ${esc(tid)} viser fortsatt «kjører» — ${esc(j.fremdrift||'ingen fremdriftsmelding ennå')}. `
+          +`Trykk en av knappene over for å starte en poll som følger den videre, eller start en ny kjøring hvis denne ser fastlåst ut.</span>`;
+      }else if(j.status==='feilet'){
+        el.innerHTML=`<span style="color:var(--d-roed)">Siste kjøring (startet ${esc(tid)}) feilet: ${esc((j.feilmelding||'').slice(0,300))}</span>`;
+      }else if(j.status==='ferdig'){
+        const s=(j.resultat&&j.resultat.sammendrag)||{};
+        el.innerHTML=`<span class="sub">✓ Siste kjøring (startet ${esc(tid)}, ferdig ${j.ferdig_tid?new Date(j.ferdig_tid).toLocaleString('nb-NO'):''}): `
+          +`${esc(j.resultat?.status||'ferdig')}${s.mnok!=null?' — '+s.mnok+' MNOK':''}${s.dekning_pct!=null?', dekning '+s.dekning_pct+' %':''}. `
+          +`Trykk en av knappene over for full detalj eller en ny kjøring.</span>`;
+      }
+    }catch(e){/* stille — bare et bekvemmelighets-oppslag, ikke kritisk */}
+  }
 }
