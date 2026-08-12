@@ -770,6 +770,30 @@ const Steg4 = (() => {
         ? "Viser tall for akkurat dette utleveringsstedet (matchet på kundekonto)."
         : "Viser tall summert på org.nr-nivå (kundekonto matchet ikke direkte).";
 
+    /* Produktmiks: ekte omsetning/DG PER PRODUKT fra Consolidated Model (kunde_produkt_salg),
+       ikke estimatet marginKpi() viser — se app/routers/kunder.py _produktmiks. Tom seksjon
+       (hentet=false) før admin har kjørt POST /api/kunde-produkt/hent for dette året. */
+    const pm = d.produktmiks || { hentet: false, produkter: [] };
+    const produktmiksHtml = !pm.hentet
+      ? ""
+      : !pm.produkter.length
+        ? '<p style="font-size:12px;color:var(--d-tekst-3);margin:var(--s4) 0 0">Ingen produktrader funnet for denne kunden.</p>'
+        : [
+            '<h4 style="margin:var(--s4) 0 var(--s2);font-size:13px">Produktmiks — ekte tall fra Consolidated Model</h4>',
+            '<table class="d-tabell"><thead><tr><th>Produkt</th><th>Konsept</th>' +
+              '<th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th></tr></thead><tbody>',
+            pm.produkter
+              .map(
+                (p) =>
+                  `<tr><td>${esc(p.navn || p.varenummer || "—")}</td>` +
+                  `<td class="sub">${esc(KONSEPTNAVN[p.konsept] || p.konsept || "—")}</td>` +
+                  `<td style="text-align:right">${kr(p.belop)}</td>` +
+                  `<td style="text-align:right">${p.dg_pct == null ? "—" : p.dg_pct.toLocaleString("nb-NO", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " %"}</td></tr>`
+              )
+              .join(""),
+            "</tbody></table>",
+          ].join("");
+
     el.innerHTML = [
       avvikHtml,
       orgDeltHtml,
@@ -788,6 +812,7 @@ const Steg4 = (() => {
       `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. ${esc(presisjonTekst)} Siste 12 uker med data:</p>`,
       '<table class="d-tabell"><thead><tr><th>År</th><th>Uke</th><th>Grossist</th><th style="text-align:right">Beløp</th></tr></thead>',
       `<tbody>${rader}</tbody></table>`,
+      produktmiksHtml,
     ].join("");
   }
 
