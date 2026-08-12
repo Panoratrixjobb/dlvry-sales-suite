@@ -908,6 +908,18 @@ const Steg4 = (() => {
     const erLead = status === "Lead";
     const selger = kunde.selger_navn || "";
 
+    /* Beregnet hovedkonsept: hvilket konsept kunden FAKTISK kjøper mest av, vektet på
+       omsetning (se kunder.py _hovedkonsept). Uavhengig av bransje/segment-tagging —
+       en fast food-registrert pizzasjappe kan fortsatt være en La Salumeria-kunde. */
+    const hoved = salgshist.hovedkonsept;
+    const hovedKonseptHtml = hoved
+      ? `<span class="d-badge bla flat" title="Beregnet av faktisk kjøpsmiks (${esc(
+          (hoved.fordeling || [])
+            .map((f) => `${KONSEPTNAVN[f.konsept] || f.konsept} ${Math.round(f.andel * 100)}%`)
+            .join(", ")
+        )}) — ikke bransje/segment">${esc(KONSEPTNAVN[hoved.konsept] || hoved.konsept)} ${Math.round(hoved.andel * 100)}%</span>`
+      : "";
+
     /* ── Meta-rad under navnet ── */
     const meta = [];
     if (kunde.orgnr) meta.push(`<span class="d-kk-mono">${esc(kunde.orgnr)}</span>`);
@@ -1000,6 +1012,7 @@ const Steg4 = (() => {
       (kunde.konkurs_flagg ? '<span class="d-badge roed" title="Konkurs registrert i BRREG">⚠ Konkurs</span>' : ''),
       (kunde.under_avvikling ? '<span class="d-badge roed" title="Under avvikling i BRREG">⚠ Under avvikling</span>' : ''),
       (kunde.under_tvangsavvikling ? '<span class="d-badge roed" title="Under tvangsavvikling i BRREG">⚠ Tvangsavvikling</span>' : ''),
+      hovedKonseptHtml,
       "</div>",
       `<div class="d-kk-meta">${metaHtml}</div>`,
       "</div>",
