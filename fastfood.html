@@ -161,7 +161,7 @@
     <div style="overflow-x:auto">
       <table class="d-tabell fast-hode">
         <thead><tr>
-          <th>Varenummer</th><th>Produkt</th><th>Kategori</th>
+          <th>Varenummer</th><th title="DLVRYs interne produktnummer — egen nummerserie, ikke koblet mot innkjøpspris">DLVRY-nr</th><th>Produkt</th><th>Kategori</th>
           <th style="text-align:right">Innkjøpspris</th>
           <th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>
         </tr></thead>
@@ -417,10 +417,10 @@ async function apneDetalj(kundekonto, trEl){
       return;
     }
     tr.querySelector('td').innerHTML = '<table class="d-tabell tett"><thead><tr>' +
-      '<th>Varenummer</th><th>Produkt</th><th style="text-align:right">Innkjøpspris</th>'+
+      '<th>Varenummer</th><th>DLVRY-nr</th><th>Produkt</th><th style="text-align:right">Innkjøpspris</th>'+
       '<th style="text-align:right">Omsetning</th><th style="text-align:right">DG</th>' +
       '</tr></thead><tbody>' +
-      res.produkter.map(p => `<tr><td>${esc(p.varenummer||'–')}</td><td>${esc(p.navn||'–')}</td>` +
+      res.produkter.map(p => `<tr><td>${esc(p.varenummer||'–')}</td><td>${esc(p.unikt_produktnummer_hk||'–')}</td><td>${esc(p.navn||'–')}</td>` +
         `<td style="text-align:right">${fmtInnkjopspris(p.varenummer)}</td>`+
         `<td style="text-align:right">${fmtKr(p.belop)}</td><td style="text-align:right">${p.dg_pct!=null?fmtPct(p.dg_pct):'–'}</td></tr>`).join('') +
       '</tbody></table>';
@@ -445,6 +445,7 @@ async function lastProdukter(){
     tbody.innerHTML = res.produkter.map(p => `
       <tr>
         <td>${esc(p.varenummer||'–')}</td>
+        <td>${esc(p.unikt_produktnummer_hk||'–')}</td>
         <td>${esc(p.navn||'–')}${p.margin_usikker ? ' <span class="d-badge gul flat" title="Minst én grossist bak tallet rapporterer ikke varekost">usikker</span>' : ''}</td>
         <td>${esc(p.kategori||'–')}</td>
         <td style="text-align:right">${fmtInnkjopspris(p.varenummer)}</td>
@@ -454,7 +455,7 @@ async function lastProdukter(){
     `).join('');
   }catch(e){
     document.getElementById('kroppProdukter').innerHTML =
-      '<tr><td colspan="6" class="tom">Feil ved henting: '+esc(e.message)+'</td></tr>';
+      '<tr><td colspan="7" class="tom">Feil ved henting: '+esc(e.message)+'</td></tr>';
   }
 }
 

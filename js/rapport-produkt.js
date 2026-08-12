@@ -56,11 +56,12 @@ async function lastRapProdukt(){
     // Sum-linja er vektet, ikke et snitt av prosentene — se samme resonnement i kalkylen.
     const sumOms=d.produkter.reduce((a,r)=>a+r.belop,0), sumDb=d.produkter.reduce((a,r)=>a+r.db,0);
     el.innerHTML='<div class="table-wrap"><table class="d-tabell" style="min-width:720px"><thead><tr>'
-      +'<th>Varenr</th><th>Produkt</th><th>Kategori</th><th class="tall">Omsetning</th>'
+      +'<th>Varenr</th><th title="DLVRYs interne produktnummer — egen nummerserie, ikke koblet mot innkjøpspris">DLVRY-nr</th><th>Produkt</th><th>Kategori</th><th class="tall">Omsetning</th>'
       +`<th class="tall">DB</th><th class="tall">DG ${pmState.ar}</th>`
       +`<th class="tall">DG ${pmState.ar-1}</th><th class="tall">Endring</th></tr></thead><tbody>`
       +d.produkter.map(r=>`<tr>
           <td>${esc(r.varenummer||'–')}</td>
+          <td>${esc(r.unikt_produktnummer_hk||'–')}</td>
           <td>${esc(r.navn||'(uten navn)')}${r.margin_usikker?' <span class="d-merke advarsel" title="Én av grossistene bak tallet rapporterer ikke varekost — marginen er for høy">⚠</span>':''}</td>
           <td class="d-sub">${esc(r.kategori||'–')}</td>
           <td class="tall">${mnok(r.belop)}</td>
@@ -69,7 +70,7 @@ async function lastRapProdukt(){
           <td class="tall d-sub">${r.dg_pct_forrige==null?'–':r.dg_pct_forrige.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'}</td>
           <td class="tall">${pp(r.dg_endring_pp)}</td></tr>`).join('')
       +`</tbody><tfoot><tr style="font-weight:600;border-top:2px solid var(--d-ramme)">
-          <td colspan="3">Sum viste produkter (${d.antall})</td>
+          <td colspan="4">Sum viste produkter (${d.antall})</td>
           <td class="tall">${mnok(sumOms)}</td>
           <td class="tall">${mnok(sumDb)}</td>
           <td class="tall">${sumOms?((100*sumDb/sumOms).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %'):'–'}</td>
