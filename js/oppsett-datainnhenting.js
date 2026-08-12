@@ -416,6 +416,71 @@ async function hentFastFoodProduktPerKunde(bekreft){
   }finally{knapper.forEach(b=>b.disabled=false);}
 }
 
+// ============ Alle kunder: produktmiks (kunde_produkt.py) ============
+async function hentKundeProduktMiks(bekreft){
+  const el=document.getElementById('kpResultat');
+  const knapper=['kpTorrBtn','kpHentBtn'].map(id=>document.getElementById(id));
+  const aar=document.querySelector('input[name="kpAr"]:checked')?.value;
+  if(!aar){el.innerHTML='<span style="color:var(--d-roed)">Velg et år.</span>';return;}
+  const token=document.getElementById('pbToken').value.trim();
+  if(!token){
+    let sp=false;
+    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
+    if(!sp){
+      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet øverst først</span>'
+        +' <span class="sub">— samme token brukes til alle hentingene.</span>';
+      const felt=document.getElementById('pbToken');
+      felt.focus(); felt.scrollIntoView({block:'center'});
+      return;
+    }
+  }
+  if(bekreft&&!confirm('Skrive produktmiks for ALLE kunder ('+aar+') til databasen? Året erstattes i sin helhet. Kan ta 5-10 minutter.'))return;
+  knapper.forEach(b=>b.disabled=true);
+  const start=Date.now();
+  el.innerHTML='<span class="sub">Starter henting…</span>';
+  try{
+    const start_svar=await api('/api/kunde-produkt/hent?ar='+aar+'&bekreft='+(bekreft?'true':'false'),
+      {method:'POST',body:{token:token||null}});
+    const jobbId=start_svar.jobb_id;
+    let j=null;
+    while(true){
+      await new Promise(r=>setTimeout(r,3000));
+      const sek=Math.round((Date.now()-start)/1000);
+      try{
+        j=await api('/api/jobb/'+jobbId);
+      }catch(e){
+        el.innerHTML=`<span class="sub">Kjører… ${sek} s (mistet kontakt med statussjekken et øyeblikk, prøver igjen)</span>`;
+        continue;
+      }
+      if(j.status==='kjorer'){
+        el.innerHTML=`<span class="sub">${esc(j.fremdrift||'Kjører…')} (${sek} s)</span>`;
+        continue;
+      }
+      break;
+    }
+    if(j.status==='feilet'){
+      el.innerHTML='<span style="color:var(--d-roed)">Jobben feilet: '+esc(j.feilmelding||'ukjent feil')+'</span>';
+      return;
+    }
+    const d=j.resultat;
+    const s=d.sammendrag||{};
+    let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
+    html+=`<div style="margin-bottom:8px"><b>${s.mnok} MNOK</b> produktmiks-omsetning `
+      +`(${(s.unike_kunder_med_produktrader||0).toLocaleString('nb-NO')} av ${(s.kundekontoer_i_modellen||0).toLocaleString('nb-NO')} kundekontoer, `
+      +`${(s.produkter||0).toLocaleString('nb-NO')} produkter, ${(s.rader||0).toLocaleString('nb-NO')} rader)</div>`;
+    html+=`<div class="sub" style="margin-bottom:8px">Referanse (kunde × år, uten produktkobling): ${s.referanse_mnok_uten_produktkobling} MNOK — `
+      +`<b>dekning ${s.dekning_pct!=null?s.dekning_pct+' %':'–'}</b>. Bør være nær 100 %.</div>`;
+    if(s.uten_produktkobling&&s.uten_produktkobling.rader){
+      html+=`<div class="sub" style="margin-bottom:8px">${s.uten_produktkobling.rader.toLocaleString('nb-NO')} rader (${s.uten_produktkobling.mnok} MNOK) mangler varenummer — telles med, men kan ikke kobles til prisverktøyet.</div>`;
+    }
+    html+='<p class="sub" style="margin:0">'+esc(d.neste||'')+'</p>';
+    el.innerHTML=html;
+    if(bekreft)document.getElementById('pbToken').value='';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
 async function visProduktMargin(){
   const el=document.getElementById('pmTabell');
   const btn=document.getElementById('pmVisBtn');
