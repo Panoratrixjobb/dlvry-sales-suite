@@ -118,6 +118,33 @@ async function hentFraPowerBI(bekreft){
         html+='<div class="sub" style="margin-top:4px">Konsepter utenfor appen (ikke telt med): '
           +Object.entries(utenfor).map(([k,n])=>esc(k||'(tomt)')+' '+n+' rader').join(' · ')+'</div>';
       }
+      // Importscope + integritetsfunn (funn #1): hvilke uker som faktisk skrives, hva som
+      // holdes tilbake (fersk uke som ikke er i takt), og strukturelle blokkeringer.
+      if(s.importeres_til_uke!=null){
+        html+=`<div class="sub" style="margin-top:4px">Importeres til og med uke <b>${s.importeres_til_uke}</b>.</div>`;
+      }
+      const bf=s.blokkerende_funn||{};
+      if(bf.konsepter_mangler_i_uttrekk){
+        html+='<div style="margin-top:6px;color:var(--d-roed);font-weight:600">⛔ Strukturell feil — importen blokkeres for dette året:</div>'
+          +'<div class="sub" style="color:var(--d-roed)">Forventet konsept mangler helt i uttrekket, men har data i DB (trolig navnebytte / brutt relasjon i modellen): '
+          +bf.konsepter_mangler_i_uttrekk.map(x=>esc(x.konsept)+' ('+x.eksisterende_mnok+' MNOK)').join(', ')+'</div>';
+      }
+      const adv=s.advarsler||{};
+      const holdt=adv.uker_holdt_tilbake;
+      if(holdt){
+        html+=`<div style="margin-top:6px;color:var(--d-gul,#b8860b);font-weight:600">⚠ Uker holdt tilbake (fersk/uferdig data — grossist- og kundenivå ikke i takt ennå, importeres senere): uke ${(holdt.tilbakeholdte_uker||[]).join(', ')}</div>`;
+        const av=(holdt.dekningsavvik||[]).slice(0,8);
+        if(av.length){
+          html+='<div class="table-wrap" style="margin-top:4px"><table class="d-tabell" style="min-width:440px"><thead><tr>'
+            +'<th>Grossist</th><th>Konsept</th><th class="tall">Uke</th><th class="tall">Grossist kr</th><th class="tall">Kunde kr</th><th class="tall">Avvik</th></tr></thead><tbody>'
+            +av.map(x=>`<tr><td>${esc(x.grossist)}</td><td>${esc(x.konsept)}</td><td class="tall">${x.uke}</td><td class="tall">${(x.grossist_kr||0).toLocaleString('nb-NO')}</td><td class="tall">${(x.kunde_kr||0).toLocaleString('nb-NO')}</td><td class="tall" style="color:var(--d-gul,#b8860b)">${(x.avvik_kr||0).toLocaleString('nb-NO')}</td></tr>`).join('')
+            +'</tbody></table></div>';
+        }
+      }
+      if(adv.forventede_konsepter_uten_data){
+        html+='<div class="sub" style="margin-top:4px">Forventede konsepter uten data (verken i uttrekk eller DB) — kontroller om de faktisk er lansert: '
+          +adv.forventede_konsepter_uten_data.map(esc).join(', ')+'</div>';
+      }
       html+='</div>';
     }
     if(d.hoppet_over_laast&&d.hoppet_over_laast!=='ingen'){
