@@ -1503,6 +1503,7 @@ const Steg4 = (() => {
       }
 
       _kiSaving = true;
+      let lagretOk = false;
       if (btn) btn.disabled = true;
       st.textContent = "Lagrer…";
       st.style.color = "var(--d-tekst-3)";
@@ -1534,6 +1535,7 @@ const Steg4 = (() => {
           body: JSON.stringify(payload),
         });
         if (res && typeof res.versjon === "number") _kiVersjon = res.versjon;
+        lagretOk = true;
         st.textContent = opts.auto ? "Lagret ✓" : "Lagret ✓ — oppdaterer…";
         st.style.color = "var(--d-gronn)";
       } catch (e) {
@@ -1560,11 +1562,13 @@ const Steg4 = (() => {
         if (_kiPending) {
           _kiPending = false;
           lagreKundeinfo({ auto: true });
-        } else if (_kiRemountOnsket) {
-          // Eksplisitt lagring ferdig og ingenting venter → remount kortet nå (ikke
-          // midt i en pågående/pending PATCH).
+        } else if (_kiRemountOnsket && lagretOk && _kiAutoTimer == null) {
+          // Remount KUN når: eksplisitt lagring lyktes (ikke ved feil — ellers ville
+          // vi overskrevet brukerens ulagrede input), ingenting venter i køen, OG ingen
+          // debounce-timer er planlagt (ellers kunne en autosave fortsatt komme i luften
+          // og remounte midt i en PATCH). Funn #8 review-runde 3.
           _kiRemountOnsket = false;
-          setTimeout(() => monterKundekort(kundeId, el), 600);
+          monterKundekort(kundeId, el);
         }
       }
     }
@@ -1576,7 +1580,9 @@ const Steg4 = (() => {
     let _kiAutoTimer = null;
     editPanel.addEventListener("change", () => {
       clearTimeout(_kiAutoTimer);
-      _kiAutoTimer = setTimeout(() => lagreKundeinfo({ auto: true }), 250);
+      // Nullstill referansen når timeren fyrer, så finally kan se at ingen autosave
+      // lenger er planlagt før den ev. remounter kortet (funn #8 review-runde 3).
+      _kiAutoTimer = setTimeout(() => { _kiAutoTimer = null; lagreKundeinfo({ auto: true }); }, 250);
     });
 
     /* Faner */

@@ -3042,13 +3042,18 @@ async function renderCalcArea(){
   if(!cs.length){area.innerHTML='<div class="empty-state"><div class="big">Ingen kalkyler ennå</div>Klikk «+ Ny kalkyle» for å lage den første.</div>';return;}
   area.innerHTML='<div class="calc-grid">'+cs.map(k=>{
     const col=statusColor[k.snap_status||'Ingen'];
+    // Backend returnerer beregning_komplett også i lista. Lagret snap_pct er 0 for en
+    // ufullstendig kalkyle — vis «—», ikke «0,0 %», så skillet overlever reload. Funn #2.
+    const kKomplett=k.beregning_komplett!==false;
+    const nMangler=Array.isArray(k.mangler_kost)?k.mangler_kost.length:0;
+    const margTekst=kKomplett?fmtPct(num(k.snap_pct)):`<span title="${nMangler} produkt(er) mangler kostpris">—</span>`;
     const dato=k.opprettet?new Date(k.opprettet).toLocaleDateString('nb-NO'):'—';
     const ant=k.antall_linjer!=null?k.antall_linjer:'';
     return `<div class="calc-card" onclick="openCalc('${k.id}')">
       <span class="statusdot" style="background:${col}"></span>
       <h4>${esc(k.navn)}</h4>
       <div class="meta">${ant!==''?ant+' linjer · ':''}endret ${dato}</div>
-      <div class="figs"><div>Omsetning<b>${fmtKr(num(k.snap_oms))}</b></div><div>Margin<b>${fmtPct(num(k.snap_pct))}</b></div></div>
+      <div class="figs"><div>Omsetning<b>${fmtKr(num(k.snap_oms))}</b></div><div>Margin<b>${margTekst}</b></div></div>
       <button class="del" onclick="event.stopPropagation();deleteCalc('${k.id}')" title="Slett">🗑</button>
     </div>`;}).join('')+'</div>';
 }
