@@ -1485,7 +1485,10 @@ const Steg4 = (() => {
       // Eksplisitt lagring (knapp): avbryt en ev. ventende auto-lagringstimer, og
       // marker at kortet skal remountes når alt er lagret (unngår remount midt i en
       // pågående PATCH — funn #8 review-runde 2, punkt 3).
-      if (!opts.auto) { clearTimeout(_kiAutoTimer); _kiRemountOnsket = true; }
+      // Nullstill referansen, ikke bare avbryt timeren: en clearTimeout'et timer fyrer
+      // aldri callbacken som ellers ville nullstilt den, og da ville remount-sjekken
+      // (_kiAutoTimer == null) forbli usann. Funn #8 review-runde 4.
+      if (!opts.auto) { clearTimeout(_kiAutoTimer); _kiAutoTimer = null; _kiRemountOnsket = true; }
       // Én lagring om gangen: er en allerede i luften, merk at nyeste tilstand må
       // lagres på nytt når den er ferdig, og returner.
       if (_kiSaving) { _kiPending = true; return; }
