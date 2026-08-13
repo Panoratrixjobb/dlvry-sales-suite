@@ -35,7 +35,13 @@ const Steg4 = (() => {
         throw new Error("Får ikke kontakt med server — prøv igjen om litt. (" + (sisteFeil.message || "nettverksfeil") + ")");
       }
     }
-    if (!r.ok) throw new Error(`${r.status} ${sti}`);
+    if (!r.ok) {
+      // Ta med HTTP-status på feilen så kallere kan skille f.eks. 409 (optimistisk
+      // lås-konflikt) fra andre feil uten å parse meldingsteksten. Se funn #8.
+      const err = new Error(`${r.status} ${sti}`);
+      err.status = r.status;
+      throw err;
+    }
     return r.status === 204 ? null : r.json();
   }
 
@@ -1464,9 +1470,26 @@ const Steg4 = (() => {
 
     /* Lagre kundeinfo */
     /* Lagre kundeinfo. Autolagres på blur/endring av hvert felt (bruker slipper å
-       trykke «Rediger»/«Lagre»). Eksplisitt knapp beholdt som fallback. */
+       trykke «Rediger»/«Lagre»). Eksplisitt knapp beholdt som fallback.
+
+       Serialisert mot autosave-race (funn #8): aldri mer enn ÉN PATCH i luften per
+       kunde. En endring som kommer mens en lagring pågår, setter _kiPending; når
+       lagringen er ferdig bygges et NYTT payload fra nyeste skjematilstand. Sammen
+       med optimistisk låsing (forventet_versjon → 409) hindrer dette at et eldre
+       svar overskriver en nyere verdi. _kiVersjon følger serverens versjon. */
+    let _kiVersjon = (typeof kunde.versjon === "number") ? kunde.versjon : null;
+    let _kiSaving = false, _kiPending = false, _kiRemountOnsket = false;
+
     async function lagreKundeinfo(opts) {
       opts = opts || {};
+      // Eksplisitt lagring (knapp): avbryt en ev. ventende auto-lagringstimer, og
+      // marker at kortet skal remountes når alt er lagret (unngår remount midt i en
+      // pågående PATCH — funn #8 review-runde 2, punkt 3).
+      if (!opts.auto) { clearTimeout(_kiAutoTimer); _kiRemountOnsket = true; }
+      // Én lagring om gangen: er en allerede i luften, merk at nyeste tilstand må
+      // lagres på nytt når den er ferdig, og returner.
+      if (_kiSaving) { _kiPending = true; return; }
+
       const st = el.querySelector("#ki-lagre-status");
       const btn = el.querySelector("#ki-lagre-btn");
       const statusVal = el.querySelector("#ki-status").value;
@@ -1479,6 +1502,7 @@ const Steg4 = (() => {
         return;
       }
 
+      _kiSaving = true;
       if (btn) btn.disabled = true;
       st.textContent = "Lagrer…";
       st.style.color = "var(--d-tekst-3)";
@@ -1503,20 +1527,45 @@ const Steg4 = (() => {
           payload.besoksfrekvens_uker = null;
           payload.neste_besok_dato = null;
         }
-        await api(`/api/kunder/${kundeId}`, {
+        // Optimistisk låsing: send versjonen redigeringen er basert på.
+        if (_kiVersjon != null) payload.forventet_versjon = _kiVersjon;
+        const res = await api(`/api/kunder/${kundeId}`, {
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        // Autolagring: oppdater i ro (ikke remount → beholder fokus/flyt mellom felt).
-        // Eksplisitt lagring (knapp): full oppfriskning av kortet.
+        if (res && typeof res.versjon === "number") _kiVersjon = res.versjon;
         st.textContent = opts.auto ? "Lagret ✓" : "Lagret ✓ — oppdaterer…";
         st.style.color = "var(--d-gronn)";
-        if (!opts.auto) setTimeout(() => monterKundekort(kundeId, el), 600);
       } catch (e) {
-        st.textContent = "Feil: " + e.message;
-        st.style.color = "var(--d-roed)";
+        if (e.status === 409) {
+          // Optimistisk lås-konflikt: kunden ble endret et annet sted (annen fane,
+          // eller en annen skrivebane som f.eks. «send tilbud» → status). Vi retryer
+          // IKKE automatisk: å sende hele det lokale skjemaet på nytt ville kunne
+          // overskrive den andre endringen (funn #8 review-runde 2, punkt 2). Behold
+          // brukerens input i feltene, be om reload. _kiPending nulles så vi ikke
+          // rekjører en pending endring inn i samme konflikt.
+          _kiPending = false;
+          _kiRemountOnsket = false;
+          st.textContent = "Kunden ble endret et annet sted — last inn kortet på nytt.";
+          st.style.color = "var(--d-roed)";
+        } else {
+          st.textContent = "Feil: " + e.message;
+          st.style.color = "var(--d-roed)";
+        }
       } finally {
         if (btn) btn.disabled = false;
+        _kiSaving = false;
+        // Kom det endringer mens vi lagret? Bygg et nytt payload fra NYESTE tilstand
+        // og lagre igjen (serialisering — funn #8).
+        if (_kiPending) {
+          _kiPending = false;
+          lagreKundeinfo({ auto: true });
+        } else if (_kiRemountOnsket) {
+          // Eksplisitt lagring ferdig og ingenting venter → remount kortet nå (ikke
+          // midt i en pågående/pending PATCH).
+          _kiRemountOnsket = false;
+          setTimeout(() => monterKundekort(kundeId, el), 600);
+        }
       }
     }
 

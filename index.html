@@ -2638,23 +2638,32 @@ function compute(){
   const gen=(parseFloat(document.getElementById('genrabatt').value)||0)/100;
   const bonusPct=(parseFloat(document.getElementById('kjedebonus').value)||0)/100;
   let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0;
+  const manglerKostArt=[];
   const lines=state.cart.map(l=>{
     const rab=(l.linjerabatt!=null?l.linjerabatt:gen);
     const prisEtter=l.listepris*(1-rab);
     const endelig=(l.spesialpris!=null&&l.spesialpris!=='')?l.spesialpris:prisEtter;
     const oms=endelig*l.antall;
-    const kost=(l.fbkostpris!=null?l.fbkostpris:l.grossistkost);
+    // Kost speiler backend (kalkyle_motor): fbkostpris → grossistkost → kostbase>0
+    // → mangler. Vi fabrikkerer ALDRI 100 % margin ut av manglende kost.
+    let kost=null,manglerKost=false;
+    if(l.fbkostpris!=null)kost=l.fbkostpris;
+    else if(l.grossistkost!=null)kost=l.grossistkost;
+    else if(l.kostbase!=null&&l.kostbase>0)kost=l.kostbase;
+    else{manglerKost=true;manglerKostArt.push(l.art);}
     const bonusKr=oms*bonusPct;
-    const dlvryMargin=(endelig-kost)*l.antall;
+    const dlvryMargin=manglerKost?0:(endelig-kost)*l.antall;
     const totKunderabatt=l.listepris>0?(l.listepris-endelig)/l.listepris:0;
-    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=kost*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;
-    return{l,rab,prisEtter,endelig,oms,kost,bonusKr,dlvryMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
+    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;
+    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
   });
+  const komplett=manglerKostArt.length===0;
   const totMarginNok=sumMargin-sumBonus;
-  const totMarginPct=sumOms>0?totMarginNok/sumOms:0;
+  const totMarginPct=(komplett&&sumOms>0)?totMarginNok/sumOms:0;
   let status='Ingen';
-  if(sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
-  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,totMarginNok,totMarginPct,status};
+  // Ufullstendig (manglende kost) gir aldri RØD/ORANSJE/GRØNN — kun 'Ingen' + varsel.
+  if(komplett&&sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
+  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
 }
 const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
 
@@ -2723,6 +2732,10 @@ function render(){
     const matchMerke = mk==null ? ''
       : `<span class="d-merke ${mk<60?'advarsel':'noytral'}" title="Treffsikkerhet i produktmatchen fra faktura">${mk} %${mk<60?' ⚠':''}</span>`;
     const marg=x.dlvryMargin-x.bonusKr;
+    // Mangler kost → vis '—', aldri en fabrikkert (bonus-trukket) margin. Se funn #2.
+    const margCelle = x.manglerKost
+      ? '<span title="Mangler kostpris">—</span>'
+      : `${fmtKr(marg)}<div style="font-size:11px;font-weight:600;opacity:.85">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${x.l.art||''}</td>
       <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
@@ -2733,7 +2746,7 @@ function render(){
       <td class="final">${fmtKr2(x.endelig)}</td>
       <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}${konfLinje}</td>
       <td>${fmtKr(x.oms)}</td>
-      <td class="${marg>=0?'pos':'neg'}">${fmtKr(marg)}<div style="font-size:11px;font-weight:600;opacity:.85">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>${markedCelle(x)}</td>
+      <td class="${x.manglerKost?'':(marg>=0?'pos':'neg')}">${margCelle}${markedCelle(x)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
@@ -2760,12 +2773,22 @@ function render(){
   const note={'GRØNN':'Godkjent – margin og omsetning OK','ORANSJE':'Én av grensene ikke oppfylt','RØD':'Total margin under minimum (20,0 %)','Ingen':'Legg til produkter'}[r.status];
   const col=statusColor[r.status];
   const arc=document.getElementById('donutArc'),C=2*Math.PI*34;
-  const frac=Math.max(0,Math.min(1,r.sumOms>0?r.totMarginPct/0.5:0));
+  const frac=Math.max(0,Math.min(1,r.komplett&&r.sumOms>0?r.totMarginPct/0.5:0));
   arc.setAttribute('stroke-dasharray',C.toFixed(1));
   arc.setAttribute('stroke-dashoffset',(C*(1-frac)).toFixed(1));
   arc.setAttribute('stroke',col);
-  const dl=document.getElementById('donutLbl');dl.textContent=r.status==='Ingen'?'—':r.status;dl.style.color=col;
-  document.getElementById('statusNote').textContent=note;
+  const dl=document.getElementById('donutLbl');
+  const sn=document.getElementById('statusNote');
+  if(!r.komplett){
+    // Manglende kostpris: margin kan ikke beregnes. Vis gult varsel i stedet for
+    // en fabrikkert margin, og speil backendens 'Ingen'-status. Se AI-funn #2.
+    const n=r.manglerKostArt.length;
+    dl.textContent='!';dl.style.color='var(--orange,#e8a33d)';
+    sn.innerHTML='<span style="color:var(--orange,#e8a33d)">⚠ Margin kan ikke beregnes – '+n+' produkt'+(n===1?'':'er')+' mangler kostpris</span>';
+  }else{
+    dl.textContent=r.status==='Ingen'?'—':r.status;dl.style.color=col;
+    sn.textContent=note;
+  }
 
   document.getElementById('sumListe').textContent=fmtKr(r.sumListe);
   document.getElementById('sumRabatt').textContent='−'+fmtKr(r.sumListe-r.sumOms);
@@ -2784,6 +2807,13 @@ function render(){
   document.getElementById('nkBreakeven').textContent=enhetMargin>0?fmtNum(r.sumKost/enhetMargin):'–';
   document.getElementById('nkEnheter').textContent=fmtNum(r.sumEnh);
 
+  if(!r.komplett){
+    // Ufullstendig kost → vis aldri tallfestet margin/dekning (unngå «0,0 %» som
+    // fremstår som ekte 0 % margin). Varselet over forklarer hvorfor. Se AI-funn #2.
+    ['kpiMargNok','kpiMargPct','sumMargNok','sumMargPct','nkBidrag','nkDekning','nkKostEnhet','nkBreakeven']
+      .forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
+  }
+
   // Vektet med VÅR linjeomsetning, ikke et snitt av prosenter: en stor linje skal telle
   // mer enn en liten, ellers gir tre bagatellvarer samme utslag som hovedproduktet.
   let mOms=0,mVektet=0,mTreff=0;
@@ -2796,17 +2826,24 @@ function render(){
   const kpiA=document.getElementById('kpiAvvik'),kpiAL=document.getElementById('kpiAvvikLinje');
   if(kpiM){
     if(mOms>0){
-      const snitt=mVektet/mOms, avvik=r.totMarginPct*100-snitt;
+      const snitt=mVektet/mOms;
       kpiM.textContent=snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
       kpiM.style.color='';
       kpiD.textContent='('+mTreff+' av '+r.lines.length+' linjer)';
-      // Prosentpoeng, ikke prosent: differansen mellom to prosenttall er pp. Blandes de,
-      // ser et fall fra 22 til 18 ut som «−18 %» i stedet for −4 pp.
-      kpiA.textContent=(avvik>0?'+':'')+avvik.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
-      kpiA.style.color=avvik>=0?'var(--ok)':'var(--advarsel)';
-      kpiA.title=avvik>=0?'Kalkylen ligger over det varene faktisk gir i markedet'
-                         :'Kalkylen ligger under det varene faktisk gir i markedet';
-      kpiAL.style.display='';
+      if(r.komplett){
+        // Prosentpoeng, ikke prosent: differansen mellom to prosenttall er pp. Blandes de,
+        // ser et fall fra 22 til 18 ut som «−18 %» i stedet for −4 pp.
+        const avvik=r.totMarginPct*100-snitt;
+        kpiA.textContent=(avvik>0?'+':'')+avvik.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
+        kpiA.style.color=avvik>=0?'var(--ok)':'var(--advarsel)';
+        kpiA.title=avvik>=0?'Kalkylen ligger over det varene faktisk gir i markedet'
+                           :'Kalkylen ligger under det varene faktisk gir i markedet';
+        kpiAL.style.display='';
+      }else{
+        // Ufullstendig kalkyle (mangler kost) → kalkylemarginen er ukjent, så et
+        // avvik mot marked ville vært fabrikkert. Vis markedstallet, skjul avviket.
+        kpiAL.style.display='none';
+      }
     }else{
       kpiM.textContent='–';kpiM.style.color='';
       kpiD.textContent=r.lines.length?'(ingen av linjene finnes i salgsdataene)':'';
@@ -2814,7 +2851,7 @@ function render(){
     }
   }
 
-  renderVerdikjede(r);renderSpark(r.totMarginPct);
+  renderVerdikjede(r);renderSpark(r.totMarginPct,r.komplett);
   sikreMarkedsmargin();
 }
 function upd(i,f,v){
@@ -2827,7 +2864,9 @@ function upd(i,f,v){
 function delLine(i){state.cart.splice(i,1);markDirty();render();}
 
 function renderVerdikjede(r){
-  document.getElementById('vkCtr').innerHTML=fmtPct(r.totMarginPct)+'<small style="display:block;font-size:9px;font-weight:500;color:var(--muted)">Totalmargin</small>';
+  // Ufullstendig kalkyle → vis '—', ikke fabrikkert 0,0 % totalmargin. Se funn #2.
+  const totMargTekst=r.komplett?fmtPct(r.totMarginPct):'—';
+  document.getElementById('vkCtr').innerHTML=totMargTekst+'<small style="display:block;font-size:9px;font-weight:500;color:var(--muted)">Totalmargin</small>';
   const parts=[['Råvarer',0.38,'#5b6ef5'],['Produksjon',0.24,'#7c8cf8'],['Logistikk',0.16,'#22b8cf'],['Distribusjon',0.12,'#4dabf7'],['Salg & Marked',0.07,'#f59e0b'],['Annet',0.03,'#94a3b8']];
   const svg=document.getElementById('vkDonut');svg.innerHTML='';
   let off=0;const R=46,cx=60,cy=60,C=2*Math.PI*R;
@@ -2839,8 +2878,10 @@ function renderVerdikjede(r){
   parts.forEach(([nm,frac,col])=>{const d=document.createElement('div');d.className='li';
     d.innerHTML=`<span class="name"><span class="dot" style="background:${col}"></span>${nm}</span><span class="pct">${(frac*100).toLocaleString('nb-NO',{maximumFractionDigits:0})} %</span>`;lg.appendChild(d);});
 }
-function renderSpark(margin){
+function renderSpark(margin,komplett){
   const svg=document.getElementById('spark');svg.innerHTML='';
+  // Ufullstendig kalkyle → tegn ingen trend (unngå en falsk graf rundt 25 %). Funn #2.
+  if(komplett===false)return;
   const base=margin||0.25,seed=[-0.03,-0.01,0.005,-0.015,0.01,0.02,-0.005,0,0.015,0.03,0.01,0];
   const pts=seed.map((d,i)=>{const v=Math.max(0.02,base+d*1.2);return[i*(360/11),110-Math.min(1,v/0.5)*100,v];});
   for(let g=0;g<=4;g++){const y=110-(g/4)*100,ln=document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -3505,6 +3546,8 @@ window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.
 // ============ CSV ============
 function exportCSV(){
   const r=compute();
+  // Ikke eksporter fabrikkerte margintall når en linje mangler kostpris. Se funn #2.
+  if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris','Endelig salgspris','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
   r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]);});
   rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
@@ -6725,6 +6768,9 @@ async function skrivUtTilbud(){
   if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan skrives ut.');return;}
   const r=compute();
   if(!r.lines.length){toast('Legg til produkter før du lager tilbud.');return;}
+  // Samme forretningsregel som backend håndhever ved Sendt: ikke lag et tilbud som
+  // kan sendes til kunde når kost (og dermed margin) mangler for et produkt. Funn #2.
+  if(!r.komplett){toast('Kan ikke lage tilbud: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   if(!state.calcId){toast('Lagre kalkylen først.');return;}
   if(!state.custId){toast('Tilknytt en kunde før tilbudet kan skrives ut.');return;}
   let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', orgnr:'', adresse:'', poststed:'', kontakt:''};

@@ -9,7 +9,9 @@ const MARKED={data:{},nokkel:null,henter:false,ar:null};
 function markedCelle(x){
   const m=MARKED.data[String(x.l.art||'')];
   if(!m)return '';
-  const kalk=x.oms>0?((x.dlvryMargin-x.bonusKr)/x.oms)*100:null;
+  // Mangler kost → ingen kalkulert margin å sammenligne med (aldri en fabrikkert,
+  // bonus-trukket negativ margin som ville farget markedstallet rødt). Se funn #2.
+  const kalk=(!x.manglerKost&&x.oms>0)?((x.dlvryMargin-x.bonusKr)/x.oms)*100:null;
   // Fargen sier om vi priser OVER eller UNDER det varen faktisk gir i markedet — det er
   // spørsmålet selgeren har. Grått når vi ikke har en kalkulert margin å måle mot.
   const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'var(--ok)':'var(--advarsel)');
