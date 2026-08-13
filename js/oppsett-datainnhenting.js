@@ -434,12 +434,13 @@ async function hentKundeProduktMiks(bekreft){
       return;
     }
   }
-  if(bekreft&&!confirm('Skrive produktmiks for ALLE kunder ('+aar+') til databasen? Året erstattes i sin helhet. Kan ta 5-10 minutter.'))return;
+  const full=document.getElementById('kpFull').checked;
+  if(bekreft&&!confirm('Skrive produktmiks for ALLE kunder ('+aar+(full?', HELE året':', bare ferskeste data')+') til databasen?'))return;
   knapper.forEach(b=>b.disabled=true);
   const start=Date.now();
   el.innerHTML='<span class="sub">Starter henting…</span>';
   try{
-    const start_svar=await api('/api/kunde-produkt/hent?ar='+aar+'&bekreft='+(bekreft?'true':'false'),
+    const start_svar=await api('/api/kunde-produkt/hent?ar='+aar+'&bekreft='+(bekreft?'true':'false')+'&full='+(full?'true':'false'),
       {method:'POST',body:{token:token||null}});
     const jobbId=start_svar.jobb_id;
     let j=null;
@@ -464,12 +465,21 @@ async function hentKundeProduktMiks(bekreft){
     }
     const d=j.resultat;
     const s=d.sammendrag||{};
+    const p=s.periode||{};
     let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
-    html+=`<div style="margin-bottom:8px"><b>${s.mnok} MNOK</b> produktmiks-omsetning `
-      +`(${(s.unike_kunder_med_produktrader||0).toLocaleString('nb-NO')} av ${(s.kundekontoer_i_modellen||0).toLocaleString('nb-NO')} kundekontoer, `
-      +`${(s.produkter||0).toLocaleString('nb-NO')} produkter, ${(s.rader||0).toLocaleString('nb-NO')} rader)</div>`;
-    html+=`<div class="sub" style="margin-bottom:8px">Referanse (kunde × år, uten produktkobling): ${s.referanse_mnok_uten_produktkobling} MNOK — `
-      +`<b>dekning ${s.dekning_pct!=null?s.dekning_pct+' %':'–'}</b>. Bør være nær 100 %.</div>`;
+    if(p.modus){
+      html+=`<div class="sub" style="margin-bottom:8px">Modus: <b>${p.modus==='full'?'full — hele året':'ferskeste data'}</b>`
+        +(p.hoppet_over&&p.hoppet_over.length?`, hoppet over ${p.hoppet_over.length} måned(er) som allerede var hentet+låst: ${p.hoppet_over.join(', ')}`:'')
+        +(s.maneder_hentet_denne_kjoringen?`. Hentet nå: ${s.maneder_hentet_denne_kjoringen.join(', ')}.`:'.')+'</div>';
+    }
+    if(s.mnok_totalt_etter_kjoring!=null){
+      html+=`<div style="margin-bottom:8px"><b>${s.mnok_totalt_etter_kjoring} MNOK</b> produktmiks-omsetning totalt for året etter denne kjøringen `
+        +`(${s.mnok_denne_kjoringen} MNOK hentet nå) `
+        +`(${(s.unike_kunder_med_produktrader||0).toLocaleString('nb-NO')} av ${(s.kundekontoer_i_modellen||0).toLocaleString('nb-NO')} kundekontoer i denne kjøringen, `
+        +`${(s.produkter||0).toLocaleString('nb-NO')} produkter, ${(s.rader||0).toLocaleString('nb-NO')} rader)</div>`;
+      html+=`<div class="sub" style="margin-bottom:8px">Referanse (kunde × år, uten produktkobling): ${s.referanse_mnok_uten_produktkobling} MNOK — `
+        +`<b>dekning ${s.dekning_pct!=null?s.dekning_pct+' %':'–'}</b>. Bør være nær 100 %.</div>`;
+    }
     if(s.uten_produktkobling&&s.uten_produktkobling.rader){
       html+=`<div class="sub" style="margin-bottom:8px">${s.uten_produktkobling.rader.toLocaleString('nb-NO')} rader (${s.uten_produktkobling.mnok} MNOK) mangler varenummer — telles med, men kan ikke kobles til prisverktøyet.</div>`;
     }
