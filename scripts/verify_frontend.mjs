@@ -37,6 +37,7 @@ for (const felt of obligatoriske) {
 const artIndex = katalog.k.indexOf('art');
 const navnIndex = katalog.k.indexOf('navn');
 const kostIndex = katalog.k.indexOf('kostbase');
+const fbKostIndex = katalog.k.indexOf('fbkostpris');
 for (const [index, row] of katalog.rows.entries()) {
   if (!Array.isArray(row) || row.length !== katalog.k.length) {
     throw new Error(`Produktlinje ${index + 1} har feil kolonneantall`);
@@ -44,6 +45,19 @@ for (const [index, row] of katalog.rows.entries()) {
   if (!String(row[artIndex] ?? '').trim()) throw new Error(`Produktlinje ${index + 1} mangler artikkelnummer`);
   if (!String(row[navnIndex] ?? '').trim()) throw new Error(`Produktlinje ${index + 1} mangler produktnavn`);
   if (Number(row[kostIndex] ?? 0) < 0) throw new Error(`Produktlinje ${index + 1} har negativ kostbase`);
+}
+
+// Korrigerte FB-kostbaser fra Excel 14.08.2026. Disse var feil i forrige eksport.
+const korrigerteFbKostbaser = new Map([
+  ['3519511', 141.37],
+  ['3512701', 146.48],
+  ['6926265', 127.28],
+]);
+for (const [art, forventetKost] of korrigerteFbKostbaser) {
+  const produkt = katalog.rows.find(row => String(row[artIndex]) === art);
+  if (!produkt || Number(produkt[kostIndex]) !== forventetKost || Number(produkt[fbKostIndex]) !== forventetKost) {
+    throw new Error(`Foodbroker-kost for ${art} avviker fra korrigert Excel-fil`);
+  }
 }
 
 if (katalog.meta?.eksporterte_produkter !== katalog.rows.length) {
