@@ -194,8 +194,8 @@ let SORT = {felt:'omsetning_i_ar', retning:-1};
 let INNKJOPSPRIS = new Map();   // varenummer(art) -> kostbase, fra produkter.json (samme fil Tilbudsverktøyet bruker)
 
 // produkter.json er en statisk fil uten auth (samme som index.html henter den) — brukes
-// her BARE til innkjøpspris-oppslag, ikke til kalkyler. kostbase er samme fallback
-// (fbkostpris ?? grossistkost) som Tilbudsverktøyets egen compute() bruker, se index.html.
+// her BARE til innkjøpspris-oppslag, ikke til kalkyler. kostbase er DLVRYs kostgrunnlag
+// og samme primærkost som Tilbudsverktøyets compute() bruker, se index.html.
 async function lastInnkjopspris(){
   try{
     const r = await fetch('produkter.json');

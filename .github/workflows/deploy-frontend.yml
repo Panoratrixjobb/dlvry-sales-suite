@@ -11,6 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Sett opp Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Valider frontend og produktkatalog
+        run: node scripts/verify_frontend.mjs
+
       - name: Deploy statiske filer
         uses: Azure/static-web-apps-deploy@v1
         with:
