@@ -205,6 +205,7 @@ tbody tr:hover{background:#fafbff}
 .kilde-merke{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:700;letter-spacing:.02em;background:var(--info-bg);color:var(--info);margin-left:5px;vertical-align:1px}
 
 .calc-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:1px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);margin:0 0 14px}
+.calc-summary-strip.uten-fb-intern{grid-template-columns:repeat(3,minmax(130px,1fr))}
 .calc-summary-stat{background:var(--panel);padding:11px 14px;min-width:0}
 .calc-summary-stat .lbl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.055em;color:var(--muted);font-weight:700;margin-bottom:3px}
 .calc-summary-stat strong{display:block;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -233,6 +234,7 @@ tbody tr:hover{background:#fafbff}
 .addrow .qty{width:80px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;text-align:right;font-family:inherit}
 
 .grid-bottom{display:grid;grid-template-columns:1fr 1.1fr 1.3fr 1fr;gap:16px;margin-top:16px}
+.grid-bottom.uten-fb-intern{grid-template-columns:1fr 1.3fr 1fr}
 .sum-line{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
 .sum-line:last-child{border-bottom:none}
 .sum-line .lbl{color:var(--muted)}
@@ -278,10 +280,10 @@ tbody tr:hover{background:#fafbff}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;z-index:200;opacity:0;transition:.25s;pointer-events:none}
 .toast.show{opacity:1}
 
-@media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
-@media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
-@media(max-width:1100px){.fb-prisflyt{grid-template-columns:1fr}.fb-support-result{border-left:0;border-top:1px solid var(--line);padding:9px 0 0}.calc-summary-strip{grid-template-columns:1fr 1fr}}
-@media(max-width:600px){.calc-summary-strip{grid-template-columns:1fr}.fb-flow{align-items:flex-start}.fb-support-inputs{grid-template-columns:1fr}}
+@media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom,.grid-bottom.uten-fb-intern{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom,.grid-bottom.uten-fb-intern{grid-template-columns:1fr}.main{padding:16px}}
+@media(max-width:1100px){.fb-prisflyt{grid-template-columns:1fr}.fb-support-result{border-left:0;border-top:1px solid var(--line);padding:9px 0 0}.calc-summary-strip,.calc-summary-strip.uten-fb-intern{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.calc-summary-strip,.calc-summary-strip.uten-fb-intern{grid-template-columns:1fr}.fb-flow{align-items:flex-start}.fb-support-inputs{grid-template-columns:1fr}}
 .mobil-hamburger{display:none}
 .feedback-fab{position:fixed;bottom:20px;right:20px;z-index:150;width:50px;height:50px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:21px;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .feedback-fab:hover{background:var(--brand2)}
@@ -779,10 +781,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <button class="d-knapp sekundar" onclick="skrivUtTilbud()">📄 Skriv ut tilbud (PDF)</button>
           </div>
         </div>
-        <div class="calc-summary-strip" aria-label="Løpende kalkylesammendrag">
+        <div class="calc-summary-strip" id="calcSummaryStrip" aria-label="Løpende kalkylesammendrag">
           <div class="calc-summary-stat"><span class="lbl">Omsetning</span><strong id="stripOms">0 kr</strong></div>
           <div class="calc-summary-stat"><span class="lbl">Total margin</span><strong id="stripMargin">0,0 %</strong></div>
-          <div class="calc-summary-stat"><span class="lbl">Foodbroker-støtte</span><strong id="stripFbStotte">0 kr</strong></div>
+          <div class="calc-summary-stat" id="stripFbStotteKort"><span class="lbl">Foodbroker-støtte</span><strong id="stripFbStotte">0 kr</strong></div>
           <div class="calc-summary-stat status"><span class="lbl">Kalkylestatus</span><strong id="stripStatus">Legg til produkter</strong></div>
         </div>
         <div style="padding:6px 0 4px">
@@ -823,19 +825,19 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
       </section>
 
-      <div class="grid-bottom">
+      <div class="grid-bottom" id="calcBottomGrid">
         <section class="d-panel">
           <h3>Sammendrag</h3>
           <div class="sum-line"><span class="lbl">Sum listepris</span><span class="val" id="sumListe">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Sum rabatter</span><span class="val neg" id="sumRabatt">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Sum omsetning før kjedebonus</span><span class="val" id="sumOms">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Kjedebonus / kickback</span><span class="val neg" id="sumBonus">0 kr</span></div>
-          <div class="sum-line"><span class="lbl">Foodbroker-støtte</span><span class="val" style="color:var(--info)" id="sumFbStotte">0 kr</span></div>
+          <div class="sum-line" id="sumFbStotteRad"><span class="lbl">Foodbroker-støtte</span><span class="val" style="color:var(--info)" id="sumFbStotte">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total omsetning</span><span class="val" style="color:var(--brand)" id="sumTotal">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total margin (NOK)</span><span class="val pos" id="sumMargNok">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total margin (%)</span><span class="val" id="sumMargPct">0,0 %</span></div>
         </section>
-        <section class="d-panel">
+        <section class="d-panel" id="verdikjedePanel">
           <h3>Margin per verdikjede</h3>
           <div class="vk-wrap">
             <div class="donut" style="width:120px;height:120px">
@@ -853,9 +855,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3>Nøkkeltall</h3>
           <div class="kpi-line"><span class="lbl">Bidragsgrad</span><span class="val" id="nkBidrag">0,0 %</span></div>
           <div class="kpi-line"><span class="lbl">Dekningsgrad</span><span class="val" id="nkDekning">0,0 %</span></div>
-          <div class="kpi-line"><span class="lbl">Kostnad per enhet</span><span class="val" id="nkKostEnhet">0 kr</span></div>
+          <div class="kpi-line" id="nkKostEnhetRad"><span class="lbl">Kostnad per enhet</span><span class="val" id="nkKostEnhet">0 kr</span></div>
           <div class="kpi-line"><span class="lbl">Salgspris per enhet</span><span class="val" id="nkSalgEnhet">0 kr</span></div>
-          <div class="kpi-line"><span class="lbl">Break-even (enheter)</span><span class="val" id="nkBreakeven">0</span></div>
+          <div class="kpi-line" id="nkBreakevenRad"><span class="lbl">Break-even (enheter)</span><span class="val" id="nkBreakeven">0</span></div>
           <div class="kpi-line"><span class="lbl">Sum antall enheter</span><span class="val" id="nkEnheter">0</span></div>
         </section>
       </div>
@@ -1808,6 +1810,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
      Må lastes FØR hovedskriptet, som kaller inn i dem. -->
 <script src="js/kalkyle-margin.js"></script>
 <script src="js/fb-prisflyt.js"></script>
+<script src="js/fb-internokonomi-tilgang.js"></script>
 <script src="js/oppsett-datainnhenting.js"></script>
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
@@ -2597,6 +2600,7 @@ const API_BASE='https://app-konseptsuite-dlvry.azurewebsites.net';
 let TOKEN=sessionStorage.getItem('ks_token')||null;
 var _brukerRolle='';
 let CURRENT_USER=null;
+function kanSeFbInternokonomi(){return kanSeFbInternokonomiFor(CURRENT_USER);}
 
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
@@ -2773,6 +2777,7 @@ function velgBytteProd(i,q){
 // ============ Render ============
 function render(){
   const r=compute();
+  const visFbIntern=kanSeFbInternokonomi();
   const tb=document.getElementById('cartBody');tb.innerHTML='';
   r.lines.forEach((x,i)=>{
     const tr=document.createElement('tr');
@@ -2809,7 +2814,7 @@ function render(){
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
-    if(x.isFB){
+    if(x.isFB&&visFbIntern){
       const fbTr=document.createElement('tr');
       fbTr.className='fb-prisflyt-rad';
       const pctVal=x.l.fbStottePct==null?'':String(Math.round(Number(x.l.fbStottePct)*10000)/100);
@@ -2846,6 +2851,14 @@ function render(){
     }
   });
   if(r.lines.length===0)tb.innerHTML=`<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:24px">Tom handlekurv — søk og legg til produkter under.</td></tr>`;
+
+  document.getElementById('stripFbStotteKort').style.display=visFbIntern?'':'none';
+  document.getElementById('sumFbStotteRad').style.display=visFbIntern?'':'none';
+  document.getElementById('verdikjedePanel').style.display=visFbIntern?'':'none';
+  document.getElementById('nkKostEnhetRad').style.display=visFbIntern?'':'none';
+  document.getElementById('nkBreakevenRad').style.display=visFbIntern?'':'none';
+  document.getElementById('calcSummaryStrip').classList.toggle('uten-fb-intern',!visFbIntern);
+  document.getElementById('calcBottomGrid').classList.toggle('uten-fb-intern',!visFbIntern);
 
   document.getElementById('kpiOms').textContent=fmtKr(r.sumOms);
   document.getElementById('kpiMargNok').textContent=fmtKr(r.totMarginNok);
@@ -2982,10 +2995,10 @@ function renderBeslutningsstotte(r){
   const overRabatt=r.lines.filter(x=>x.overRabatt).length;
   const fbLinjer=r.lines.filter(x=>x.isFB).length;
   if(!r.komplett)innsikt.push(['error','⚠','Margin mangler',r.manglerKostArt.length+(r.manglerKostArt.length===1?' produktlinje mangler':' produktlinjer mangler')+' gyldig kostpris.']);
-  if(underKost)innsikt.push(['error','↓','FB-støtte under kost',underKost+(underKost===1?' Foodbroker-linje har':' Foodbroker-linjer har')+' justert grossistkost under FB-kost.']);
+  if(kanSeFbInternokonomi()&&underKost)innsikt.push(['error','↓','FB-støtte under kost',underKost+(underKost===1?' Foodbroker-linje har':' Foodbroker-linjer har')+' justert grossistkost under FB-kost.']);
   if(overRabatt)innsikt.push(['warn','%','Høy kunderabatt',overRabatt+(overRabatt===1?' linje ligger':' linjer ligger')+' over tillatt linjerabatt.']);
-  if(fbLinjer&&r.sumFbStotte!==0)innsikt.push(['','↔','Foodbroker-støtte fordelt',fmtKr(r.sumFbStotte)+' flyttes fra Foodbrokers verdikjedemargin til grossisten.']);
-  if(r.komplett&&!underKost&&!overRabatt)innsikt.push(['ok','✓','Kalkylen er konsistent',fbLinjer?'Prisflyt og Foodbroker-støtte er med i marginfordelingen.':'Alle produktlinjer har gyldig kostgrunnlag.']);
+  if(kanSeFbInternokonomi()&&fbLinjer&&r.sumFbStotte!==0)innsikt.push(['','↔','Foodbroker-støtte fordelt',fmtKr(r.sumFbStotte)+' flyttes fra Foodbrokers verdikjedemargin til grossisten.']);
+  if(r.komplett&&(!kanSeFbInternokonomi()||!underKost)&&!overRabatt)innsikt.push(['ok','✓','Kalkylen er konsistent',kanSeFbInternokonomi()&&fbLinjer?'Prisflyt og Foodbroker-støtte er med i marginfordelingen.':'Alle produktlinjer har gyldig kostgrunnlag.']);
   el.innerHTML=innsikt.map(([cls,ikon,tittel,tekst])=>`<div class="calc-insight ${cls}"><span class="ikon">${ikon}</span><div><strong>${tittel}</strong>${tekst}</div></div>`).join('');
 }
 // ============ Søk ============
@@ -3656,9 +3669,15 @@ function exportCSV(){
   const r=compute();
   // Ikke eksporter fabrikkerte margintall når en linje mangler kostpris. Se funn #2.
   if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
-  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):'',x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]);});
-  rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Foodbroker-støtte',r.sumFbStotte.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
+  const visFbIntern=kanSeFbInternokonomi();
+  let rows=[visFbIntern
+    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']
+    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2)];const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
+  rows.push([]);
+  rows.push(['Total omsetning',r.sumOms.toFixed(0)]);
+  if(visFbIntern)rows.push(['Foodbroker-støtte',r.sumFbStotte.toFixed(0)]);
+  rows.push(['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -5622,6 +5641,7 @@ async function lastBrukere(){
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist / Region</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Aktiv</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Passord</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">FB internøkonomi</th>'
       +'<th></th>'
       +'</tr></thead><tbody>'
       + brukere.map(b=>
@@ -5632,11 +5652,23 @@ async function lastBrukere(){
         +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : (b.region?esc(b.region):'<span style="color:var(--muted)">—</span>'))+'</td>'
         +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
         +'<td style="padding:7px 8px">'+(b.ma_bytte_passord?'<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">Må bytte</span>':'<span style="color:var(--muted)">byttet</span>')+'</td>'
+        +'<td style="padding:7px 8px">'+(b.rolle==='superadmin'?'<span style="color:var(--ok);font-weight:600">Alltid</span>':'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" '+(b.kan_se_fb_internokonomi?'checked':'')+' onchange="settFbInternokonomiTilgang(\''+b.id+'\',this.checked,this)"><span>'+(b.kan_se_fb_internokonomi?'På':'Av')+'</span></label>')+'</td>'
         +'<td style="padding:7px 8px">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
         +'</tr>'
       ).join('')
       +'</tbody></table>';
   }catch(e){ el.innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>'; }
+}
+
+async function settFbInternokonomiTilgang(brukerId,aktiv,input){
+  input.disabled=true;
+  try{
+    await api('/api/brukere/'+brukerId+'/fb-internokonomi',{method:'PUT',body:{aktiv}});
+    toast(aktiv?'Tilgang til FB internøkonomi er gitt':'Tilgang til FB internøkonomi er fjernet');
+    await lastBrukere();
+  }catch(e){
+    input.checked=!aktiv;input.disabled=false;toast('Kunne ikke endre tilgangen: '+e.message);
+  }
 }
 
 async function lastInvitasjoner(){
