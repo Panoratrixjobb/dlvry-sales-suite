@@ -775,7 +775,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
         <div class="addrow">
           <div class="search-box">
-            <input id="searchInput" placeholder="Søk i 24 490 produkter (navn eller art.nr)…" autocomplete="off" oninput="onSearch(this.value)" onkeydown="searchKey(event)" onfocus="onSearch(this.value)">
+          <input id="searchInput" placeholder="Søk i produkter (navn eller art.nr)…" autocomplete="off" oninput="onSearch(this.value)" onkeydown="searchKey(event)" onfocus="onSearch(this.value)">
             <div class="suggest" id="suggest"></div>
           </div>
           <input class="qty" id="searchQty" type="number" placeholder="Antall" value="1" min="1">
@@ -2602,18 +2602,28 @@ async function api(path,{method='GET',body=null,onResponse=null}={}){
 function showWake(on){const el=document.getElementById('wakeBar');if(el)el.style.display=on?'flex':'none';}
 
 // ============ Produktbase ============
-let DB=[];               // [{art,navn,enhet,listepris,grossistkost,fbkostpris,grossistprisFB,kostbase}]
-let DBindex=null;
+let DB=[];               // Produktkatalog bygget fra Excel-arket «Produktmaster ny»
+let DBindex=[];
+let DBbyArt=new Map(),DBbyName=new Map();
 async function loadProducts(){
   const msg=document.getElementById('loadMsg');
   try{
     const r=await fetch('produkter.json');
     if(!r.ok) throw new Error('HTTP '+r.status);
     const p=await r.json();
+    if(!Array.isArray(p.k)||!Array.isArray(p.rows))throw new Error('Ugyldig produktkatalog');
     const k=p.k;
+    const obligatoriske=['art','navn','enhet','listepris','kostbase','kilde'];
+    const mangler=obligatoriske.filter(f=>!k.includes(f));
+    if(mangler.length)throw new Error('Produktkatalogen mangler: '+mangler.join(', '));
     DB=p.rows.map(row=>{const o={};k.forEach((key,i)=>o[key]=row[i]);return o;});
+    DBindex=DB.map(p=>({p,art:String(p.art??'').trim().toLowerCase(),navn:String(p.navn??'').trim().toLowerCase()}));
+    DBbyArt=new Map();DBbyName=new Map();
+    DBindex.forEach(x=>{if(x.art&&!DBbyArt.has(x.art))DBbyArt.set(x.art,x.p);if(x.navn&&!DBbyName.has(x.navn))DBbyName.set(x.navn,x.p);});
+    const s=document.getElementById('searchInput');
+    if(s)s.placeholder='Søk i '+DB.length.toLocaleString('nb-NO')+' produkter (navn eller art.nr)…';
   }catch(err){
-    msg.innerHTML='Fant ikke <b>produkter.json</b>. Legg den i samme mappe som appen.<br><span style="font-size:11px">'+err.message+'</span>';
+    msg.innerHTML='Fant ikke <b>produkter.json</b>. Legg den i samme mappe som appen.<br><span style="font-size:11px">'+esc(err.message)+'</span>';
     throw err;
   }
 }
@@ -2630,32 +2640,35 @@ const LEADS_PER_SIDE=200;
 const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurtigmat","Indisk","Tex-Mex"];
 
 // linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
-function findProd(key){key=(key||'').toLowerCase();return DB.find(p=>String(p.art)===String(key))||DB.find(p=>p.navn.toLowerCase()===key);}
+function findProd(key){key=String(key??'').trim().toLowerCase();return DBbyArt.get(key)||DBbyName.get(key);}
 function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
 // ============ Motor ============
 function compute(){
   const gen=(parseFloat(document.getElementById('genrabatt').value)||0)/100;
   const bonusPct=(parseFloat(document.getElementById('kjedebonus').value)||0)/100;
-  let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0;
+  let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0,sumEgenVerdikjede=0,sumGrossistMargin=0;
   const manglerKostArt=[];
   const lines=state.cart.map(l=>{
     const rab=(l.linjerabatt!=null?l.linjerabatt:gen);
     const prisEtter=l.listepris*(1-rab);
     const endelig=(l.spesialpris!=null&&l.spesialpris!=='')?l.spesialpris:prisEtter;
     const oms=endelig*l.antall;
-    // Kost speiler backend (kalkyle_motor): fbkostpris → grossistkost → kostbase>0
-    // → mangler. Vi fabrikkerer ALDRI 100 % margin ut av manglende kost.
+    // Excel-masteren styrer trafikklyset på TOTAL DLVRY-margin: positiv kostbase først.
+    // Internprisen til grossist brukes bare til å splitte verdikjedemarginen.
     let kost=null,manglerKost=false;
-    if(l.fbkostpris!=null)kost=l.fbkostpris;
+    if(l.kostbase!=null&&l.kostbase>0)kost=l.kostbase;
+    else if(l.fbkostpris!=null)kost=l.fbkostpris;
     else if(l.grossistkost!=null)kost=l.grossistkost;
-    else if(l.kostbase!=null&&l.kostbase>0)kost=l.kostbase;
     else{manglerKost=true;manglerKostArt.push(l.art);}
     const bonusKr=oms*bonusPct;
     const dlvryMargin=manglerKost?0:(endelig-kost)*l.antall;
+    const internpris=(!manglerKost&&l.grossistprisFB!=null&&Number(l.grossistprisFB)>0)?Number(l.grossistprisFB):null;
+    const egenVerdikjedeMargin=internpris==null?0:(internpris-kost)*l.antall;
+    const grossistMargin=manglerKost?0:((endelig-(internpris==null?kost:internpris))*l.antall-bonusKr);
     const totKunderabatt=l.listepris>0?(l.listepris-endelig)/l.listepris:0;
-    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;
-    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
+    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;sumEgenVerdikjede+=egenVerdikjedeMargin;sumGrossistMargin+=grossistMargin;
+    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,egenVerdikjedeMargin,grossistMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
   });
   const komplett=manglerKostArt.length===0;
   const totMarginNok=sumMargin-sumBonus;
@@ -2663,7 +2676,7 @@ function compute(){
   let status='Ingen';
   // Ufullstendig (manglende kost) gir aldri RØD/ORANSJE/GRØNN — kun 'Ingen' + varsel.
   if(komplett&&sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
-  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
+  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,sumEgenVerdikjede,sumGrossistMargin,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
 }
 const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
 
@@ -2867,16 +2880,18 @@ function renderVerdikjede(r){
   // Ufullstendig kalkyle → vis '—', ikke fabrikkert 0,0 % totalmargin. Se funn #2.
   const totMargTekst=r.komplett?fmtPct(r.totMarginPct):'—';
   document.getElementById('vkCtr').innerHTML=totMargTekst+'<small style="display:block;font-size:9px;font-weight:500;color:var(--muted)">Totalmargin</small>';
-  const parts=[['Råvarer',0.38,'#5b6ef5'],['Produksjon',0.24,'#7c8cf8'],['Logistikk',0.16,'#22b8cf'],['Distribusjon',0.12,'#4dabf7'],['Salg & Marked',0.07,'#f59e0b'],['Annet',0.03,'#94a3b8']];
+  // Faktiske beløp fra produktets kostbase og internpris — ingen simulert fordeling.
+  const parts=[['Egen verdikjede',r.komplett?r.sumEgenVerdikjede:0,'#5b6ef5'],['Grossist (netto)',r.komplett?r.sumGrossistMargin:0,'#22b8cf']];
   const svg=document.getElementById('vkDonut');svg.innerHTML='';
+  const positivSum=parts.reduce((s,p)=>s+Math.max(0,p[1]),0);
   let off=0;const R=46,cx=60,cy=60,C=2*Math.PI*R;
-  parts.forEach(([nm,frac,col])=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  parts.forEach(([nm,belop,col])=>{const frac=positivSum>0?Math.max(0,belop)/positivSum:0;if(frac<=0)return;const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',R);c.setAttribute('fill','none');c.setAttribute('stroke',col);c.setAttribute('stroke-width',14);
     c.setAttribute('stroke-dasharray',`${(C*frac).toFixed(1)} ${(C*(1-frac)).toFixed(1)}`);c.setAttribute('stroke-dashoffset',(-C*off).toFixed(1));
     c.setAttribute('transform',`rotate(-90 ${cx} ${cy})`);svg.appendChild(c);off+=frac;});
   const lg=document.getElementById('vkLegend');lg.innerHTML='';
-  parts.forEach(([nm,frac,col])=>{const d=document.createElement('div');d.className='li';
-    d.innerHTML=`<span class="name"><span class="dot" style="background:${col}"></span>${nm}</span><span class="pct">${(frac*100).toLocaleString('nb-NO',{maximumFractionDigits:0})} %</span>`;lg.appendChild(d);});
+  parts.forEach(([nm,belop,col])=>{const d=document.createElement('div');d.className='li';
+    d.innerHTML=`<span class="name"><span class="dot" style="background:${col}"></span>${nm}</span><span class="pct">${r.komplett?fmtKr(belop):'—'}</span>`;lg.appendChild(d);});
 }
 function renderSpark(margin,komplett){
   const svg=document.getElementById('spark');svg.innerHTML='';
@@ -2898,12 +2913,12 @@ function onSearch(q){
   q=(q||'').trim().toLowerCase();const box=document.getElementById('suggest');
   if(q.length<2){box.classList.remove('open');return;}
   const res=[];
-  for(let i=0;i<DB.length&&res.length<40;i++){const p=DB[i];if(p.navn.toLowerCase().includes(q)||String(p.art).includes(q))res.push(p);}
+  for(let i=0;i<DBindex.length&&res.length<40;i++){const x=DBindex[i];if(x.navn.includes(q)||x.art.includes(q))res.push(x.p);}
   curResults=res;hlIdx=-1;
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
     <div class="nm">${esc(p.navn)}</div>
-    <div class="meta"><span>Art ${p.art}</span><span>${p.enhet||''}</span><span>${fmtKr2(p.listepris)}</span>${p.fbkostpris!=null?'<span style="color:var(--brand)">FB-import</span>':''}</div></div>`).join('');
+    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}</div></div>`).join('');
   box.classList.add('open');
 }
 function pickResult(i){
