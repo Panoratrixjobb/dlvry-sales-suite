@@ -24,6 +24,18 @@ if (spesialFlyt.justertGrossistkost !== 90 || spesialFlyt.fbStottePerEnhet !== 5
   throw new Error('Støttet internpris skal overstyre prosent og varsle under FB-kost');
 }
 
+const tilgangKilde = fs.readFileSync('js/fb-internokonomi-tilgang.js', 'utf8');
+const kanSeFbInternokonomiFor = new Function(`${tilgangKilde}; return kanSeFbInternokonomiFor;`)();
+if (!kanSeFbInternokonomiFor({rolle:'superadmin'})) {
+  throw new Error('Superadmin må alltid se FB internøkonomi');
+}
+if (!kanSeFbInternokonomiFor({rolle:'selger',kan_se_fb_internokonomi:true})) {
+  throw new Error('Eksplisitt valgt bruker må se FB internøkonomi');
+}
+for (const rolle of ['selger','salgsjef','leder','admin']) {
+  if (kanSeFbInternokonomiFor({rolle})) throw new Error(`${rolle} må være skjermet som standard`);
+}
+
 const katalog = JSON.parse(fs.readFileSync('produkter.json', 'utf8'));
 if (!Array.isArray(katalog.k) || !Array.isArray(katalog.rows)) {
   throw new Error('produkter.json må ha array-feltene k og rows');
@@ -66,6 +78,10 @@ if (katalog.meta?.eksporterte_produkter !== katalog.rows.length) {
 
 for (const funksjon of ['fb_stotte_pct', 'fb_stotte_spesialpris', 'Justert grossistkost', 'renderBeslutningsstotte']) {
   if (!html.includes(funksjon)) throw new Error(`Tilbudsverktøyet mangler Foodbroker-/designfunksjonen ${funksjon}`);
+}
+
+for (const vern of ['x.isFB&&visFbIntern', "if(visFbIntern)rows.push(['Foodbroker-støtte'", 'settFbInternokonomiTilgang']) {
+  if (!html.includes(vern)) throw new Error(`Tilbudsverktøyet mangler tilgangsvern: ${vern}`);
 }
 
 console.log(`OK: ${scripts.length} inline-script og ${katalog.rows.length} produkter validert`);
