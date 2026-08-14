@@ -186,6 +186,38 @@ tbody tr:hover{background:#fafbff}
 .row-del:hover{color:var(--red)}
 .flag-warn{color:var(--orange);font-weight:700}
 
+/* Foodbroker-prisflyt ligger i en egen underlinje. Det gjør støtten tydelig uten å
+   legge flere smale kolonner til den allerede brede tilbudstabellen. */
+.fb-prisflyt-rad td{padding:0 12px 11px;background:color-mix(in srgb,var(--info-bg) 62%,var(--panel));text-align:left!important;white-space:normal}
+.fb-prisflyt{display:grid;grid-template-columns:minmax(390px,1.25fr) minmax(280px,.85fr) minmax(180px,.55fr);gap:14px;align-items:center;padding:11px 13px;border:1px solid color-mix(in srgb,var(--info) 28%,var(--line));border-radius:10px;background:var(--panel)}
+.fb-flow{display:flex;align-items:center;gap:7px;min-width:0}
+.fb-flow-step{min-width:0;flex:1}
+.fb-flow-step .lbl,.fb-support-result .lbl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:var(--muted);font-weight:700;margin-bottom:3px}
+.fb-flow-step strong,.fb-support-result strong{display:block;font-size:13px;font-weight:750}
+.fb-flow-arrow{color:var(--info);font-weight:800;flex-shrink:0}
+.fb-support-inputs{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.fb-support-input label{display:block;font-size:10.5px;color:var(--muted);font-weight:650;margin-bottom:4px}
+.fb-support-input input{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px 8px;text-align:right;background:var(--panel);color:var(--ink);font:inherit;font-size:12px}
+.fb-support-input input:focus{outline:none;border-color:var(--info);box-shadow:0 0 0 3px var(--info-bg)}
+.fb-support-result{border-left:1px solid var(--line);padding-left:14px}
+.fb-support-result .support{color:var(--info)}
+.fb-warning{margin-top:4px;color:var(--feil);font-size:10.5px;font-weight:700}
+.kilde-merke{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:9.5px;font-weight:700;letter-spacing:.02em;background:var(--info-bg);color:var(--info);margin-left:5px;vertical-align:1px}
+
+.calc-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:1px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);margin:0 0 14px}
+.calc-summary-stat{background:var(--panel);padding:11px 14px;min-width:0}
+.calc-summary-stat .lbl{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.055em;color:var(--muted);font-weight:700;margin-bottom:3px}
+.calc-summary-stat strong{display:block;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.calc-summary-stat.status strong{font-size:13px;padding-top:2px}
+
+.calc-insights{display:flex;flex-direction:column;gap:8px}
+.calc-insight{display:flex;gap:9px;align-items:flex-start;padding:9px 10px;border-radius:9px;background:var(--bg);font-size:11.5px;line-height:1.4}
+.calc-insight .ikon{font-size:14px;line-height:1.2;flex-shrink:0}
+.calc-insight strong{display:block;font-size:11.5px;margin-bottom:1px}
+.calc-insight.ok{background:var(--ok-bg)}
+.calc-insight.warn{background:var(--advarsel-bg)}
+.calc-insight.error{background:var(--feil-bg)}
+
 .addrow{display:flex;gap:10px;padding:12px;background:#fafbfe;border-top:1px solid var(--line);align-items:center;position:relative;flex-wrap:wrap}
 .search-box{position:relative;flex:1;min-width:240px;max-width:380px}
 .search-box input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;font-family:inherit}
@@ -248,6 +280,8 @@ tbody tr:hover{background:#fafbff}
 
 @media(max-width:1300px){.grid4{grid-template-columns:1fr 1fr}.grid-bottom{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.sidebar{display:none}.grid4,.grid-bottom{grid-template-columns:1fr}.main{padding:16px}}
+@media(max-width:1100px){.fb-prisflyt{grid-template-columns:1fr}.fb-support-result{border-left:0;border-top:1px solid var(--line);padding:9px 0 0}.calc-summary-strip{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.calc-summary-strip{grid-template-columns:1fr}.fb-flow{align-items:flex-start}.fb-support-inputs{grid-template-columns:1fr}}
 .mobil-hamburger{display:none}
 .feedback-fab{position:fixed;bottom:20px;right:20px;z-index:150;width:50px;height:50px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:21px;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .feedback-fab:hover{background:var(--brand2)}
@@ -739,11 +773,17 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
       <section class="d-panel" style="padding:18px 18px 0">
         <div class="cart-head">
-          <h3>Handlekurv / linjer</h3>
+          <div><h3>Produkter og prislinjer</h3><div class="d-sub" style="font-size:11px;margin-top:3px">Sett kundepris og fordel eventuell Foodbroker-støtte i samme prisflyt.</div></div>
           <div class="cart-actions">
             <button class="d-knapp subtil" onclick="saveCalc()">💾 Lagre</button>
             <button class="d-knapp sekundar" onclick="skrivUtTilbud()">📄 Skriv ut tilbud (PDF)</button>
           </div>
+        </div>
+        <div class="calc-summary-strip" aria-label="Løpende kalkylesammendrag">
+          <div class="calc-summary-stat"><span class="lbl">Omsetning</span><strong id="stripOms">0 kr</strong></div>
+          <div class="calc-summary-stat"><span class="lbl">Total margin</span><strong id="stripMargin">0,0 %</strong></div>
+          <div class="calc-summary-stat"><span class="lbl">Foodbroker-støtte</span><strong id="stripFbStotte">0 kr</strong></div>
+          <div class="calc-summary-stat status"><span class="lbl">Kalkylestatus</span><strong id="stripStatus">Legg til produkter</strong></div>
         </div>
         <div style="padding:6px 0 4px">
           <label style="font-size:12.5px;color:var(--muted);cursor:pointer">
@@ -790,6 +830,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div class="sum-line"><span class="lbl">Sum rabatter</span><span class="val neg" id="sumRabatt">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Sum omsetning før kjedebonus</span><span class="val" id="sumOms">0 kr</span></div>
           <div class="sum-line"><span class="lbl">Kjedebonus / kickback</span><span class="val neg" id="sumBonus">0 kr</span></div>
+          <div class="sum-line"><span class="lbl">Foodbroker-støtte</span><span class="val" style="color:var(--info)" id="sumFbStotte">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total omsetning</span><span class="val" style="color:var(--brand)" id="sumTotal">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total margin (NOK)</span><span class="val pos" id="sumMargNok">0 kr</span></div>
           <div class="sum-line total"><span class="lbl">Total margin (%)</span><span class="val" id="sumMargPct">0,0 %</span></div>
@@ -805,8 +846,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           </div>
         </section>
         <section class="d-panel">
-          <h3>Marginutvikling <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">(simulert trend)</small></h3>
-          <svg class="spark" id="spark" viewBox="0 0 360 120" preserveAspectRatio="none"></svg>
+          <h3>Priskontroll <small style="font-weight:400;color:var(--d-tekst-3);font-size:11px">live</small></h3>
+          <div class="calc-insights" id="calcInsights"></div>
         </section>
         <section class="d-panel kpi2">
           <h3>Nøkkeltall</h3>
@@ -1766,6 +1807,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
      moduler: appen har ingen byggeprosess, og alt deler samme globale scope som før.
      Må lastes FØR hovedskriptet, som kaller inn i dem. -->
 <script src="js/kalkyle-margin.js"></script>
+<script src="js/fb-prisflyt.js"></script>
 <script src="js/oppsett-datainnhenting.js"></script>
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
@@ -2639,15 +2681,16 @@ let leadsCache=[], leadsSel=new Set(), leadsAllFilter=false, leadsAllIds=[],
 const LEADS_PER_SIDE=200;
 const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurtigmat","Indisk","Tex-Mex"];
 
-// linje: {art,navn,enhet,listepris,kostbase,fbkostpris,grossistprisFB,grossistkost,antall,linjerabatt,spesialpris}
+// linje: {art,navn,enhet,kilde,listepris,kostbase,fbkostpris,grossistprisFB,
+//         grossistkost,antall,linjerabatt,spesialpris,fbStottePct,fbStotteSpesialpris}
 function findProd(key){key=String(key??'').trim().toLowerCase();return DBbyArt.get(key)||DBbyName.get(key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
 // ============ Motor ============
 function compute(){
   const gen=(parseFloat(document.getElementById('genrabatt').value)||0)/100;
   const bonusPct=(parseFloat(document.getElementById('kjedebonus').value)||0)/100;
-  let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0,sumEgenVerdikjede=0,sumGrossistMargin=0;
+  let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0,sumEgenVerdikjede=0,sumGrossistMargin=0,sumFbStotte=0;
   const manglerKostArt=[];
   const lines=state.cart.map(l=>{
     const rab=(l.linjerabatt!=null?l.linjerabatt:gen);
@@ -2663,12 +2706,14 @@ function compute(){
     else{manglerKost=true;manglerKostArt.push(l.art);}
     const bonusKr=oms*bonusPct;
     const dlvryMargin=manglerKost?0:(endelig-kost)*l.antall;
-    const internpris=(!manglerKost&&l.grossistprisFB!=null&&Number(l.grossistprisFB)>0)?Number(l.grossistprisFB):null;
-    const egenVerdikjedeMargin=internpris==null?0:(internpris-kost)*l.antall;
-    const grossistMargin=manglerKost?0:((endelig-(internpris==null?kost:internpris))*l.antall-bonusKr);
+    const fbFlyt=beregnFbPrisflyt(l,kost,manglerKost);
+    const {isFB,internpris,fbStottePct,fbStotteSpesial,justertGrossistkost,underFbKost}=fbFlyt;
+    const fbStotteKr=fbFlyt.fbStottePerEnhet*l.antall;
+    const egenVerdikjedeMargin=internpris==null?0:(justertGrossistkost-kost)*l.antall;
+    const grossistMargin=manglerKost?0:((endelig-(justertGrossistkost==null?kost:justertGrossistkost))*l.antall-bonusKr);
     const totKunderabatt=l.listepris>0?(l.listepris-endelig)/l.listepris:0;
-    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;sumEgenVerdikjede+=egenVerdikjedeMargin;sumGrossistMargin+=grossistMargin;
-    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,egenVerdikjedeMargin,grossistMargin,totKunderabatt,isFB:l.fbkostpris!=null,overRabatt:rab>MAKS_LINJERABATT};
+    sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;sumEgenVerdikjede+=egenVerdikjedeMargin;sumGrossistMargin+=grossistMargin;sumFbStotte+=fbStotteKr;
+    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,egenVerdikjedeMargin,grossistMargin,totKunderabatt,isFB,internpris,fbStottePct,fbStotteSpesial,justertGrossistkost,fbStotteKr,underFbKost,overRabatt:rab>MAKS_LINJERABATT};
   });
   const komplett=manglerKostArt.length===0;
   const totMarginNok=sumMargin-sumBonus;
@@ -2676,7 +2721,7 @@ function compute(){
   let status='Ingen';
   // Ufullstendig (manglende kost) gir aldri RØD/ORANSJE/GRØNN — kun 'Ingen' + varsel.
   if(komplett&&sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
-  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,sumEgenVerdikjede,sumGrossistMargin,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
+  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,sumEgenVerdikjede,sumGrossistMargin,sumFbStotte,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
 }
 const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
 
@@ -2749,8 +2794,8 @@ function render(){
     const margCelle = x.manglerKost
       ? '<span title="Mangler kostpris">—</span>'
       : `${fmtKr(marg)}<div style="font-size:11px;font-weight:600;opacity:.85">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`;
-    tr.innerHTML=`<td class="art frys frys-1">${x.l.art||''}</td>
-      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
+    tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
@@ -2764,6 +2809,29 @@ function render(){
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
     tb.appendChild(tr);
+    if(x.isFB){
+      const fbTr=document.createElement('tr');
+      fbTr.className='fb-prisflyt-rad';
+      const pctVal=x.l.fbStottePct==null?'':String(Math.round(Number(x.l.fbStottePct)*10000)/100);
+      const stottePrisVal=x.l.fbStotteSpesialpris==null?'':String(x.l.fbStotteSpesialpris);
+      const effektivPct=x.internpris>0&&x.justertGrossistkost!=null
+        ?Math.max(0,(x.internpris-x.justertGrossistkost)/x.internpris):0;
+      fbTr.innerHTML=`<td colspan="14"><div class="fb-prisflyt">
+        <div class="fb-flow" aria-label="Foodbroker-prisflyt">
+          <div class="fb-flow-step"><span class="lbl">FB kostbase</span><strong>${x.manglerKost?'—':fmtKr2(x.kost)}</strong></div>
+          <span class="fb-flow-arrow">→</span>
+          <div class="fb-flow-step"><span class="lbl">Ordinær internpris</span><strong>${x.internpris==null?'—':fmtKr2(x.internpris)}</strong></div>
+          <span class="fb-flow-arrow">→</span>
+          <div class="fb-flow-step"><span class="lbl">Justert grossistkost</span><strong>${x.justertGrossistkost==null?'—':fmtKr2(x.justertGrossistkost)}</strong></div>
+        </div>
+        <div class="fb-support-inputs">
+          <div class="fb-support-input"><label>FB-støtte %</label><input type="number" min="0" max="100" step="0.5" placeholder="0" value="${pctVal}" onchange="upd(${i},'fbStottePct',this.value)" title="Rabatt fra ordinær internpris til grossist"></div>
+          <div class="fb-support-input"><label>Støttet internpris</label><input type="number" min="0" step="0.01" placeholder="Overstyrer %" value="${stottePrisVal}" onchange="upd(${i},'fbStotteSpesialpris',this.value)" title="Konkret pris overstyrer støtteprosenten"></div>
+        </div>
+        <div class="fb-support-result"><span class="lbl">Foodbroker dekker</span><strong class="support">${fmtKr(x.fbStotteKr)}</strong><div class="d-sub" style="font-size:10px">${fmtPct(effektivPct)} av internpris · ${x.fbStotteSpesial!=null?'støttet pris styrer':'prosent styrer'}</div>${x.underFbKost?'<div class="fb-warning">⚠ Justert pris er under FB-kost</div>':''}</div>
+      </div></td>`;
+      tb.appendChild(fbTr);
+    }
     var vfi=document.getElementById('visFakturaInfo');
     if(vfi&&vfi.checked&&x.l.faktura_original_navn){
       var tr2=document.createElement('tr');
@@ -2807,9 +2875,17 @@ function render(){
   document.getElementById('sumRabatt').textContent='−'+fmtKr(r.sumListe-r.sumOms);
   document.getElementById('sumOms').textContent=fmtKr(r.sumOms);
   document.getElementById('sumBonus').textContent='−'+fmtKr(r.sumBonus);
+  document.getElementById('sumFbStotte').textContent=fmtKr(r.sumFbStotte);
   document.getElementById('sumTotal').textContent=fmtKr(r.sumOms);
   document.getElementById('sumMargNok').textContent=fmtKr(r.totMarginNok);
   document.getElementById('sumMargPct').textContent=fmtPct(r.totMarginPct);
+
+  document.getElementById('stripOms').textContent=fmtKr(r.sumOms);
+  document.getElementById('stripMargin').textContent=r.komplett?fmtPct(r.totMarginPct):'—';
+  document.getElementById('stripFbStotte').textContent=fmtKr(r.sumFbStotte);
+  const stripStatus=document.getElementById('stripStatus');
+  stripStatus.textContent=r.lines.length?(r.komplett?note:'Mangler kostpris'):'Legg til produkter';
+  stripStatus.style.color=r.komplett?col:'var(--advarsel)';
 
   const bidrag=r.sumOms>0?(r.sumOms-r.sumKost)/r.sumOms:0;
   document.getElementById('nkBidrag').textContent=fmtPct(bidrag);
@@ -2864,13 +2940,15 @@ function render(){
     }
   }
 
-  renderVerdikjede(r);renderSpark(r.totMarginPct,r.komplett);
+  renderVerdikjede(r);renderBeslutningsstotte(r);
   sikreMarkedsmargin();
 }
 function upd(i,f,v){
   if(f==='antall')state.cart[i].antall=Math.max(0,parseFloat(v)||0);
   else if(f==='linjerabatt')state.cart[i].linjerabatt=v===''?null:(parseFloat(v)||0)/100;
   else if(f==='spesialpris')state.cart[i].spesialpris=v===''?null:(parseFloat(v)||0);
+  else if(f==='fbStottePct')state.cart[i].fbStottePct=v===''?null:Math.min(1,Math.max(0,(parseFloat(v)||0)/100));
+  else if(f==='fbStotteSpesialpris')state.cart[i].fbStotteSpesialpris=v===''?null:Math.max(0,parseFloat(v)||0);
   else if(f==='konkurrentpris')state.cart[i].konkurrentpris=v===''?null:(parseFloat(v)||0);
   markDirty();render();
 }
@@ -2893,20 +2971,23 @@ function renderVerdikjede(r){
   parts.forEach(([nm,belop,col])=>{const d=document.createElement('div');d.className='li';
     d.innerHTML=`<span class="name"><span class="dot" style="background:${col}"></span>${nm}</span><span class="pct">${r.komplett?fmtKr(belop):'—'}</span>`;lg.appendChild(d);});
 }
-function renderSpark(margin,komplett){
-  const svg=document.getElementById('spark');svg.innerHTML='';
-  // Ufullstendig kalkyle → tegn ingen trend (unngå en falsk graf rundt 25 %). Funn #2.
-  if(komplett===false)return;
-  const base=margin||0.25,seed=[-0.03,-0.01,0.005,-0.015,0.01,0.02,-0.005,0,0.015,0.03,0.01,0];
-  const pts=seed.map((d,i)=>{const v=Math.max(0.02,base+d*1.2);return[i*(360/11),110-Math.min(1,v/0.5)*100,v];});
-  for(let g=0;g<=4;g++){const y=110-(g/4)*100,ln=document.createElementNS('http://www.w3.org/2000/svg','line');
-    ln.setAttribute('x1',0);ln.setAttribute('x2',360);ln.setAttribute('y1',y);ln.setAttribute('y2',y);ln.setAttribute('stroke','#eef1f6');svg.appendChild(ln);}
-  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-  path.setAttribute('d','M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L '));
-  path.setAttribute('fill','none');path.setAttribute('stroke','var(--brand)');path.setAttribute('stroke-width',2.2);path.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(path);
-  pts.forEach(p=>{const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r',2.6);c.setAttribute('fill','var(--brand)');svg.appendChild(c);});
+function renderBeslutningsstotte(r){
+  const el=document.getElementById('calcInsights');if(!el)return;
+  if(!r.lines.length){
+    el.innerHTML='<div class="calc-insight"><span class="ikon">＋</span><div><strong>Start med et produkt</strong>Søk etter varenummer eller navn under tabellen.</div></div>';
+    return;
+  }
+  const innsikt=[];
+  const underKost=r.lines.filter(x=>x.underFbKost).length;
+  const overRabatt=r.lines.filter(x=>x.overRabatt).length;
+  const fbLinjer=r.lines.filter(x=>x.isFB).length;
+  if(!r.komplett)innsikt.push(['error','⚠','Margin mangler',r.manglerKostArt.length+(r.manglerKostArt.length===1?' produktlinje mangler':' produktlinjer mangler')+' gyldig kostpris.']);
+  if(underKost)innsikt.push(['error','↓','FB-støtte under kost',underKost+(underKost===1?' Foodbroker-linje har':' Foodbroker-linjer har')+' justert grossistkost under FB-kost.']);
+  if(overRabatt)innsikt.push(['warn','%','Høy kunderabatt',overRabatt+(overRabatt===1?' linje ligger':' linjer ligger')+' over tillatt linjerabatt.']);
+  if(fbLinjer&&r.sumFbStotte!==0)innsikt.push(['','↔','Foodbroker-støtte fordelt',fmtKr(r.sumFbStotte)+' flyttes fra Foodbrokers verdikjedemargin til grossisten.']);
+  if(r.komplett&&!underKost&&!overRabatt)innsikt.push(['ok','✓','Kalkylen er konsistent',fbLinjer?'Prisflyt og Foodbroker-støtte er med i marginfordelingen.':'Alle produktlinjer har gyldig kostgrunnlag.']);
+  el.innerHTML=innsikt.map(([cls,ikon,tittel,tekst])=>`<div class="calc-insight ${cls}"><span class="ikon">${ikon}</span><div><strong>${tittel}</strong>${tekst}</div></div>`).join('');
 }
-
 // ============ Søk ============
 let hlIdx=-1,curResults=[];
 function onSearch(q){
@@ -2941,17 +3022,22 @@ document.addEventListener('click',e=>{if(!e.target.closest('.search-box'))docume
 // Mapping backend → frontend:
 //   kunde:   {id,navn,kundeid,notat,...}  (frontend brukte 'note' før → nå 'notat')
 //   kalkyle: flate felter (genrabatt,kjedebonus,kommentar,scen_navn,scen_besk,snap_*) + linjer[]
-//   linje:   artnr(=art),navn,enhet,listepris,kostbase,fbkostpris,grossistpris_fb,grossistkost,antall,linjerabatt,spesialpris
+//   linje:   artnr(=art),navn,enhet,listepris,kostbase,fbkostpris,grossistpris_fb,
+//            grossistkost,antall,linjerabatt,spesialpris,fb_stotte_pct,fb_stotte_spesialpris
 // Tall fra JSON kan komme som number; behandle ID-er som strenger (UUID) — aldri parseInt.
 
 // --- konvertering linje: backend-form ↔ frontend-cart-form ---
 function lineFromApi(l){return{
-  art:l.artnr, navn:l.navn, enhet:l.enhet, listepris:num(l.listepris), kostbase:num(l.kostbase),
+  art:l.artnr, navn:l.navn, enhet:l.enhet,
+  kilde:(findProd(l.artnr)||{}).kilde||(l.fbkostpris!=null?'Foodbroker':''),
+  listepris:num(l.listepris), kostbase:num(l.kostbase),
   fbkostpris:l.fbkostpris==null?null:num(l.fbkostpris),
   grossistprisFB:l.grossistpris_fb==null?null:num(l.grossistpris_fb),
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:l.spesialpris==null?null:num(l.spesialpris),
+  fbStottePct:l.fb_stotte_pct==null?null:num(l.fb_stotte_pct),
+  fbStotteSpesialpris:l.fb_stotte_spesialpris==null?null:num(l.fb_stotte_spesialpris),
   konkurrentpris:l.konkurrent_pris==null?null:num(l.konkurrent_pris),
   konfidens:l.match_konfidens==null?null:num(l.match_konfidens),
   faktura_original_navn:l.faktura_original_navn??null,
@@ -2966,6 +3052,8 @@ function lineToApi(l){return{
   grossistkost:l.grossistkost==null?null:num(l.grossistkost),
   antall:num(l.antall), linjerabatt:l.linjerabatt==null?null:num(l.linjerabatt),
   spesialpris:(l.spesialpris==null||l.spesialpris==='')?null:num(l.spesialpris),
+  fb_stotte_pct:l.fbStottePct==null?null:num(l.fbStottePct),
+  fb_stotte_spesialpris:l.fbStotteSpesialpris==null?null:num(l.fbStotteSpesialpris),
   konkurrent_pris:(l.konkurrentpris==null||l.konkurrentpris==='')?null:num(l.konkurrentpris),
   match_konfidens:(l.konfidens==null||l.konfidens==='')?null:num(l.konfidens),
   faktura_original_navn:l.faktura_original_navn??null,
@@ -3568,9 +3656,9 @@ function exportCSV(){
   const r=compute();
   // Ikke eksporter fabrikkerte margintall når en linje mangler kostpris. Se funn #2.
   if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
-  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris','Endelig salgspris','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]);});
-  rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
+  let rows=[['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;rows.push([x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):'',x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)]);});
+  rows.push([],['Total omsetning',r.sumOms.toFixed(0)],['Foodbroker-støtte',r.sumFbStotte.toFixed(0)],['Total margin NOK',r.totMarginNok.toFixed(0)],['Total margin %',(r.totMarginPct*100).toFixed(1)],['Status',r.status]);
   const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
