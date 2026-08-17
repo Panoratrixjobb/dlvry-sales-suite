@@ -6443,7 +6443,7 @@ function renderRapNyeKunderUke(){
   const grossister=(d.per_grossist||[]).map((g,i)=>{
     const konsepter=k=>(k.konsepter||[]).map(n=>`<span class="rap-new-concept">${esc(rapKonseptNavn(n))}</span>`).join('')||'–';
     const kunder=(g.kunder||[]).map(k=>`<tr>
-      <td><b>${esc(k.navn||k.kundenr||'–')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
+      <td><b>${esc(k.navn&&k.navn!==k.kundenr?k.navn:'Navn mangler i kilden')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
       <td>${konsepter(k)}</td>
       <td class="tall">${fmtKr(k.omsetning_uke_kr||0)}</td>
       <td class="tall">${fmtKr(k.omsetning_ytd_kr||0)}</td>
@@ -6481,7 +6481,7 @@ function renderRapTapteKunderUke(){
   if(!d)return '';
   const grossister=(d.per_grossist||[]).map((g,i)=>{
     const kunder=(g.kunder||[]).map(k=>`<tr>
-      <td><b>${esc(k.navn||k.kundenr||'–')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
+      <td><b>${esc(k.navn&&k.navn!==k.kundenr?k.navn:'Navn mangler i kilden')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
       <td>${(k.konsepter||[]).map(n=>`<span class="rap-new-concept">${esc(rapKonseptNavn(n))}</span>`).join('')||'–'}</td>
       <td class="tall">${fmtKr(k.omsetning_2025_kr||0)}</td>
     </tr>`).join('');
