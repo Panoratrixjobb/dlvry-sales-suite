@@ -84,4 +84,8 @@ for (const vern of ['x.isFB&&visFbIntern', "if(visFbIntern)rows.push(['Foodbroke
   if (!html.includes(vern)) throw new Error(`Tilbudsverktøyet mangler tilgangsvern: ${vern}`);
 }
 
+for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'lastNyeKunderCsv', '/api/dashboard-excel/nye-kunder-uke']) {
+  if (!html.includes(rapportfunksjon)) throw new Error(`Ukerapporten mangler nye-kunder-funksjonen ${rapportfunksjon}`);
+}
+
 console.log(`OK: ${scripts.length} inline-script og ${katalog.rows.length} produkter validert`);
