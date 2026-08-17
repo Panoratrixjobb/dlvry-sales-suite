@@ -1033,7 +1033,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
           <button id="leadsTildel" class="d-knapp primar" onclick="openTildelModal()" disabled>Tildel valgte (0)</button>
           <button id="leadsPlukk" class="d-knapp primar" style="display:none" onclick="plukkValgte()" disabled>Plukk valgte (0) til meg</button>
-          <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/leads.xlsx','leads.csv')">⤓ Eksporter</button>
+          <button id="leadsExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterLeads()" title="Laster ned nøyaktig det utvalget filtrene viser">⤓ Eksporter utvalg</button>
         </div>
 
         <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
@@ -3762,7 +3762,7 @@ function renderKlRisikoChip(){
   if(!el)return;
   if(klRisikoFiltr){
     el.style.display='';
-    el.innerHTML='<span class="d-badge roed" style="cursor:pointer" onclick="klFjernRisikoFilter()" title="Fjern filter">⚠ Kun risiko (konkurs/avvikling) ✕</span>';
+    el.innerHTML='<span class="d-badge roed" style="cursor:pointer" onclick="klFjernRisikoFilter()" title="Fjern filter">⚠ Kunder i risiko (konkurs/avvikling — ekskl. leads) ✕</span>';
   }else{
     el.style.display='none';
     el.innerHTML='';
@@ -3790,7 +3790,12 @@ function kunderParams(){
   const reg=mfValgte('klRegion'); if(reg) p.set('region',reg);
   const br=mfValgte('klBransje'); if(br) p.set('bransje',br);
   const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
-  if(klRisikoFiltr) p.set('risiko','true');
+  if(klRisikoFiltr){
+    p.set('risiko','true');
+    // Samme avgrensning som dashboard-kortet «Kunder i risiko»: kun ekte kunder,
+    // ingen leads-rader (Lead/Sovende). Ellers stemmer ikke tallet med lista.
+    p.set('kun_kunder','true');
+  }
   return p;
 }
 async function klMountFiltre(){
@@ -3980,6 +3985,14 @@ function leadsParams(extra){
   if(_leadsSort) p.set('sort',_leadsSort);
   if(extra) for(const k in extra) p.set(k,extra[k]);
   return p;
+}
+
+// Eksporten skal speile lista: send de samme filtrene som leadsParams() bygger,
+// uten paginering, slik at man får det segmenterte utvalget og ikke alle leads.
+function eksporterLeads(){
+  const p=leadsParams();
+  p.delete('limit'); p.delete('offset');
+  eksporterFil('/api/export/leads.xlsx?'+p.toString(),'leads.csv');
 }
 
 function leadsNullstillFilter(){
