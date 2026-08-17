@@ -6536,7 +6536,7 @@ function renderRapTotal(){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${rapStatus(k.vekst>=0,rapFmtPct(k.vekst))}</td>
       <td class="tall">${rapFmtPP(bidragPP)}</td>
-      <td class="tall">${estK?rapFmtM(estK.estimat_2026):'–'}${estK&&estK.kilde==='flat YTD-vekst'?'<div class="sub" style="font-size:10px">positivt scenario</div>':''}</td>
+      <td class="tall">${estK?rapFmtM(estK.estimat_2026):'–'}</td>
     </tr>`;
   }).join('');
 
@@ -6584,7 +6584,7 @@ function renderRapTotal(){
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Konsept</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th>
-        <th class="tall">Bidrag til totalens vekst</th><th class="tall">Positivt årsestimat</th>
+        <th class="tall">Bidrag til totalens vekst</th><th class="tall">Årsestimat</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen data lastet ennå.</td></tr>'}${kons.length?totalRow:''}</tbody></table></div>
     </div>
     ${ls.card}
