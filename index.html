@@ -1950,6 +1950,7 @@ function normalizeDash(d){
 
   // Gammel form var [{navn,verdi}] (kun total) — nyere form har estimat_2026 per konsept.
   const estimat=(d.estimat&&d.estimat.length&&d.estimat[0].estimat_2026!=null)?d.estimat:[];
+  const estimatExcel=(d.estimat_excel&&d.estimat_excel.length&&d.estimat_excel[0].estimat_2026!=null)?d.estimat_excel:[];
 
   const grossister={...f.grossister,...(d.grossister||{})};
   // API-et (GET /api/dashboard-excel) nester allerede kundebevegelse_alle inn som
@@ -1982,6 +1983,7 @@ function normalizeDash(d){
     total:d.total||f.total,
     konsepter,
     estimat,
+    estimatExcel,
     monthly:{months,data:monthlyData},
     grossister,
     kundebevegelse,
@@ -6591,6 +6593,11 @@ function renderRapKonsept(key){
   const navn=AN_NAVN_FOR_KEY[key];
   const kons=(DASH.konsepter||[]).find(k=>k.navn===navn)||{y2025:0,y2026:0,vekst:0};
   const est=(DASH.estimat||[]).find(e=>e.navn===navn);
+  const estExcel=(DASH.estimatExcel||[]).find(e=>e.navn===navn);
+  const positivt=(estExcel&&(!est||estExcel.estimat_2026>est.estimat_2026))?estExcel:est;
+  const positivVekst=positivt&&positivt.helar_2025?positivt.estimat_2026/positivt.helar_2025-1:null;
+  const modellGap=positivt&&est?Math.max(0,positivt.estimat_2026-est.estimat_2026):0;
+  const ukerIgjen=Math.max(1,52-(DASH.cutoff_uke||33));
   const rader=(DASH.grossister&&DASH.grossister[key])||[];
   const totalY25=kons.y2025||0, totalY26=kons.y2026||0, totalDelta=totalY26-totalY25;
   const andre=KONSEPT_ORDER_RAP.filter(k=>k!==key).map(k=>AN_NAVN_FOR_KEY[k]).join(', ');
@@ -6623,6 +6630,7 @@ function renderRapKonsept(key){
   const storst=rader.length?rader.reduce((a,b)=>b.y2026>a.y2026?b:a):null;
 
   const insight=rader.length?`<div class="rap-insight">
+    ${positivt&&est&&modellGap>0?`<p><b>Positivt scenario:</b> ${rapFmtM(positivt.estimat_2026)} er ${rapFmtM(modellGap)} over den forsiktige modellen. Det tilsvarer bare <b>${fmtKr(modellGap*1e6/ukerIgjen)} ekstra per uke</b> resten av året.</p>`:''}
     ${best&&worst?`<p>Beste bidrag fra <b>${esc(best.navn)}</b> (${rapFmtPP(best.bidrag_pp/100)}). Verste: <b>${esc(worst.navn)}</b> (${rapFmtPP(worst.bidrag_pp/100)}).</p>`:''}
     ${storst&&totalY26?`<p>Størst grossist er <b>${esc(storst.navn)}</b> — ${rapFmtPctAbs(storst.y2026/totalY26)} av ${navn}-total.</p>`:''}
   </div>`:'<div class="rap-empty">Ingen grossistdata lastet ennå for dette konseptet.</div>';
@@ -6633,7 +6641,10 @@ function renderRapKonsept(key){
       <div class="rap-kpi"><div class="lbl">2026 YTD</div><div class="val">${rapFmtM(totalY26)}</div></div>
       <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(totalY25)}</div></div>
       <div class="rap-kpi"><div class="lbl">Vekst</div><div class="val">${rapFmtPct(kons.vekst)}</div><div class="delta ${kons.vekst>=0?'up':'down'}">${rapFmtM(totalDelta)}</div></div>
-      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${est?rapFmtM(est.estimat_2026):'–'}</div></div>
+      <div class="rap-kpi"><div class="lbl">Positivt årsestimat</div><div class="val" style="color:var(--d-gronn)">${positivt?rapFmtM(positivt.estimat_2026):'–'}</div>
+        <div class="delta up">${positivVekst!=null?rapFmtPct(positivVekst)+' mot 2025':'scenario basert på YTD-vekst'}</div></div>
+      <div class="rap-kpi"><div class="lbl">Forsiktig modell</div><div class="val">${est?rapFmtM(est.estimat_2026):'–'}</div>
+        <div class="delta plain">sesong- og grossistjustert</div></div>
     </div>
     ${insight}
     <div class="rap-card">
