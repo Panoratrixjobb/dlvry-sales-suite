@@ -6516,12 +6516,19 @@ function renderRapTotal(){
   const est=DASH.estimat||[];
   const kb=(DASH.kundebevegelse&&DASH.kundebevegelse.alle)||{nye:0,tapt:0,venter:0};
   const totalY25=t.y2025||0, totalY26=t.y2026||0, totalDelta=totalY26-totalY25;
-  const estTotal=est.find(e=>e.navn==='Total ekstern');
+  const estimatExcel=DASH.estimatExcel||[];
+  const positivtEstimatFor=navn=>{
+    const modell=est.find(e=>e.navn===navn);
+    const flat=estimatExcel.find(e=>e.navn===navn);
+    return flat&&(!modell||flat.estimat_2026>modell.estimat_2026)
+      ?{...flat,kilde:'flat YTD-vekst'}:(modell?{...modell,kilde:'forsiktig modell'}:null);
+  };
+  const positivTotal=kons.reduce((sum,k)=>sum+(positivtEstimatFor(k.navn)?.estimat_2026||0),0);
 
   const rows=kons.map(k=>{
     const delta=k.y2026-k.y2025;
     const bidragPP=totalY25?(k.y2026-k.y2025)/totalY25:0;
-    const estK=est.find(e=>e.navn===k.navn);
+    const estK=positivtEstimatFor(k.navn);
     return `<tr>
       <td><span class="rap-dot" style="background:${k.farge}"></span>${k.navn}</td>
       <td class="tall">${rapFmtM(k.y2026)}</td>
@@ -6529,7 +6536,7 @@ function renderRapTotal(){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${rapStatus(k.vekst>=0,rapFmtPct(k.vekst))}</td>
       <td class="tall">${rapFmtPP(bidragPP)}</td>
-      <td class="tall">${estK?rapFmtM(estK.estimat_2026):'–'}</td>
+      <td class="tall">${estK?rapFmtM(estK.estimat_2026):'–'}${estK&&estK.kilde==='flat YTD-vekst'?'<div class="sub" style="font-size:10px">positivt scenario</div>':''}</td>
     </tr>`;
   }).join('');
 
@@ -6540,7 +6547,7 @@ function renderRapTotal(){
     <td class="tall">${rapFmtM(totalDelta)}</td>
     <td class="tall">${rapStatus(t.vekst>=0,rapFmtPct(t.vekst))}</td>
     <td class="tall">${rapFmtPP(t.vekst)}</td>
-    <td class="tall">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</td>
+    <td class="tall">${positivTotal?rapFmtM(positivTotal):'–'}</td>
   </tr>`;
 
   // Konsepter uten fjorårsgrunnlag (vekst=null) holdes utenfor «sterkest/svakest» — null
@@ -6551,7 +6558,7 @@ function renderRapTotal(){
   const insight=kons.length?`<div class="rap-insight">
     <p>Ekstern omsetning YTD er <b>${rapFmtM(totalY26)}</b>, ${t.vekst>=0?'en oppgang':'en nedgang'} på <b>${rapFmtPctAbs(t.vekst)}</b> mot samme periode i 2025 (${rapFmtM(totalDelta)}).</p>
     ${strongest&&weakest?`<p>Sterkest vekst: <b>${strongest.navn} (${rapFmtPct(strongest.vekst)})</b>. Svakest: <b>${weakest.navn} (${rapFmtPct(weakest.vekst)})</b>.</p>`:''}
-    ${estTotal?`<p>Årsestimat 2026 (sesong- og grossistvektet): <b>${rapFmtM(estTotal.estimat_2026)}</b> mot 2025-helår ${rapFmtM(estTotal.helar_2025)}.</p>`:''}
+    ${positivTotal?`<p>Positivt årsestimat 2026: <b>${rapFmtM(positivTotal)}</b>. La Salumeria vises med ${rapFmtM(positivtEstimatFor('La Salumeria')?.estimat_2026||0)} basert på den positive YTD-referansen.</p>`:''}
   </div>`:'';
 
   // Grossist-trend for LS + EE og samlet INNSIKT — som i UKE-PDF-en (Ukerapport-fanen).
@@ -6566,7 +6573,7 @@ function renderRapTotal(){
     <div class="rap-kpi-row">
       <div class="rap-kpi"><div class="lbl">Total ekstern YTD</div><div class="val">${rapFmtM(totalY26)}</div><div class="delta ${t.vekst>=0?'up':'down'}">${rapFmtPct(t.vekst)} mot 2025</div></div>
       <div class="rap-kpi"><div class="lbl">Endring</div><div class="val">${rapFmtM(totalDelta)}</div><div class="delta plain">mot samme uker 2025</div></div>
-      <div class="rap-kpi"><div class="lbl">Årsestimat 2026</div><div class="val">${estTotal?rapFmtM(estTotal.estimat_2026):'–'}</div><div class="delta plain">2025 helår: ${estTotal?rapFmtM(estTotal.helar_2025):'–'}</div></div>
+      <div class="rap-kpi"><div class="lbl">Positivt årsestimat 2026</div><div class="val" style="color:var(--d-gronn)">${positivTotal?rapFmtM(positivTotal):'–'}</div><div class="delta up">høyeste støttede scenario per konsept</div></div>
       <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta plain">nye / tapte (sesongjustert)</div></div>
     </div>
     ${insight}
@@ -6577,14 +6584,14 @@ function renderRapTotal(){
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Konsept</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th>
-        <th class="tall">Bidrag til totalens vekst</th><th class="tall">Årsestimat</th>
+        <th class="tall">Bidrag til totalens vekst</th><th class="tall">Positivt årsestimat</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen data lastet ennå.</td></tr>'}${kons.length?totalRow:''}</tbody></table></div>
     </div>
     ${ls.card}
     ${ee.card}
     ${grossistInnsikt}
     ${kbLinje}
-    <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Metode: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for. Samme innhold som «Ukerapport»-fanen i KONSEPT_DASHBOARD_MASTER.</div>
+    <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Positivt årsestimat bruker det høyeste støttede scenarioet per konsept av flat YTD-referanse og forsiktig sesong-/grossistmodell. Den forsiktige modellen er fortsatt synlig under Prognose. Metode YTD: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for.</div>
   `;
 }
 
