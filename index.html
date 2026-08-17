@@ -455,6 +455,47 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-card h3{margin:0 0 10px;font-size:13px;font-weight:750}
 .rap-card .rap-card-note{font-size:11px;color:var(--muted);margin:-4px 0 10px;line-height:1.5}
 
+/* Ukens kundetilgang: grossistene er rapportens ryggrad, kundene ligger under. */
+.rap-new-card{padding:0;overflow:hidden;border-color:color-mix(in srgb,var(--pos) 34%,var(--line))}
+.rap-new-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:17px 18px 14px;background:linear-gradient(100deg,var(--green-bg),transparent 72%);border-bottom:1px solid var(--line)}
+.rap-new-week{display:inline-flex;align-items:center;gap:7px;color:var(--pos);font-size:10px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;margin-bottom:6px}
+.rap-new-week::before{content:'';width:18px;height:3px;border-radius:3px;background:var(--pos)}
+.rap-new-head h3{font-size:15px;margin:0 0 4px}
+.rap-new-head p{font-size:11.5px;color:var(--muted);margin:0;line-height:1.45}
+.rap-new-export{flex:none;border:1px solid color-mix(in srgb,var(--pos) 42%,var(--line));background:var(--panel);color:var(--pos);border-radius:8px;padding:7px 11px;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+.rap-new-export:hover{background:var(--green-bg)}
+.rap-new-export:focus-visible,.rap-new-details summary:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.rap-new-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.rap-new-stat{padding:12px 18px;border-right:1px solid var(--line)}
+.rap-new-stat:last-child{border-right:0}
+.rap-new-stat .k{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.rap-new-stat .v{display:block;font-size:18px;font-weight:780;margin-top:3px;font-variant-numeric:tabular-nums}
+.rap-new-list{padding:4px 14px 10px}
+.rap-new-details{border-bottom:1px solid var(--line)}
+.rap-new-details:last-child{border-bottom:0}
+.rap-new-details summary{list-style:none;display:grid;grid-template-columns:minmax(180px,1fr) 90px 130px 18px;align-items:center;gap:12px;padding:12px 5px;cursor:pointer;font-size:12px}
+.rap-new-details summary::-webkit-details-marker{display:none}
+.rap-new-name{font-weight:730;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rap-new-code{display:inline-block;color:var(--pos);font-size:10.5px;font-weight:800;letter-spacing:.04em;margin-right:7px}
+.rap-new-count{font-weight:750;text-align:right}
+.rap-new-sum{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.rap-new-chevron{color:var(--muted);transition:transform .15s ease;text-align:center}
+.rap-new-details[open] .rap-new-chevron{transform:rotate(90deg)}
+.rap-new-kunder{padding:0 4px 12px}
+.rap-new-kunder .d-tabell{margin:0}
+.rap-new-concept{display:inline-block;border-radius:999px;background:var(--bg);color:var(--muted);font-size:10px;padding:2px 6px;margin:1px 3px 1px 0;white-space:nowrap}
+.rap-new-foot{padding:9px 18px 12px;border-top:1px solid var(--line);font-size:10.5px;line-height:1.45;color:var(--muted)}
+
+@media(max-width:700px){
+  .rap-new-head{align-items:stretch;flex-direction:column}
+  .rap-new-export{align-self:flex-start}
+  .rap-new-stats{grid-template-columns:1fr}
+  .rap-new-stat{border-right:0;border-bottom:1px solid var(--line)}
+  .rap-new-stat:last-child{border-bottom:0}
+  .rap-new-details summary{grid-template-columns:minmax(120px,1fr) 72px 18px}
+  .rap-new-sum{display:none}
+}
+
 .rap-status{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .rap-status.up{color:var(--pos);background:var(--green-bg)}
 .rap-status.down{color:var(--neg);background:var(--red-bg)}
@@ -487,6 +528,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
   .main{padding:0!important}
   body{background:#fff!important}
   .rap-card,.rap-kpi{box-shadow:none!important;break-inside:avoid}
+  .rap-new-kunder{display:block!important}
+  .rap-new-export,.rap-new-chevron{display:none!important}
 }
 
 </style>
@@ -5808,6 +5851,8 @@ let rapState={tab:'total',konsept:'la_salumeria',region:'Nord',regionFilter:'ALL
 // globale DASH, og hadde vi skrevet den valgte uka inn der, ville et rapportvalg stille
 // endret forsiden også — uten at noen hadde bedt om det.
 let RAP_DASH=null, RAP_UKE_LASTET=null, RAP_HENTER=false;
+let RAP_NYE_KUNDER=null, RAP_NYE_NOKKEL=null, RAP_NYE_HENTER=false, RAP_NYE_FEIL='';
+const RAP_NYE_CACHE={};
 
 // Rapportfunksjonene (og hjelperne deres, som rapGrossistTrend) leser DASH direkte. I stedet
 // for å tre en parameter gjennom alle sammen — der ett glemt sted ville gitt en rapport med
@@ -5830,8 +5875,14 @@ async function setRapUke(verdi){
   const ny=verdi===''||verdi==null?null:parseInt(verdi,10);
   if(ny===rapState.uke)return;
   rapState.uke=ny;
-  if(ny===null){ RAP_DASH=null; RAP_UKE_LASTET=null; renderRapporter(); return; }
+  if(ny===null){
+    RAP_DASH=null; RAP_UKE_LASTET=null; RAP_NYE_KUNDER=null; RAP_NYE_NOKKEL=null;
+    renderRapporter();
+    hentRapNyeKunder();
+    return;
+  }
   await hentRapUke();
+  await hentRapNyeKunder();
 }
 
 async function hentRapUke(){
@@ -5860,6 +5911,31 @@ async function hentRapUke(){
     alert('Kunne ikke hente uke '+ba+': '+e.message);
   }finally{
     RAP_HENTER=false;
+    renderRapporter();
+  }
+}
+
+function rapNyeNokkel(){return rapState.uke===null?'nyeste':String(rapState.uke);}
+
+async function hentRapNyeKunder(){
+  const nokkel=rapNyeNokkel();
+  if(RAP_NYE_CACHE[nokkel]){
+    RAP_NYE_KUNDER=RAP_NYE_CACHE[nokkel];RAP_NYE_NOKKEL=nokkel;RAP_NYE_FEIL='';
+    renderRapporter();
+    return;
+  }
+  if(RAP_NYE_HENTER&&RAP_NYE_NOKKEL===nokkel)return;
+  RAP_NYE_HENTER=true;RAP_NYE_NOKKEL=nokkel;RAP_NYE_FEIL='';RAP_NYE_KUNDER=null;
+  renderRapporter();
+  try{
+    const qs=rapState.uke===null?'':'?uke='+encodeURIComponent(rapState.uke);
+    const data=await api('/api/dashboard-excel/nye-kunder-uke'+qs);
+    if(rapNyeNokkel()!==nokkel)return;
+    RAP_NYE_CACHE[nokkel]=data;RAP_NYE_KUNDER=data;
+  }catch(e){
+    if(rapNyeNokkel()===nokkel)RAP_NYE_FEIL=e.message||'Ukjent feil';
+  }finally{
+    if(RAP_NYE_NOKKEL===nokkel)RAP_NYE_HENTER=false;
     renderRapporter();
   }
 }
@@ -5915,11 +5991,13 @@ function mountRapporter(){
   const crumb=document.getElementById('rapCrumb');
   if(crumb)crumb.textContent=(DASH.meta&&DASH.meta.periode)||'';
   renderRapporter();
+  hentRapNyeKunder();
 }
 function setRapTab(tab){
   rapState.tab=tab;
   document.querySelectorAll('[data-raptab]').forEach(b=>b.classList.toggle('aktiv',b.dataset.raptab===tab));
   renderRapporter();
+  if(tab==='total'&&!RAP_NYE_KUNDER&&!RAP_NYE_HENTER)hentRapNyeKunder();
 }
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
 function setRapRegion(r){rapState.region=r;renderRapporter();}
@@ -6310,6 +6388,72 @@ function rapGrossistTrend(key){
   return {card,innsikt};
 }
 
+function rapKonseptNavn(nokkel){
+  return AN_NAVN_FOR_KEY[nokkel]||String(nokkel||'').replaceAll('_',' ');
+}
+
+function lastNyeKunderCsv(){
+  const d=RAP_NYE_KUNDER;
+  if(!d||!d.per_grossist)return;
+  const celle=v=>'"'+String(v==null?'':v).replaceAll('"','""')+'"';
+  const rader=[['Uke','Grossistkode','Grossist','Region','Kundenummer','Kundenavn','Org.nr.','Konsept','Omsetning første uke','Omsetning YTD']];
+  d.per_grossist.forEach(g=>(g.kunder||[]).forEach(k=>rader.push([
+    d.uke,g.grossist_kode||'',g.grossist_navn||'',g.region||'',k.kundenr||'',k.navn||'',k.orgnr||'',
+    (k.konsepter||[]).map(rapKonseptNavn).join(', '),k.omsetning_uke_kr||0,k.omsetning_ytd_kr||0
+  ])));
+  const blob=new Blob(['\ufeff'+rader.map(r=>r.map(celle).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='nye-kunder-uke-'+d.uke+'.csv';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+
+function renderRapNyeKunderUke(){
+  if(RAP_NYE_HENTER&&!RAP_NYE_KUNDER)return `<div class="rap-card rap-new-card">
+    <div class="rap-new-head"><div><div class="rap-new-week">Siden sist</div><h3>Nye kunder per grossist</h3><p>Henter komplett kundeliste…</p></div></div>
+  </div>`;
+  if(RAP_NYE_FEIL)return `<div class="rap-card rap-new-card">
+    <div class="rap-new-head"><div><div class="rap-new-week">Siden sist</div><h3>Nye kunder per grossist</h3><p>Kunne ikke hente kundelisten: ${esc(RAP_NYE_FEIL)}</p></div>
+    <button class="rap-new-export rap-noprint" onclick="hentRapNyeKunder()">Prøv igjen</button></div>
+  </div>`;
+  const d=RAP_NYE_KUNDER;
+  if(!d)return `<div class="rap-card rap-new-card"><div class="rap-new-head"><div><div class="rap-new-week">Siden sist</div><h3>Nye kunder per grossist</h3><p>Kundelisten lastes når rapporten åpnes.</p></div></div></div>`;
+
+  const grossister=(d.per_grossist||[]).map((g,i)=>{
+    const konsepter=k=>(k.konsepter||[]).map(n=>`<span class="rap-new-concept">${esc(rapKonseptNavn(n))}</span>`).join('')||'–';
+    const kunder=(g.kunder||[]).map(k=>`<tr>
+      <td><b>${esc(k.navn||k.kundenr||'–')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
+      <td>${konsepter(k)}</td>
+      <td class="tall">${fmtKr(k.omsetning_uke_kr||0)}</td>
+      <td class="tall">${fmtKr(k.omsetning_ytd_kr||0)}</td>
+    </tr>`).join('');
+    return `<details class="rap-new-details"${i===0?' open':''}>
+      <summary>
+        <span class="rap-new-name">${g.grossist_kode?`<span class="rap-new-code">${esc(g.grossist_kode)}</span>`:''}${esc(g.grossist_navn||'Ukjent grossist')}</span>
+        <span class="rap-new-count">${g.antall} ${g.antall===1?'kunde':'kunder'}</span>
+        <span class="rap-new-sum">${fmtKr(g.sum_uke_kr||0)}</span>
+        <span class="rap-new-chevron" aria-hidden="true">›</span>
+      </summary>
+      <div class="rap-new-kunder"><div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Kunde</th><th>Konsept</th><th class="tall">Første uke</th><th class="tall">YTD</th>
+      </tr></thead><tbody>${kunder}</tbody></table></div></div>
+    </details>`;
+  }).join('');
+
+  return `<div class="rap-card rap-new-card">
+    <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Nye kunder per grossist</h3>
+      <p>Første positive kjøpsuke i 2026. Åpne en grossist for å se alle kundene.</p></div>
+      ${d.antall?'<button class="rap-new-export rap-noprint" onclick="lastNyeKunderCsv()">Last ned alle</button>':''}
+    </div>
+    <div class="rap-new-stats">
+      <div class="rap-new-stat"><span class="k">Nye kunder</span><span class="v">${d.antall||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Grossister med nye</span><span class="v">${d.antall_grossister||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Omsetning første uke</span><span class="v">${fmtKr(d.sum_uke_kr||0)}</span></div>
+    </div>
+    ${grossister?`<div class="rap-new-list">${grossister}</div>`:'<div class="rap-empty" style="padding:18px">Ingen nye kunder i denne uken.</div>'}
+    <div class="rap-new-foot">${esc(d.definisjon||'')}</div>
+  </div>`;
+}
+
 function renderRapTotal(){
   const t=DASH.total||{y2025:0,y2026:0,vekst:0};
   const kons=DASH.konsepter||[];
@@ -6370,6 +6514,7 @@ function renderRapTotal(){
       <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta plain">nye / tapte (sesongjustert)</div></div>
     </div>
     ${insight}
+    ${renderRapNyeKunderUke()}
     <div class="rap-card">
       <h3>1. Hovedtall — omsetning per konsept</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
