@@ -3762,7 +3762,7 @@ function renderKlRisikoChip(){
   if(!el)return;
   if(klRisikoFiltr){
     el.style.display='';
-    el.innerHTML='<span class="d-badge roed" style="cursor:pointer" onclick="klFjernRisikoFilter()" title="Fjern filter">⚠ Kunder i risiko (konkurs/avvikling — ekskl. leads) ✕</span>';
+    el.innerHTML='<span class="d-badge roed" style="cursor:pointer" onclick="klFjernRisikoFilter()" title="Fjern filter">⚠ Aktive kunder i risiko (konkurs/avvikling — ekskl. leads) ✕</span>';
   }else{
     el.style.display='none';
     el.innerHTML='';
@@ -3792,9 +3792,11 @@ function kunderParams(){
   const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
   if(klRisikoFiltr){
     p.set('risiko','true');
-    // Samme avgrensning som dashboard-kortet «Kunder i risiko»: kun ekte kunder,
-    // ingen leads-rader (Lead/Sovende). Ellers stemmer ikke tallet med lista.
+    // Samme avgrensning som dashboard-kortet «Kunder i risiko»: ekte kunder
+    // (ingen leads/prospekter) som faktisk har omsetning i år. Ellers stemmer
+    // ikke tallet på kortet med antall rader i lista.
     p.set('kun_kunder','true');
+    p.set('kun_aktive','true');
   }
   return p;
 }
