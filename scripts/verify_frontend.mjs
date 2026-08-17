@@ -88,4 +88,8 @@ for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'las
   if (!html.includes(rapportfunksjon)) throw new Error(`Ukerapporten mangler nye-kunder-funksjonen ${rapportfunksjon}`);
 }
 
+for (const brregVern of ["p.set('ekskluder_brreg_risiko','true')", 'BRREG: konkurs/avvikling skjult']) {
+  if (!html.includes(brregVern)) throw new Error(`Leadlisten mangler BRREG-filteret: ${brregVern}`);
+}
+
 console.log(`OK: ${scripts.length} inline-script og ${katalog.rows.length} produkter validert`);

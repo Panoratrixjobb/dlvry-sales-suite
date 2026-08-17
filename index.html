@@ -1027,6 +1027,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 
         <div id="leadsActions" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
           <span id="leadsCount" class="d-t-label"></span>
+          <span class="d-t-label" title="Gjelder virksomheter som allerede er kontrollert og flagget av Brønnøysundregistrene">BRREG: konkurs/avvikling skjult</span>
           <span id="leadsSelInfo" style="font-size:12.5px;color:var(--primaer);font-weight:600"></span>
           <button id="leadsSelAll" class="d-knapp subtil sm" onclick="leadsVelgAlleTreff()" style="display:none">Velg alle treff</button>
           <button id="leadsClear" class="d-knapp subtil sm" onclick="leadsNullstill()" style="display:none">Nullstill valg</button>
@@ -1163,7 +1164,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <h3>BRREG-oppdatering</h3>
           <button id="brregRefreshBtn" class="d-knapp primar sm" onclick="sjekkBrregNa()">Sjekk BRREG nå</button>
         </div>
-        <p class="sub" style="margin:0">Oppdaterer manglende firmainfo og konkurs-/avviklingsstatus for alle kunder mot Brønnøysundregistrene. Kjøres automatisk ved innlogging (maks hver 7. dag / ny kalendermåned) — bruk knappen for å tvinge en oppdatering nå. Kan ta noen minutter for mange kunder.</p>
+        <p class="sub" style="margin:0">Oppdaterer manglende firmainfo og konkurs-/avviklingsstatus for kunder og leads mot Brønnøysundregistrene. Kjøres automatisk ved innlogging (maks hver 7. dag / ny kalendermåned) — bruk knappen for å tvinge en oppdatering nå. Oppslagene kjøres i effektive batcher og kan ta noen minutter.</p>
         <div id="brregRefreshStatus" style="font-size:13px;margin-top:10px"></div>
       </div>
 
@@ -3841,6 +3842,7 @@ async function klLastOgVis(){
     if(c.konkurs_flagg) risikoDeler.push('Konkurs registrert i BRREG');
     if(c.under_avvikling) risikoDeler.push('Under avvikling i BRREG');
     if(c.under_tvangsavvikling) risikoDeler.push('Under tvangsavvikling i BRREG');
+    if(c.brreg_avviklet) risikoDeler.push('Avviklet i BRREG');
     const risikoIkon=risikoDeler.length?'<span class="d-badge roed flat" title="'+esc(risikoDeler.join(' · '))+'">⚠</span>':'';
     const grossist=c.grossister||c.grossist_navn;
     const regionCell=c.region?('<span class="d-badge flat bla">'+esc(c.region)+'</span>'+(c.region_delt?' <span class="d-badge flat gul" title="Postnr delt mellom to regioner">Delt</span>':'')):dash;
@@ -3953,6 +3955,8 @@ async function mountLeads(){
 function leadsParams(extra){
   const p=new URLSearchParams();
   p.set('status',document.getElementById('leadsType').value||'Lead');
+  // Behold historikken i databasen, men hold BRREG-flaggede virksomheter ute av arbeidslisten.
+  p.set('ekskluder_brreg_risiko','true');
   const q=document.getElementById('leadsSearch').value.trim();
   if(q) p.set('q',q);
   const g=document.getElementById('leadsGrossist').value; if(g) p.set('grossist_id',g);
@@ -4858,7 +4862,7 @@ async function sjekkBrregNa(){
   try{
     await api('/api/brreg/refresh-na',{method:'POST'});
     st.style.color='var(--d-gronn)';
-    st.textContent='Startet — jobben kjører i bakgrunnen på serveren og kan ta noen minutter for mange kunder. Oppdaterte tall vises i Dashboard («Kunder i risiko») og Kundeliste når den er ferdig. Detaljert logg (inkl. konkurs/avvikling-endringer) føres i serverloggen.';
+    st.textContent='Startet — jobben kjører i bakgrunnen på serveren og kan ta noen minutter. Når den er ferdig, er konkurs-/avviklingsflaggede leads skjult fra leadlisten, og oppdaterte kundetall vises i Dashboard og Kundeliste.';
     toast('BRREG-oppdatering startet i bakgrunnen');
   }catch(e){
     st.style.color='var(--d-roed)';
