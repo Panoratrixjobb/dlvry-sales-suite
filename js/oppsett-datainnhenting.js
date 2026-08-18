@@ -120,8 +120,21 @@ async function hentFraPowerBI(bekreft){
       }
       // Importscope + integritetsfunn (funn #1): hvilke uker som faktisk skrives, hva som
       // holdes tilbake (fersk uke som ikke er i takt), og strukturelle blokkeringer.
+      // Hvor fersk modellen er, og hvor fersk importen blir. Står de likt, er alt som
+      // finnes hentet inn; spriker de, sier neste linje hvorfor.
+      const mh=s.modellen_har_data_til;
+      if(mh&&typeof mh==='object'){
+        html+=`<div class="sub" style="margin-top:4px">Modellen har omsetning t.o.m. <b>uke ${mh.uke} ${esc(mh.ukedag_navn)}</b> (${(mh.belop_den_dagen||0).toLocaleString('nb-NO')} kr den dagen).</div>`;
+      }else if(mh){
+        html+='<div class="sub" style="margin-top:4px">Modellen ga ingen dagsdata.</div>';
+      }
       if(s.importeres_til_uke!=null){
         html+=`<div class="sub" style="margin-top:4px">Importeres til og med uke <b>${s.importeres_til_uke}</b>.</div>`;
+      }
+      const fh=s.fersk_omsetning_holdt_tilbake;
+      if(fh){
+        html+=`<div style="margin-top:6px;color:var(--d-gul,#b8860b);font-weight:600">⚠ Modellen er ferskere enn importen: modellen har data til ${esc(fh.modellen_til)}, men det skrives bare ${esc(fh.importeres_til)}.</div>`
+          +`<div class="sub" style="color:var(--d-gul,#b8860b)">${esc(fh.arsak)}</div>`;
       }
       const bf=s.blokkerende_funn||{};
       if(bf.konsepter_mangler_i_uttrekk){
