@@ -37,6 +37,14 @@ function settOppsettFane(fane){
   // ferdig/pågående kjøring ut som om ingenting noensinne skjedde. Vis siste kjente status
   // hver gang fanen åpnes, ikke bare mens man selv står og poller.
   if(fane==='data'&&OPPSETT_ER_ADMIN)visSisteBakgrunnsjobber();
+  // Formel-konfig lastes ikke av seg selv, og et tomt panel ser ut som om innholdet ikke
+  // finnes — Manuele lette forgjeves etter Konsernselskaper 18.08. Last det når fanen
+  // åpnes, men bare hvis det er tomt, så «↻ Last konfig» fortsatt er en ekte oppfrisking
+  // og et pågående skjema ikke blir overskrevet.
+  if(fane==='beregning'&&OPPSETT_ER_ADMIN&&typeof lastFormelkonfig==='function'){
+    const el=document.getElementById('fkInnhold');
+    if(el&&!el.innerHTML.trim())lastFormelkonfig();
+  }
 }
 
 async function visSisteBakgrunnsjobber(){

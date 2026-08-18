@@ -5317,7 +5317,9 @@ function renderFormelkonfig(){
   // Konsernselskaper
   const ks=d.konsern_selskap||[];
   const aktive=ks.filter(x=>x.aktiv).length;
-  html+='<details style="margin-bottom:16px"><summary style="cursor:pointer;font-size:12.5px"><b>Konsernselskaper</b> <span class="sub">— '+aktive+' aktive org.nr. Salg til disse regnes som konserninternt.</span></summary>';
+  const medPeriode=ks.filter(x=>x.aktiv&&x.periode&&x.periode!=='alltid').length;
+  html+='<details id="fkKonsernDetails" style="margin-bottom:16px"><summary style="cursor:pointer;font-size:12.5px"><b>Konsernselskaper</b> <span class="sub">— '+aktive+' aktive org.nr. Salg til disse regnes som konserninternt.'
+    +(medPeriode?' '+medPeriode+' har begrenset periode.':' Klikk for å sette periode for selskaper som er kjøpt eller solgt.')+'</span></summary>';
   html+='<p class="sub" style="margin:6px 0">Mangler et selskap her, telles salg til det som eksternt og varen blir dobbelttalt mot sluttsalget. Filialkontoer trenger ikke egen rad — de bærer morselskapets org.nr.</p>';
   html+='<p class="sub" style="margin:6px 0"><b>Periode:</b> tomt betyr «alltid». Er et selskap kjøpt inn i eller solgt ut av konsernet, sett fra/til — da er salget internt bare i det tidsrommet, og eksternt utenfor. Klikk et selskap for å endre det.</p>';
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
