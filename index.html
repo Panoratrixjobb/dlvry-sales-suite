@@ -6133,19 +6133,112 @@ function setRapTab(tab){
 // Bygget fordi elimineringen ellers bare viser seg som et dashbordtall som er «litt for
 // lavt», uten noe sted å slå opp hvorfor. Med denne er hver eliminert krone sporbar til
 // kundekonto, og en RIKTIG eliminering er mulig å skille fra en feilregistrert kunde.
-let RAP_KI_AR = 2026;
-function settRapKiAr(ar){ RAP_KI_AR = +ar; lastRapKonsernintern(); }
+const RAP_KI = {ar:2026, data:null, grossist:'', kjoper:'', konsept:'', sok:'',
+                sortKol:'belop', sortNed:true};
+
+function settRapKiAr(ar){
+  RAP_KI.ar=+ar;
+  RAP_KI.grossist=RAP_KI.kjoper=RAP_KI.konsept=RAP_KI.sok='';
+  lastRapKonsernintern();
+}
+function rapKiFilter(felt,verdi){ RAP_KI[felt]=verdi; renderRapKiDetalj(); }
+function rapKiNullstill(){ RAP_KI.grossist=RAP_KI.kjoper=RAP_KI.konsept=RAP_KI.sok=''; renderRapKiDetalj(); }
+
+// Klikk på en grossist i sammendraget filtrerer detaljlista. Det er den vanligste veien
+// inn: man ser at D22 ligger 2 % under, og vil straks vite HVEM de har solgt til.
+function rapKiVelgGrossist(navn){
+  RAP_KI.grossist = (RAP_KI.grossist===navn ? '' : navn);
+  renderRapKiDetalj();
+  const el=document.getElementById('rapKiDetalj');
+  if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function rapKiSorter(kol){
+  if(RAP_KI.sortKol===kol){ RAP_KI.sortNed=!RAP_KI.sortNed; }
+  else { RAP_KI.sortKol=kol; RAP_KI.sortNed=(kol==='belop'); }  // tall starter høyest først
+  renderRapKiDetalj();
+}
+
+function rapKiUtvalg(){
+  const d=RAP_KI.data;
+  if(!d)return [];
+  const q=RAP_KI.sok.trim().toLowerCase();
+  const rader=d.rader.filter(x=>
+       (!RAP_KI.grossist || x.grossist===RAP_KI.grossist)
+    && (!RAP_KI.kjoper   || (x.kjoper||'')===RAP_KI.kjoper)
+    && (!RAP_KI.konsept  || x.konsept===RAP_KI.konsept)
+    && (!q || ((x.kundenavn||'')+' '+x.kundenr+' '+(x.orgnr||'')).toLowerCase().includes(q)));
+  const kol=RAP_KI.sortKol;
+  rader.sort((a,b)=>{
+    const av=a[kol], bv=b[kol];
+    const c=(typeof av==='number'&&typeof bv==='number')
+      ? av-bv
+      : String(av==null?'':av).localeCompare(String(bv==null?'':bv),'nb');
+    return RAP_KI.sortNed ? -c : c;
+  });
+  return rader;
+}
+
+function renderRapKiDetalj(){
+  const el=document.getElementById('rapKiDetalj');
+  if(!el||!RAP_KI.data)return;
+  const d=RAP_KI.data;
+  const kr=v=>(v||0).toLocaleString('nb-NO');
+  const unike=f=>[...new Set(d.rader.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'nb'));
+  const valg=(felt,tekst,liste)=>'<select class="d-input" style="width:auto" onchange="rapKiFilter(\''+felt+'\',this.value)">'
+    +'<option value="">'+tekst+'</option>'
+    +liste.map(v=>'<option value="'+esc(v)+'"'+(RAP_KI[felt]===v?' selected':'')+'>'+esc(v)+'</option>').join('')
+    +'</select>';
+
+  const rader=rapKiUtvalg();
+  const sum=rader.reduce((a,r)=>a+(r.belop||0),0);
+  const filtrert=rader.length!==d.rader.length;
+
+  const kolonner=[
+    ['grossist','Grossist',''],['kundenr','Kundenr',''],['kundenavn','Kundenavn',''],
+    ['orgnr','Org.nr',''],['kjoper','Kjøper',''],['konsept','Konsept',''],
+    ['belop','Beløp','tall'],['kilde','Kilde',''],
+  ];
+  const hode=kolonner.map(([k,tekst,kl])=>
+    '<th class="'+kl+'" style="cursor:pointer;user-select:none" onclick="rapKiSorter(\''+k+'\')" title="Sorter på '+esc(tekst)+'">'
+    +esc(tekst)+(RAP_KI.sortKol===k?(RAP_KI.sortNed?' ▾':' ▴'):'')+'</th>').join('');
+
+  el.innerHTML='<h3 style="margin-top:14px">Hver enkelt kundekonto</h3>'
+    +'<div class="rap-card-note">Klikk en kolonneoverskrift for å sortere. «Kilde» sier om raden ble fanget av '
+    +'org.nr-oppslaget eller av en manuell regel i Oppsett — er en av disse en ekte ekstern kunde, er den '
+    +'feilregistrert og skal rettes i modellen.</div>'
+    +'<div class="d-verktoy" style="margin:8px 0;flex-wrap:wrap;gap:8px">'
+    +valg('grossist','Alle grossister',unike(r=>r.grossist))
+    +valg('kjoper','Alle kjøpere',unike(r=>r.kjoper))
+    +valg('konsept','Alle konsepter',unike(r=>r.konsept))
+    +'<input class="d-input" style="width:220px" placeholder="Søk kundenavn, kundenr, org.nr" '
+    +'value="'+esc(RAP_KI.sok)+'" oninput="RAP_KI.sok=this.value;renderRapKiDetalj()">'
+    +(filtrert?'<button class="d-knapp subtil sm" onclick="rapKiNullstill()">Nullstill</button>':'')
+    +'</div>'
+    +'<div style="font-size:13px;margin-bottom:8px">Viser <b>'+rader.length+'</b> av '+d.rader.length+' rader'
+    +' · Sum i utvalget: <b>'+kr(Math.round(sum))+' kr</b></div>'
+    +(rader.length
+      ? '<div class="table-wrap"><table class="d-tabell tett" style="min-width:900px"><thead><tr>'+hode+'</tr></thead><tbody>'
+        +rader.map(r=>'<tr><td>'+esc(r.grossist)+'</td><td>'+esc(r.kundenr)+'</td>'
+          +'<td>'+esc(r.kundenavn||'')+'</td><td>'+esc(r.orgnr||'—')+'</td>'
+          +'<td>'+esc(r.kjoper||'—')+'</td><td>'+esc(r.konsept)+'</td>'
+          +'<td class="tall">'+kr(r.belop)+'</td>'
+          +'<td class="d-sub">'+esc(r.kilde||'')+(r.regel_kommentar?' — '+esc(r.regel_kommentar):'')+'</td></tr>').join('')
+        +'</tbody></table></div>'
+      : '<div class="rap-empty">Ingen rader i utvalget.</div>');
+}
 
 async function lastRapKonsernintern(){
   const el=document.getElementById('rapInnhold');
   el.innerHTML='<div class="rap-card"><div class="rap-empty">Laster konsernintern fakturering…</div></div>';
   let d;
-  try{ d=await api('/api/dashboard-excel/konsernintern?ar='+RAP_KI_AR); }
+  try{ d=await api('/api/dashboard-excel/konsernintern?ar='+RAP_KI.ar); }
   catch(e){ el.innerHTML='<div class="rap-card"><div class="rap-empty" style="color:var(--d-roed)">Feil: '+esc(e.message)+'</div></div>'; return; }
+  RAP_KI.data=d;
 
   const kr=v=>(v||0).toLocaleString('nb-NO');
   const mnok=v=>((v||0)/1e6).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1});
-  const arValg=[2024,2025,2026].map(a=>'<option value="'+a+'"'+(a===RAP_KI_AR?' selected':'')+'>'+a+'</option>').join('');
+  const arValg=[2024,2025,2026].map(a=>'<option value="'+a+'"'+(a===RAP_KI.ar?' selected':'')+'>'+a+'</option>').join('');
 
   let h='<div class="rap-card">'
     +'<h3>Konsernintern fakturering '+d.ar+' <span class="sub" style="font-weight:400">(t.o.m. uke '+d.til_uke+')</span></h3>'
@@ -6162,11 +6255,13 @@ async function lastRapKonsernintern(){
   }
 
   h+='<h3 style="margin-top:14px">Per selgende grossist</h3>'
-    +'<div class="rap-card-note">«Andel» er hvor mange prosent lavere appens tall ligger for denne grossisten.</div>'
-    +'<div class="table-wrap"><table class="d-tabell" style="min-width:640px"><thead><tr>'
+    +'<div class="rap-card-note">«Andel» er hvor mange prosent lavere appens tall ligger for denne grossisten. '
+    +'Klikk en rad for å se hvem den grossisten har solgt til.</div>'
+    +'<div class="table-wrap"><table class="d-tabell klikkbar" style="min-width:640px"><thead><tr>'
     +'<th>Grossist</th><th class="tall">Kunder</th><th class="tall">Konsernintern</th>'
     +'<th class="tall">Brutto</th><th class="tall">Andel</th></tr></thead><tbody>'
-    +d.per_grossist.map(g=>'<tr><td>'+esc(g.grossist)+'</td>'
+    +d.per_grossist.map(g=>'<tr onclick="rapKiVelgGrossist(\''+g.grossist.replace(/'/g,"\\'")+'\')">'
+      +'<td>'+esc(g.grossist)+'</td>'
       +'<td class="tall">'+g.antall_kunder+'</td>'
       +'<td class="tall">'+kr(g.belop)+'</td>'
       +'<td class="tall" style="color:var(--d-tekst-3)">'+kr(g.brutto)+'</td>'
@@ -6185,20 +6280,9 @@ async function lastRapKonsernintern(){
     +d.per_konsept.map(x=>'<tr><td>'+esc(x.konsept)+'</td><td class="tall">'+kr(x.belop)+'</td></tr>').join('')
     +'</tbody></table></div>';
 
-  h+='<h3 style="margin-top:14px">Hver enkelt kundekonto</h3>'
-    +'<div class="rap-card-note">Sorteres etter beløp. «Kilde» sier om raden ble fanget av org.nr-oppslaget '
-    +'eller av en manuell regel i Oppsett — er en av disse en ekte ekstern kunde, er den feilregistrert og skal rettes i modellen.</div>'
-    +'<div class="table-wrap"><table class="d-tabell" style="min-width:900px"><thead><tr>'
-    +'<th>Grossist</th><th>Kundenr</th><th>Kundenavn</th><th>Org.nr</th><th>Kjøper</th>'
-    +'<th>Konsept</th><th class="tall">Beløp</th><th>Kilde</th></tr></thead><tbody>'
-    +d.rader.map(r=>'<tr><td>'+esc(r.grossist)+'</td><td>'+esc(r.kundenr)+'</td>'
-      +'<td>'+esc(r.kundenavn||'')+'</td><td>'+esc(r.orgnr||'—')+'</td>'
-      +'<td>'+esc(r.kjoper||'—')+'</td><td>'+esc(r.konsept)+'</td>'
-      +'<td class="tall">'+kr(r.belop)+'</td>'
-      +'<td class="sub">'+esc(r.kilde)+(r.regel_kommentar?' — '+esc(r.regel_kommentar):'')+'</td></tr>').join('')
-    +'</tbody></table></div></div>';
-
+  h+='<div id="rapKiDetalj"></div></div>';
   el.innerHTML=h;
+  renderRapKiDetalj();
 }
 
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
