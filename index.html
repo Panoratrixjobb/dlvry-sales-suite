@@ -5319,15 +5319,23 @@ function renderFormelkonfig(){
   const aktive=ks.filter(x=>x.aktiv).length;
   html+='<details style="margin-bottom:16px"><summary style="cursor:pointer;font-size:12.5px"><b>Konsernselskaper</b> <span class="sub">— '+aktive+' aktive org.nr. Salg til disse regnes som konserninternt.</span></summary>';
   html+='<p class="sub" style="margin:6px 0">Mangler et selskap her, telles salg til det som eksternt og varen blir dobbelttalt mot sluttsalget. Filialkontoer trenger ikke egen rad — de bærer morselskapets org.nr.</p>';
+  html+='<p class="sub" style="margin:6px 0"><b>Periode:</b> tomt betyr «alltid». Er et selskap kjøpt inn i eller solgt ut av konsernet, sett fra/til — da er salget internt bare i det tidsrommet, og eksternt utenfor. Klikk et selskap for å endre det.</p>';
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'
-    +ks.map(r=>'<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:12px'+(r.aktiv?'':';opacity:.45')+'">'
+    +ks.map(r=>'<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer'+(r.aktiv?'':';opacity:.45')+'"'
+      +' title="Klikk for å endre periode" onclick="fyllKonsernSkjema('+esc(JSON.stringify(JSON.stringify(r)))+')">'
       +'<b>'+esc(r.orgnr)+'</b> '+esc(r.navn)
-      +(r.aktiv?'<button class="d-knapp subtil sm" style="padding:0 5px" title="Deaktiver" onclick="deaktiverKonsern(\''+esc(r.orgnr)+'\')">×</button>':'<i class="sub">av</i>')
+      +(r.periode&&r.periode!=='alltid'?' <i class="sub" style="color:var(--d-gul,#b8860b)">'+esc(r.periode)+'</i>':'')
+      +(r.aktiv?'<button class="d-knapp subtil sm" style="padding:0 5px" title="Deaktiver" onclick="event.stopPropagation();deaktiverKonsern(\''+esc(r.orgnr)+'\')">×</button>':'<i class="sub">av</i>')
       +'</span>').join('')+'</div>';
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-    +'<input id="fkKonsernOrgnr" class="d-input" style="width:120px" placeholder="Org.nr (9 siffer)">'
-    +'<input id="fkKonsernNavn" class="d-input" style="width:220px" placeholder="Selskapsnavn">'
-    +'<button class="d-knapp primar sm" onclick="leggTilKonsern()">+ Legg til</button>'
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px"><span class="sub">Org.nr</span><input id="fkKonsernOrgnr" class="d-input" style="width:120px" placeholder="9 siffer"></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px"><span class="sub">Selskapsnavn</span><input id="fkKonsernNavn" class="d-input" style="width:220px"></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px"><span class="sub">Intern fra år/uke</span>'
+    +'<span style="display:flex;gap:4px"><input id="fkKonsernFraAr" type="number" class="d-input" style="width:70px" placeholder="år"><input id="fkKonsernFraUke" type="number" min="1" max="53" class="d-input" style="width:60px" placeholder="uke"></span></label>'
+    +'<label style="display:flex;flex-direction:column;gap:3px;font-size:11.5px"><span class="sub">Intern t.o.m. år/uke</span>'
+    +'<span style="display:flex;gap:4px"><input id="fkKonsernTilAr" type="number" class="d-input" style="width:70px" placeholder="år"><input id="fkKonsernTilUke" type="number" min="1" max="53" class="d-input" style="width:60px" placeholder="uke"></span></label>'
+    +'<button class="d-knapp primar sm" onclick="leggTilKonsern()">Lagre</button>'
+    +'<button class="d-knapp subtil sm" onclick="fyllKonsernSkjema()">Tøm</button>'
     +'<span id="fkKonsernStatus" class="sub"></span></div></details>';
   // — Låste (avsluttede) perioder —
   html+='<h4 style="margin:0 0 6px;font-size:13px">Låste perioder</h4>';
@@ -5494,13 +5502,34 @@ async function slettFlytting(id){
   try{ await api('/api/formelkonfig/flytting/'+id,{method:'DELETE'}); await lastFormelkonfig(); }
   catch(e){alert('Feil: '+e.message);}
 }
+// Klikk på et selskap fyller skjemaet — POST-en er en upsert, så «Lagre» oppdaterer
+// den eksisterende raden i stedet for å lage en ny. Uten argument tømmer den skjemaet.
+function fyllKonsernSkjema(json){
+  const r=json?JSON.parse(json):{};
+  const sett=(id,v)=>{const el=document.getElementById(id);if(el)el.value=(v==null?'':v);};
+  sett('fkKonsernOrgnr',r.orgnr); sett('fkKonsernNavn',r.navn);
+  sett('fkKonsernFraAr',r.fra_ar); sett('fkKonsernFraUke',r.fra_uke);
+  sett('fkKonsernTilAr',r.til_ar); sett('fkKonsernTilUke',r.til_uke);
+  const st=document.getElementById('fkKonsernStatus');
+  if(st)st.textContent=r.orgnr?'Endrer '+r.navn+' — «Lagre» oppdaterer raden.':'';
+}
+
 async function leggTilKonsern(){
   const st=document.getElementById('fkKonsernStatus');
+  const tall=id=>{const v=(document.getElementById(id)||{}).value;return v&&v.trim()?+v:null;};
   const orgnr=document.getElementById('fkKonsernOrgnr').value.trim();
   const navn=document.getElementById('fkKonsernNavn').value.trim();
   if(!orgnr||!navn){st.textContent='Oppgi både org.nr og navn.';return;}
+  const body={orgnr:orgnr,navn:navn,
+    fra_ar:tall('fkKonsernFraAr'), fra_uke:tall('fkKonsernFraUke'),
+    til_ar:tall('fkKonsernTilAr'), til_uke:tall('fkKonsernTilUke')};
+  // En uke uten år ville blitt stille ignorert av backend — si fra i stedet.
+  if((body.fra_uke&&!body.fra_ar)||(body.til_uke&&!body.til_ar)){
+    st.innerHTML='<span style="color:var(--d-roed)">Oppgi år når du oppgir uke.</span>';return;
+  }
   try{
-    await api('/api/formelkonfig/konsern',{method:'POST',body:{orgnr:orgnr,navn:navn}});
+    await api('/api/formelkonfig/konsern',{method:'POST',body});
+    fyllKonsernSkjema();
     await lastFormelkonfig();
   }catch(e){st.innerHTML='<span style="color:var(--d-roed)">'+esc(e.message)+'</span>';}
 }
