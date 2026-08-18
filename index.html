@@ -485,10 +485,15 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-new-kunder .d-tabell{margin:0}
 .rap-new-concept{display:inline-block;border-radius:999px;background:var(--bg);color:var(--muted);font-size:10px;padding:2px 6px;margin:1px 3px 1px 0;white-space:nowrap}
 .rap-new-foot{padding:9px 18px 12px;border-top:1px solid var(--line);font-size:10.5px;line-height:1.45;color:var(--muted)}
+.rap-new-btns{flex:none;display:flex;flex-wrap:wrap;gap:7px}
+.rap-new-actions{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:2px 5px 10px;font-size:10.5px;color:var(--muted)}
+.rap-new-minibtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:7px;padding:4px 9px;font-family:inherit;font-size:10.5px;font-weight:700;cursor:pointer}
+.rap-new-minibtn:hover{background:var(--bg)}
+.rap-new-minibtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 
 @media(max-width:700px){
   .rap-new-head{align-items:stretch;flex-direction:column}
-  .rap-new-export{align-self:flex-start}
+  .rap-new-btns{align-self:flex-start}
   .rap-new-stats{grid-template-columns:1fr}
   .rap-new-stat{border-right:0;border-bottom:1px solid var(--line)}
   .rap-new-stat:last-child{border-bottom:0}
@@ -529,7 +534,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
   body{background:#fff!important}
   .rap-card,.rap-kpi{box-shadow:none!important;break-inside:avoid}
   .rap-new-kunder{display:block!important}
-  .rap-new-export,.rap-new-chevron{display:none!important}
+  .rap-new-export,.rap-new-chevron,.rap-new-actions{display:none!important}
 }
 
 </style>
@@ -6721,34 +6726,135 @@ function rapKonseptNavn(nokkel){
   return AN_NAVN_FOR_KEY[nokkel]||String(nokkel||'').replaceAll('_',' ');
 }
 
-function lastNyeKunderCsv(){
-  const d=RAP_NYE_KUNDER;
-  if(!d||!d.per_grossist)return;
+// ============ Eksport av nye/tapte kunder ============
+// Manuele 18.08.2026: lista skal kunne tas ut «pr. grossist eller for hele lista».
+// Alle eksportene gaar derfor gjennom samme utvalg: idx === null/undefined = hele lista,
+// ellers indeksen i per_grossist - samme rekkefolge som kortene paa skjermen.
+function rapKundeSett(type){
+  return type==='nye'?RAP_NYE_KUNDER:(RAP_NYE_KUNDER&&RAP_NYE_KUNDER.tapte);
+}
+function rapKundeGrupper(d,idx){
+  if(!d||!d.per_grossist||!d.per_grossist.length)return null;
+  if(idx==null||idx<0)return d.per_grossist;
+  const g=d.per_grossist[idx];
+  return g?[g]:null;
+}
+function rapGrossistEtikett(g){
+  return ((g.grossist_kode?g.grossist_kode+' ':'')+(g.grossist_navn||'Ukjent grossist')).trim();
+}
+// Filnavnet skal kunne sendes videre uten at Windows klager paa tegnene.
+function rapFilnavnBit(s){
+  return String(s||'').replace(/[^0-9A-Za-zæøåÆØÅ -]/g,'').trim().replace(/\s+/g,'_');
+}
+function rapEksportSuffiks(grupper,idx){
+  return (idx==null||idx<0)?'':'-'+rapFilnavnBit(grupper[0].grossist_kode||grupper[0].grossist_navn);
+}
+function rapEksportMangler(){ toast('Ingen kundeliste å eksportere ennå.'); }
+
+function rapLastNedCsv(rader,filnavn){
   const celle=v=>'"'+String(v==null?'':v).replaceAll('"','""')+'"';
-  const rader=[['Uke','Grossistkode','Grossist','Region','Kundenummer','Kundenavn','Org.nr.','Konsept','Omsetning første uke','Omsetning YTD']];
-  d.per_grossist.forEach(g=>(g.kunder||[]).forEach(k=>rader.push([
-    d.uke,g.grossist_kode||'',g.grossist_navn||'',g.region||'',k.kundenr||'',k.navn||'',k.orgnr||'',
-    (k.konsepter||[]).map(rapKonseptNavn).join(', '),k.omsetning_uke_kr||0,k.omsetning_ytd_kr||0
-  ])));
   const blob=new Blob(['\ufeff'+rader.map(r=>r.map(celle).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='nye-kunder-uke-'+d.uke+'.csv';document.body.appendChild(a);a.click();a.remove();
+  a.href=url;a.download=filnavn;document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 
-function lastTapteKunderCsv(){
+function lastNyeKunderCsv(idx){
+  const d=RAP_NYE_KUNDER;
+  const grupper=rapKundeGrupper(d,idx);
+  if(!grupper)return rapEksportMangler();
+  const rader=[['Uke','Grossistkode','Grossist','Region','Kundenummer','Kundenavn','Org.nr.','Konsept','Omsetning første uke','Omsetning YTD']];
+  grupper.forEach(g=>(g.kunder||[]).forEach(k=>rader.push([
+    d.uke,g.grossist_kode||'',g.grossist_navn||'',g.region||'',k.kundenr||'',k.navn||'',k.orgnr||'',
+    (k.konsepter||[]).map(rapKonseptNavn).join(', '),k.omsetning_uke_kr||0,k.omsetning_ytd_kr||0
+  ])));
+  rapLastNedCsv(rader,'nye-kunder-uke-'+d.uke+rapEksportSuffiks(grupper,idx)+'.csv');
+}
+
+function lastTapteKunderCsv(idx){
   const d=RAP_NYE_KUNDER&&RAP_NYE_KUNDER.tapte;
-  if(!d||!d.per_grossist)return;
-  const celle=v=>'"'+String(v==null?'':v).replaceAll('"','""')+'"';
+  const grupper=rapKundeGrupper(d,idx);
+  if(!grupper)return rapEksportMangler();
   const rader=[['Uke','Grossistkode','Grossist','Region','Kundenummer','Kundenavn','Org.nr.','Konsept','Omsetning 2025']];
-  d.per_grossist.forEach(g=>(g.kunder||[]).forEach(k=>rader.push([
+  grupper.forEach(g=>(g.kunder||[]).forEach(k=>rader.push([
     d.uke,g.grossist_kode||'',g.grossist_navn||'',g.region||'',k.kundenr||'',k.navn||'',k.orgnr||'',
     (k.konsepter||[]).map(rapKonseptNavn).join(', '),k.omsetning_2025_kr||0
   ])));
-  const blob=new Blob(['\ufeff'+rader.map(r=>r.map(celle).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='tapte-kunder-uke-'+d.uke+'.csv';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),0);
+  rapLastNedCsv(rader,'tapte-kunder-uke-'+d.uke+rapEksportSuffiks(grupper,idx)+'.csv');
+}
+
+// PDF-en er den som faktisk sendes rundt internt - den skal derfor staa paa egne bein:
+// uke, utvalg og definisjon skrevet ut, én tabell per grossist og sum nederst.
+function rapKundelistePdf(type,idx){
+  const nye=type==='nye';
+  const d=rapKundeSett(type);
+  const grupper=rapKundeGrupper(d,idx);
+  if(!grupper)return rapEksportMangler();
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF();
+  const idag=new Date().toLocaleDateString('nb-NO');
+  const hele=(idx==null||idx<0);
+
+  doc.setFontSize(16); doc.text(nye?'Nye kunder per grossist':'Tapte kunder per grossist',14,18);
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('DLVRY · Ukerapport · uke '+(d.uke||'–')+' · generert '+idag,14,24);
+  doc.text('Utvalg: '+(hele?'alle grossister':rapGrossistEtikett(grupper[0])),14,29);
+  let y=36;
+  if(d.definisjon){
+    const linjer=doc.splitTextToSize(String(d.definisjon),182);
+    doc.text(linjer,14,34);
+    y=34+linjer.length*4+4;
+  }
+  doc.setTextColor(0);
+
+  let antTot=0,sumTot=0;
+  grupper.forEach(g=>{
+    const kunder=g.kunder||[];
+    const sumG=kunder.reduce((sum,k)=>sum+(nye?(k.omsetning_uke_kr||0):(k.omsetning_2025_kr||0)),0);
+    antTot+=kunder.length; sumTot+=sumG;
+    if(y>250){doc.addPage();y=20;}
+    doc.setFontSize(11);
+    doc.text(rapGrossistEtikett(g)+'  ·  '+kunder.length+(kunder.length===1?' kunde':' kunder')+'  ·  '+fmtKr(sumG),14,y);
+    const head=nye?[['Kunde','Kundenr.','Org.nr.','Konsept','Første uke','YTD']]
+                  :[['Kunde','Kundenr.','Org.nr.','Konsept','Omsetning 2025']];
+    const body=kunder.map(k=>{
+      const navn=k.navn&&k.navn!==k.kundenr?k.navn:'Navn mangler i kilden';
+      const felles=[navn,k.kundenr||'–',k.orgnr||'',(k.konsepter||[]).map(rapKonseptNavn).join(', ')];
+      return nye?felles.concat([fmtKr(k.omsetning_uke_kr||0),fmtKr(k.omsetning_ytd_kr||0)])
+                :felles.concat([fmtKr(k.omsetning_2025_kr||0)]);
+    });
+    const tomRad=nye?['Ingen kunder','','','','','']:['Ingen kunder','','','',''];
+    doc.autoTable({
+      startY:y+4,
+      head,
+      body:body.length?body:[tomRad],
+      styles:{fontSize:8,cellPadding:2,overflow:'linebreak'},
+      headStyles:{fillColor:[58,45,42]},
+      columnStyles:nye?{4:{halign:'right',cellWidth:24},5:{halign:'right',cellWidth:24}}
+                      :{4:{halign:'right',cellWidth:30}},
+      margin:{top:18,left:14,right:14}
+    });
+    y=doc.lastAutoTable.finalY+11;
+  });
+
+  if(grupper.length>1){
+    if(y>265){doc.addPage();y=20;}
+    doc.setFontSize(11);
+    doc.text('TOTALT: '+antTot+(antTot===1?' kunde':' kunder')+' hos '+grupper.length+' grossister  ·  '+fmtKr(sumTot),14,y);
+  }
+  doc.save((nye?'nye-kunder-uke-':'tapte-kunder-uke-')+d.uke+rapEksportSuffiks(grupper,idx)+'.pdf');
+}
+
+// Grossistene staar lukket naar rapporten aapnes (Manuele 18.08.2026: oversikten holder,
+// selve kundelista skal vaere et aktivt valg). Denne knappen er snarveien for den som
+// likevel vil se alt - og for utskrift, der en lukket <details> ellers ikke kommer med.
+function rapToggleAlleGrossister(btn){
+  const kort=btn.closest('.rap-new-card'); if(!kort)return;
+  const alle=kort.querySelectorAll('details.rap-new-details');
+  if(!alle.length)return;
+  const apne=Array.from(alle).some(d=>!d.open);
+  alle.forEach(d=>{d.open=apne;});
+  btn.textContent=apne?'Lukk alle':'Åpne alle';
 }
 
 function renderRapNyeKunderUke(){
@@ -6770,14 +6876,18 @@ function renderRapNyeKunderUke(){
       <td class="tall">${fmtKr(k.omsetning_uke_kr||0)}</td>
       <td class="tall">${fmtKr(k.omsetning_ytd_kr||0)}</td>
     </tr>`).join('');
-    return `<details class="rap-new-details"${i===0?' open':''}>
+    return `<details class="rap-new-details">
       <summary>
         <span class="rap-new-name">${g.grossist_kode?`<span class="rap-new-code">${esc(g.grossist_kode)}</span>`:''}${esc(g.grossist_navn||'Ukjent grossist')}</span>
         <span class="rap-new-count">${g.antall} ${g.antall===1?'kunde':'kunder'}</span>
         <span class="rap-new-sum">${fmtKr(g.sum_uke_kr||0)}</span>
         <span class="rap-new-chevron" aria-hidden="true">›</span>
       </summary>
-      <div class="rap-new-kunder"><div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+      <div class="rap-new-kunder">
+        <div class="rap-new-actions rap-noprint"><span>Eksporter denne grossisten:</span>
+          <button class="rap-new-minibtn" onclick="rapKundelistePdf('nye',${i})">PDF</button>
+          <button class="rap-new-minibtn" onclick="lastNyeKunderCsv(${i})">CSV</button></div>
+        <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Kunde</th><th>Konsept</th><th class="tall">Første uke</th><th class="tall">YTD</th>
       </tr></thead><tbody>${kunder}</tbody></table></div></div>
     </details>`;
@@ -6785,8 +6895,12 @@ function renderRapNyeKunderUke(){
 
   return `<div class="rap-card rap-new-card">
     <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Nye kunder per grossist</h3>
-      <p>Første positive kjøpsuke i 2026. Åpne en grossist for å se alle kundene.</p></div>
-      ${d.antall?'<button class="rap-new-export rap-noprint" onclick="lastNyeKunderCsv()">Last ned alle</button>':''}
+      <p>Første positive kjøpsuke i 2026. Tallene under er hele oversikten — åpne en grossist når du vil se kundene.</p></div>
+      ${d.antall?`<div class="rap-new-btns rap-noprint">
+        <button class="rap-new-export" onclick="rapKundelistePdf('nye')">Hele lista (PDF)</button>
+        <button class="rap-new-export" onclick="lastNyeKunderCsv()">Hele lista (CSV)</button>
+        <button class="rap-new-export" onclick="rapToggleAlleGrossister(this)">Åpne alle</button>
+      </div>`:''}
     </div>
     <div class="rap-new-stats">
       <div class="rap-new-stat"><span class="k">Nye kunder</span><span class="v">${d.antall||0}</span></div>
@@ -6807,19 +6921,27 @@ function renderRapTapteKunderUke(){
       <td>${(k.konsepter||[]).map(n=>`<span class="rap-new-concept">${esc(rapKonseptNavn(n))}</span>`).join('')||'–'}</td>
       <td class="tall">${fmtKr(k.omsetning_2025_kr||0)}</td>
     </tr>`).join('');
-    return `<details class="rap-new-details"${i===0?' open':''}>
+    return `<details class="rap-new-details">
       <summary><span class="rap-new-name">${g.grossist_kode?`<span class="rap-new-code">${esc(g.grossist_kode)}</span>`:''}${esc(g.grossist_navn||'Ukjent grossist')}</span>
         <span class="rap-new-count">${g.antall} ${g.antall===1?'kunde':'kunder'}</span>
         <span class="rap-new-sum">${fmtKr(g.sum_2025_kr||0)}</span><span class="rap-new-chevron" aria-hidden="true">›</span></summary>
-      <div class="rap-new-kunder"><div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+      <div class="rap-new-kunder">
+        <div class="rap-new-actions rap-noprint"><span>Eksporter denne grossisten:</span>
+          <button class="rap-new-minibtn" onclick="rapKundelistePdf('tapte',${i})">PDF</button>
+          <button class="rap-new-minibtn" onclick="lastTapteKunderCsv(${i})">CSV</button></div>
+        <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Kunde</th><th>Konsept</th><th class="tall">Omsetning 2025</th>
       </tr></thead><tbody>${kunder}</tbody></table></div></div>
     </details>`;
   }).join('');
   return `<div class="rap-card rap-new-card">
     <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Tapte kunder per grossist</h3>
-      <p>Sesongjustert: kunder som gikk fra «venter» til «tapt» denne uka. Åpne en grossist for navn og kundenummer.</p></div>
-      ${d.antall?'<button class="rap-new-export rap-noprint" onclick="lastTapteKunderCsv()">Last ned alle</button>':''}</div>
+      <p>Sesongjustert: kunder som gikk fra «venter» til «tapt» denne uka. Tallene under er hele oversikten — åpne en grossist når du vil ha navn og kundenummer.</p></div>
+      ${d.antall?`<div class="rap-new-btns rap-noprint">
+        <button class="rap-new-export" onclick="rapKundelistePdf('tapte')">Hele lista (PDF)</button>
+        <button class="rap-new-export" onclick="lastTapteKunderCsv()">Hele lista (CSV)</button>
+        <button class="rap-new-export" onclick="rapToggleAlleGrossister(this)">Åpne alle</button>
+      </div>`:''}</div>
     <div class="rap-new-stats">
       <div class="rap-new-stat"><span class="k">Nye tapte</span><span class="v">${d.antall||0}</span></div>
       <div class="rap-new-stat"><span class="k">Grossister berørt</span><span class="v">${d.antall_grossister||0}</span></div>
@@ -6897,8 +7019,6 @@ function renderRapTotal(){
       <div class="rap-kpi"><div class="lbl">Kundebevegelse YTD</div><div class="val">${kb.nye||0} / ${kb.tapt||0}</div><div class="delta plain">nye / tapte (sesongjustert)</div></div>
     </div>
     ${insight}
-    ${renderRapNyeKunderUke()}
-    ${renderRapTapteKunderUke()}
     <div class="rap-card">
       <h3>1. Hovedtall — omsetning per konsept</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
@@ -6910,6 +7030,8 @@ function renderRapTotal(){
     ${ls.card}
     ${ee.card}
     ${grossistInnsikt}
+    ${renderRapNyeKunderUke()}
+    ${renderRapTapteKunderUke()}
     ${kbLinje}
     <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Positivt årsestimat bruker det høyeste støttede scenarioet per konsept av flat YTD-referanse og forsiktig sesong-/grossistmodell. Den forsiktige modellen er fortsatt synlig under Prognose. Metode YTD: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for.</div>
   `;
