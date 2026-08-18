@@ -581,16 +581,20 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- «Konsepter» og «Kundeanalyse» sto her som døde lenker (class="deaktivert") og har
            aldri gjort noe. Konsepter dekkes av Rapporter → Konseptrapport. Kundeanalyse
            kommer tilbake når kunde × produkt-hentingen er på plass og den har noe å vise. -->
-      <a data-view="kalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Tilbudsverktøy</a>
-      <a data-view="kunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
-      <a data-view="rapporter" onclick="setView('rapporter')"><span class="ic">📄</span> Rapporter</a>
+      <!-- Menyvalgene under styres av brukerens MODULER (avkrysningene i Innstillinger →
+           Aktive brukere), ikke lenger av rollen alene — se oppdaterMenyModuler(). Rollen
+           bestemmer bare hva en NY bruker starter med (app/moduler.py i backend). -->
+      <a data-view="kalkulator" id="navKalkulator" onclick="setView('kalkulator')"><span class="ic">₳</span> Tilbudsverktøy</a>
+      <a data-view="kunder" id="navKunder" onclick="setView('kunder')"><span class="ic">☷</span> Kunder &amp; Leads</a>
+      <a data-view="rapporter" id="navRapporter" onclick="setView('rapporter')"><span class="ic">📄</span> Rapporter</a>
       <a data-view="brukere" id="navBrukere" style="display:none" onclick="setView('brukere')"><span class="ic">⚙</span> Innstillinger</a>
       <a data-view="konkurrenter" id="navKonkurrenter" style="display:none" onclick="setView('konkurrenter')"><span class="ic">⚔</span> Konkurrenter</a>
       <a data-view="foodbroker" id="navFoodbroker" style="display:none" onclick="setView('foodbroker')"><span class="ic">📦</span> Foodbroker</a>
-      <a data-view="besoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
+      <a data-view="besoksplan" id="navBesoksplan" onclick="setView('besoksplan')"><span class="ic">📅</span> Besøksplan</a>
       <!-- Egen side (fastfood.html), ikke en setView-fane — samme mønster som en ekstern
            lenke. Åpnes i ny fane så admin sin hovedapp-økt (kalkyle i arbeid, filtre osv.)
-           ikke forsvinner. Synlig for admin-sporet, se kanSeFastFood i showApp(). -->
+           ikke forsvinner. Vises når brukeren har Fast Food-modulen — se
+           oppdaterMenyModuler(). -->
       <a id="navFastFood" style="display:none" onclick="window.open('fastfood.html','_blank')"><span class="ic">🍔</span> Fast Food</a>
     </nav>
     <div class="d-side-bruker">
@@ -1843,6 +1847,17 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .mf-box.open{display:block}
 .mf-box label{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:4px;user-select:none}
 .mf-box label:hover{background:var(--d-flate,#f4f6fb)}
+
+/* Modulvalg i brukerlista (Innstillinger). Avkrysningene er selve arbeidsflaten der,
+   så de skal bryte over flere linjer i stedet for å presse tabellen bred. */
+.modulvalg{display:flex;flex-wrap:wrap;gap:4px 6px;max-width:520px}
+.modulvalg-hurtig{display:flex;gap:8px;margin-top:5px;font-size:11px}
+.modulvalg-hurtig a{color:var(--muted);text-decoration:underline;cursor:pointer}
+.modul-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;border:1px solid var(--d-ramme,#e0e4ee);border-radius:999px;font-size:11.5px;line-height:1.7;cursor:pointer;user-select:none;white-space:nowrap;color:var(--muted)}
+.modul-chip:hover{border-color:var(--primaer)}
+.modul-chip input{margin:0;cursor:pointer}
+.modul-chip.pa{background:var(--d-flate,#f4f6fb);border-color:var(--primaer);color:var(--ink);font-weight:600}
+.modul-chip input:disabled{cursor:progress}
 </style>
 <div id="loadOverlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500;flex-direction:column;gap:14px">
   <div style="font-size:16px;font-weight:600;color:var(--brand)">Laster produktdatabase…</div>
@@ -2647,6 +2662,24 @@ let TOKEN=sessionStorage.getItem('ks_token')||null;
 var _brukerRolle='';
 let CURRENT_USER=null;
 function kanSeFbInternokonomi(){return kanSeFbInternokonomiFor(CURRENT_USER);}
+
+// ============ Modultilgang ============
+// Hvilke sider brukeren har er en avkrysning per bruker (bruker_tilgang, ressurs_type
+// 'modul' — se app/moduler.py i backend), ikke lenger en hardkodet rolleliste her.
+// CURRENT_USER.moduler kommer fra /api/auth/meg. superadmin har alltid alt.
+// Modul-ID-ene under er backendens; katalogen med visningsnavn hentes derfra
+// (/api/brukere/moduler) så det bare finnes ÉN liste å vedlikeholde.
+const MODUL_FOR_VIEW={
+  kalkulator:'tilbudsverktoy', kunder:'kunder_leads', rapporter:'rapporter',
+  besoksplan:'besoksplan', konkurrenter:'konkurrenter', foodbroker:'foodbroker',
+};
+// Dashboard og Innstillinger står bevisst utenfor: dashboard er landingssiden (uten den
+// logger man inn til ingenting), og Innstillinger er fortsatt superadmin-only.
+function harModul(id){
+  if(!CURRENT_USER)return false;
+  if(CURRENT_USER.rolle==='superadmin')return true;
+  return (CURRENT_USER.moduler||[]).includes(id);
+}
 
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
@@ -5693,46 +5726,116 @@ function lukkBrukerkort(){
   document.getElementById('brukerkort-steg4').innerHTML = '';
 }
 
+// Modulkatalogen (id + visningsnavn) kommer fra backend, som også er fasit for seeding
+// og for krev_modul — frontend skal ikke ha sin egen kopi som kan komme ut av takt.
+let MODUL_KATALOG = null;
+async function hentModulKatalog(){
+  if(MODUL_KATALOG) return MODUL_KATALOG;
+  try{ MODUL_KATALOG = await api('/api/brukere/moduler')||[]; }
+  catch(e){ MODUL_KATALOG = []; }
+  return MODUL_KATALOG;
+}
+
+// Brukerlista var før bygget av brede informasjonskolonner (Grossist/Region, Aktiv,
+// Passord, FB internøkonomi) og hadde ingen plass til å STYRE noe. Informasjonen ligger
+// nå samlet under navnet, og plassen som ble frigjort brukes til modulavkrysningene —
+// det er dem superadmin faktisk jobber i. FB internøkonomi er ikke lenger en egen
+// kolonne; den er én av modulene (samme tilgang, samme rad i basen).
+function brukerModulCelle(b){
+  if(b.rolle==='superadmin')
+    return '<div style="color:var(--ok);font-weight:600;font-size:11.5px">Alle moduler</div>';
+  if(!MODUL_KATALOG.length)
+    return '<span style="color:var(--muted);font-size:11.5px">Modullista kunne ikke hentes</span>';
+  const valgt = new Set(b.moduler||[]);
+  return '<div class="modulvalg" data-bruker="'+b.id+'">'
+    + MODUL_KATALOG.map(m=>
+        '<label class="modul-chip'+(valgt.has(m.id)?' pa':'')+'" title="'+esc(m.navn)+'">'
+        +'<input type="checkbox" value="'+esc(m.id)+'"'+(valgt.has(m.id)?' checked':'')
+        +' onchange="settBrukerModuler(\''+b.id+'\',this)">'+esc(m.navn)+'</label>'
+      ).join('')
+    +'</div>'
+    +'<div class="modulvalg-hurtig">'
+    +'<a onclick="settAlleModuler(\''+b.id+'\',true,this)">velg alle</a>'
+    +'<a onclick="settAlleModuler(\''+b.id+'\',false,this)">fjern alle</a>'
+    +'</div>';
+}
+
+function brukerMetaLinje(b){
+  const deler=[];
+  if(b.leder_navn) deler.push('rapporterer til '+esc(b.leder_navn));
+  if(b.grossist_navn) deler.push(esc(b.grossist_navn)+(b.region?' \u00b7 '+esc(b.region):''));
+  else if(b.region) deler.push(esc(b.region));
+  if(b.konsept) deler.push(esc(b.konsept));
+  const merker=[];
+  if(!b.aktiv) merker.push('<span style="background:var(--d-flate,#eef1f7);color:var(--muted);border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:600">Inaktiv</span>');
+  if(b.ma_bytte_passord) merker.push('<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;font-size:10.5px;font-weight:600">M\u00e5 bytte passord</span>');
+  const meta = deler.length ? '<div style="font-size:11px;color:var(--muted)">'+deler.join(' \u00b7 ')+'</div>' : '';
+  return meta + (merker.length ? '<div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">'+merker.join('')+'</div>' : '');
+}
+
 async function lastBrukere(){
   const el = document.getElementById('brukerListe');
   try{
+    await hentModulKatalog();
     const brukere = await api('/api/brukere')||[];
     if(!brukere.length){ el.innerHTML='<em>Ingen brukere funnet.</em>'; return; }
-    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
+    el.innerHTML = '<p class="sub" style="margin:0 0 10px">Kryss av hvilke moduler hver bruker skal ha. Valget avgj\u00f8r hvilke sider de ser i menyen, og lagres med \u00e9n gang.</p>'
+      +'<div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:12.5px">'
       +'<thead><tr style="border-bottom:1px solid var(--line)">'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Navn</th>'
       +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Rolle</th>'
-      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Grossist / Region</th>'
-      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Aktiv</th>'
-      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Passord</th>'
-      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">FB internøkonomi</th>'
+      +'<th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:500">Moduler</th>'
       +'<th></th>'
       +'</tr></thead><tbody>'
       + brukere.map(b=>
         '<tr style="border-bottom:1px solid var(--line)">'
-        +'<td style="padding:7px 8px"><a href="javascript:void(0)" onclick="apneBrukerkort(\''+b.id+'\')" style="color:var(--d-blaa,inherit);text-decoration:underline;cursor:pointer">'+esc(b.navn)+'</a>'
-        +(b.leder_navn?'<div style="font-size:11px;color:var(--muted)">rapporterer til '+esc(b.leder_navn)+'</div>':'')+'</td>'
-        +'<td style="padding:7px 8px"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px">'+esc(b.rolle)+'</span></td>'
-        +'<td style="padding:7px 8px">'+(b.grossist_navn ? esc(b.grossist_navn)+(b.region?' · '+esc(b.region):'') : (b.region?esc(b.region):'<span style="color:var(--muted)">—</span>'))+'</td>'
-        +'<td style="padding:7px 8px">'+(b.aktiv?'✓':'<span style="color:var(--muted)">nei</span>')+'</td>'
-        +'<td style="padding:7px 8px">'+(b.ma_bytte_passord?'<span style="background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">Må bytte</span>':'<span style="color:var(--muted)">byttet</span>')+'</td>'
-        +'<td style="padding:7px 8px">'+(b.rolle==='superadmin'?'<span style="color:var(--ok);font-weight:600">Alltid</span>':'<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" '+(b.kan_se_fb_internokonomi?'checked':'')+' onchange="settFbInternokonomiTilgang(\''+b.id+'\',this.checked,this)"><span>'+(b.kan_se_fb_internokonomi?'På':'Av')+'</span></label>')+'</td>'
-        +'<td style="padding:7px 8px">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
+        +'<td style="padding:7px 8px;vertical-align:top"><a href="javascript:void(0)" onclick="apneBrukerkort(\''+b.id+'\')" style="color:var(--d-blaa,inherit);text-decoration:underline;cursor:pointer">'+esc(b.navn)+'</a>'
+        +brukerMetaLinje(b)+'</td>'
+        +'<td style="padding:7px 8px;vertical-align:top"><span style="background:var(--line);border-radius:6px;padding:2px 8px;font-size:11px;white-space:nowrap">'+esc(b.rolle)+'</span></td>'
+        +'<td style="padding:7px 8px;vertical-align:top">'+brukerModulCelle(b)+'</td>'
+        +'<td style="padding:7px 8px;vertical-align:top">'+(b.id!==CURRENT_USER?.id?'<button class="d-knapp fare sm" onclick="slettBruker(\''+b.id+'\',\''+esc(b.navn)+'\')">Slett</button>':'')+'</td>'
         +'</tr>'
       ).join('')
-      +'</tbody></table>';
+      +'</tbody></table></div>';
   }catch(e){ el.innerHTML='<span style="color:var(--red)">Feil: '+esc(e.message)+'</span>'; }
 }
 
-async function settFbInternokonomiTilgang(brukerId,aktiv,input){
-  input.disabled=true;
+// Lagrer HELE modulsettet for raden (backend erstatter settet, den tar ikke imot en
+// endring). Lista lastes ikke på nytt etterpå — det ville hoppet til toppen midt i
+// avkrysningsjobben.
+async function _lagreModulrad(boks, brukerId){
+  const bokser=[...boks.querySelectorAll('input[type=checkbox]')];
+  const moduler=bokser.filter(i=>i.checked).map(i=>i.value);
+  bokser.forEach(i=>i.disabled=true);
   try{
-    await api('/api/brukere/'+brukerId+'/fb-internokonomi',{method:'PUT',body:{aktiv}});
-    toast(aktiv?'Tilgang til FB internøkonomi er gitt':'Tilgang til FB internøkonomi er fjernet');
-    await lastBrukere();
+    await api('/api/brukere/'+brukerId+'/moduler',{method:'PUT',body:{moduler}});
+    bokser.forEach(i=>i.closest('.modul-chip').classList.toggle('pa', i.checked));
+    if(brukerId===CURRENT_USER?.id){
+      CURRENT_USER.moduler=moduler;
+      oppdaterMenyModuler();
+    }
+    toast('Moduler lagret');
+    return true;
   }catch(e){
-    input.checked=!aktiv;input.disabled=false;toast('Kunne ikke endre tilgangen: '+e.message);
+    toast('Kunne ikke lagre modulvalget: '+e.message);
+    return false;
+  }finally{
+    bokser.forEach(i=>i.disabled=false);
   }
+}
+
+async function settBrukerModuler(brukerId, input){
+  const boks=input.closest('td').querySelector('.modulvalg');
+  const forrige=!input.checked;
+  if(!await _lagreModulrad(boks, brukerId)) input.checked=forrige;
+}
+
+async function settAlleModuler(brukerId, pa, lenke){
+  const boks=lenke.closest('td').querySelector('.modulvalg');
+  const bokser=[...boks.querySelectorAll('input[type=checkbox]')];
+  const forrige=bokser.map(i=>i.checked);
+  bokser.forEach(i=>{i.checked=pa;});
+  if(!await _lagreModulrad(boks, brukerId)) bokser.forEach((i,n)=>{i.checked=forrige[n];});
 }
 
 async function lastInvitasjoner(){
@@ -6811,6 +6914,10 @@ function renderRapRegion(regionNavn,filter){
 // ============ Views ============
 function setView(v){
   lukkMobilmeny();
+  // Vakt mot å havne på en side brukeren ikke har modulen for (gammel bokmerket state,
+  // et kall fra kode som ikke sjekket, eller en tilgang som ble fjernet mens økten sto
+  // åpen). Menyvalget er allerede skjult — dette er beltet i tillegg til selen.
+  if(MODUL_FOR_VIEW[v] && !harModul(MODUL_FOR_VIEW[v]))v='dashboard';
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
@@ -6952,16 +7059,24 @@ async function showApp(){
   if(erAdmin){pbFyllStandard();lastKilder();}
   const kanAdminBrukere = CURRENT_USER && CURRENT_USER.rolle === 'superadmin';
   document.getElementById('navBrukere').style.display = kanAdminBrukere ? '' : 'none';
-  const kanSeKonkurrenter = CURRENT_USER && ['leder','admin','superadmin'].includes(CURRENT_USER.rolle);
-  document.getElementById('navKonkurrenter').style.display = kanSeKonkurrenter ? '' : 'none';
-  // Samme rollekrav som Konkurrenter — internt salgstall for et konsernselskap, ikke
-  // noe en vanlig selger trenger tilgang til.
-  document.getElementById('navFoodbroker').style.display = kanSeKonkurrenter ? '' : 'none';
-  // Samme rolleliste som backend sin ADMIN_TRACK_SER_ALT (deps.py) — hold i sync.
-  const kanSeFastFood = CURRENT_USER && ['leder','admin','superadmin','salgsdirektor',
-    'regionansvarlig','kommersiell_direktor','ceo'].includes(CURRENT_USER.rolle);
-  document.getElementById('navFastFood').style.display = kanSeFastFood ? '' : 'none';
+  oppdaterMenyModuler();
   setView('dashboard');
+}
+
+// Menyen følger brukerens moduler. Frem til 2026-08-18 sto rollelistene hardkodet her
+// (leder/admin/superadmin så Konkurrenter og Foodbroker, admin-sporet så Fast Food) — en
+// endring krevde deploy. Nå er rollen bare utgangspunktet nye brukere seedes med i backend
+// (app/moduler.py); etter det er det avkrysningene i Innstillinger som gjelder.
+function oppdaterMenyModuler(){
+  const meny={
+    navKalkulator:'tilbudsverktoy', navKunder:'kunder_leads', navRapporter:'rapporter',
+    navBesoksplan:'besoksplan', navKonkurrenter:'konkurrenter', navFoodbroker:'foodbroker',
+    navFastFood:'fastfood',
+  };
+  Object.entries(meny).forEach(([id,modul])=>{
+    const el=document.getElementById(id);
+    if(el)el.style.display=harModul(modul)?'':'none';
+  });
 }
 
 // Enter-tast i login. Hopper over felt som selv sier hvilken knapp de hører til (data-enter):

@@ -80,8 +80,20 @@ for (const funksjon of ['fb_stotte_pct', 'fb_stotte_spesialpris', 'Justert gross
   if (!html.includes(funksjon)) throw new Error(`Tilbudsverktøyet mangler Foodbroker-/designfunksjonen ${funksjon}`);
 }
 
-for (const vern of ['x.isFB&&visFbIntern', "if(visFbIntern)rows.push(['Foodbroker-støtte'", 'settFbInternokonomiTilgang']) {
+// FB internøkonomi er fra 2026-08-18 én av modulene i brukerlista, ikke en egen kolonne —
+// derfor er det settBrukerModuler (ikke lenger settFbInternokonomiTilgang) som er
+// tildelingsveien. Skjermingen inne i tilbudsverktøyet er uørt.
+for (const vern of ['x.isFB&&visFbIntern', "if(visFbIntern)rows.push(['Foodbroker-støtte'", 'settBrukerModuler']) {
   if (!html.includes(vern)) throw new Error(`Tilbudsverktøyet mangler tilgangsvern: ${vern}`);
+}
+
+// Menyen skal styres av brukerens moduler, ikke av hardkodede rollelister. Testen fanger
+// at noen legger rollesjekken tilbake i showApp() neste gang en side skal skjules.
+for (const modulvern of ['function harModul(', 'MODUL_FOR_VIEW', 'oppdaterMenyModuler(', "/api/brukere/moduler"]) {
+  if (!html.includes(modulvern)) throw new Error(`Modultilgangen mangler ${modulvern}`);
+}
+for (const rolleliste of ["['leder','admin','superadmin'].includes(CURRENT_USER.rolle)"]) {
+  if (html.includes(rolleliste)) throw new Error(`Menytilgang skal komme fra moduler, ikke rollelista ${rolleliste}`);
 }
 
 for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'lastNyeKunderCsv', '/api/dashboard-excel/nye-kunder-uke']) {
