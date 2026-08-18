@@ -91,7 +91,9 @@ async function hentFraPowerBI(bekreft){
     el.innerHTML='<span class="sub">Henter fra modellen… '+Math.round((Date.now()-start)/1000)+' s</span>';
   },1000);
   try{
-    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false');
+    const paagaende=!!document.getElementById('pbPaagaendeUke')?.checked;
+    const qs=aar.map(a=>'ar='+a).join('&')+'&bekreft='+(bekreft?'true':'false')
+      +'&ta_med_paagaende_uke='+(paagaende?'true':'false');
     const d=await api('/api/powerbi/hent?'+qs,{method:'POST',body});
     clearInterval(timer);
     let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
@@ -125,11 +127,21 @@ async function hentFraPowerBI(bekreft){
       const mh=s.modellen_har_data_til;
       if(mh&&typeof mh==='object'){
         html+=`<div class="sub" style="margin-top:4px">Modellen har omsetning t.o.m. <b>uke ${mh.uke} ${esc(mh.ukedag_navn)}</b> (${(mh.belop_den_dagen||0).toLocaleString('nb-NO')} kr den dagen).</div>`;
+        const df=s.dagsfordeling_ferskeste_uke||[];
+        if(df.length){
+          html+='<div class="sub" style="margin-top:2px">Uke '+mh.uke+' dag for dag: '
+            +df.map(d=>esc(d.ukedag_navn)+' '+(d.belop||0).toLocaleString('nb-NO')+' kr').join(' · ')+'</div>';
+        }
       }else if(mh){
         html+='<div class="sub" style="margin-top:4px">Modellen ga ingen dagsdata.</div>';
       }
       if(s.importeres_til_uke!=null){
         html+=`<div class="sub" style="margin-top:4px">Importeres til og med uke <b>${s.importeres_til_uke}</b>.</div>`;
+      }
+      const tv=(s.advarsler||{}).tvunget_inn;
+      if(tv){
+        html+=`<div style="margin-top:6px;color:var(--d-gul,#b8860b);font-weight:600">⚠ Pågående uke tatt inn på tvers av avvik: uke ${(tv.uker||[]).join(', ')}</div>`
+          +`<div class="sub" style="color:var(--d-gul,#b8860b)">${esc(tv.merknad||'')}</div>`;
       }
       const fh=s.fersk_omsetning_holdt_tilbake;
       if(fh){
