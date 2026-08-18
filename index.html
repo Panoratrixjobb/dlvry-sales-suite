@@ -1553,6 +1553,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
         <button class="rap-pill" data-raptab="produkt" onclick="setRapTab('produkt')">Produktmargin</button>
         <button class="rap-pill" data-raptab="pris" onclick="setRapTab('pris')">Prisendringer</button>
+        <button class="rap-pill" data-raptab="konsernintern" onclick="setRapTab('konsernintern')">Konsernintern fakturering</button>
       </div>
 
       <div id="rapUkeRad"></div>
@@ -6128,6 +6129,78 @@ function setRapTab(tab){
   renderRapporter();
   if(tab==='total'&&!RAP_NYE_KUNDER&&!RAP_NYE_HENTER)hentRapNyeKunder();
 }
+// Konsernintern fakturering — hvem selger hvor mye til hvilket DLVRY-selskap.
+// Bygget fordi elimineringen ellers bare viser seg som et dashbordtall som er «litt for
+// lavt», uten noe sted å slå opp hvorfor. Med denne er hver eliminert krone sporbar til
+// kundekonto, og en RIKTIG eliminering er mulig å skille fra en feilregistrert kunde.
+let RAP_KI_AR = 2026;
+function settRapKiAr(ar){ RAP_KI_AR = +ar; lastRapKonsernintern(); }
+
+async function lastRapKonsernintern(){
+  const el=document.getElementById('rapInnhold');
+  el.innerHTML='<div class="rap-card"><div class="rap-empty">Laster konsernintern fakturering…</div></div>';
+  let d;
+  try{ d=await api('/api/dashboard-excel/konsernintern?ar='+RAP_KI_AR); }
+  catch(e){ el.innerHTML='<div class="rap-card"><div class="rap-empty" style="color:var(--d-roed)">Feil: '+esc(e.message)+'</div></div>'; return; }
+
+  const kr=v=>(v||0).toLocaleString('nb-NO');
+  const mnok=v=>((v||0)/1e6).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const arValg=[2024,2025,2026].map(a=>'<option value="'+a+'"'+(a===RAP_KI_AR?' selected':'')+'>'+a+'</option>').join('');
+
+  let h='<div class="rap-card">'
+    +'<h3>Konsernintern fakturering '+d.ar+' <span class="sub" style="font-weight:400">(t.o.m. uke '+d.til_uke+')</span></h3>'
+    +'<div class="rap-card-note">Salg til DLVRYs egne selskaper. Dette er beløpet appen holder utenfor «Total ekstern» — '
+    +'en rapport uten eliminering (som Victors konseptdashboard) vil ligge nøyaktig så mye høyere.</div>'
+    +'<div class="d-verktoy" style="margin:8px 0"><span class="sub">År:</span>'
+    +'<select class="d-input" style="width:auto" onchange="settRapKiAr(this.value)">'+arValg+'</select></div>'
+    +'<div style="font-size:13px;margin:6px 0 10px">Totalt eliminert: <b>'+mnok(d.sum)+' MNOK</b> ('+kr(d.sum)+' kr)</div>'
+    +'<div class="sub" style="margin-bottom:10px">'+esc(d.merknad||'')+'</div>';
+
+  if(!d.rader.length){
+    h+='<div class="rap-empty">Ingen konsernintern omsetning funnet for '+d.ar+'.</div></div>';
+    el.innerHTML=h; return;
+  }
+
+  h+='<h3 style="margin-top:14px">Per selgende grossist</h3>'
+    +'<div class="rap-card-note">«Andel» er hvor mange prosent lavere appens tall ligger for denne grossisten.</div>'
+    +'<div class="table-wrap"><table class="d-tabell" style="min-width:640px"><thead><tr>'
+    +'<th>Grossist</th><th class="tall">Kunder</th><th class="tall">Konsernintern</th>'
+    +'<th class="tall">Brutto</th><th class="tall">Andel</th></tr></thead><tbody>'
+    +d.per_grossist.map(g=>'<tr><td>'+esc(g.grossist)+'</td>'
+      +'<td class="tall">'+g.antall_kunder+'</td>'
+      +'<td class="tall">'+kr(g.belop)+'</td>'
+      +'<td class="tall" style="color:var(--d-tekst-3)">'+kr(g.brutto)+'</td>'
+      +'<td class="tall" style="font-weight:600">'+(g.andel_av_brutto!=null?g.andel_av_brutto.toLocaleString('nb-NO')+' %':'—')+'</td></tr>').join('')
+    +'</tbody></table></div>';
+
+  h+='<h3 style="margin-top:14px">Per kjøpende konsernselskap</h3>'
+    +'<div class="table-wrap"><table class="d-tabell" style="min-width:420px"><thead><tr>'
+    +'<th>Kjøper</th><th class="tall">Beløp</th></tr></thead><tbody>'
+    +d.per_kjopende_selskap.map(x=>'<tr><td>'+esc(x.selskap)+'</td><td class="tall">'+kr(x.belop)+'</td></tr>').join('')
+    +'</tbody></table></div>';
+
+  h+='<h3 style="margin-top:14px">Per konsept</h3>'
+    +'<div class="table-wrap"><table class="d-tabell" style="min-width:360px"><thead><tr>'
+    +'<th>Konsept</th><th class="tall">Beløp</th></tr></thead><tbody>'
+    +d.per_konsept.map(x=>'<tr><td>'+esc(x.konsept)+'</td><td class="tall">'+kr(x.belop)+'</td></tr>').join('')
+    +'</tbody></table></div>';
+
+  h+='<h3 style="margin-top:14px">Hver enkelt kundekonto</h3>'
+    +'<div class="rap-card-note">Sorteres etter beløp. «Kilde» sier om raden ble fanget av org.nr-oppslaget '
+    +'eller av en manuell regel i Oppsett — er en av disse en ekte ekstern kunde, er den feilregistrert og skal rettes i modellen.</div>'
+    +'<div class="table-wrap"><table class="d-tabell" style="min-width:900px"><thead><tr>'
+    +'<th>Grossist</th><th>Kundenr</th><th>Kundenavn</th><th>Org.nr</th><th>Kjøper</th>'
+    +'<th>Konsept</th><th class="tall">Beløp</th><th>Kilde</th></tr></thead><tbody>'
+    +d.rader.map(r=>'<tr><td>'+esc(r.grossist)+'</td><td>'+esc(r.kundenr)+'</td>'
+      +'<td>'+esc(r.kundenavn||'')+'</td><td>'+esc(r.orgnr||'—')+'</td>'
+      +'<td>'+esc(r.kjoper||'—')+'</td><td>'+esc(r.konsept)+'</td>'
+      +'<td class="tall">'+kr(r.belop)+'</td>'
+      +'<td class="sub">'+esc(r.kilde)+(r.regel_kommentar?' — '+esc(r.regel_kommentar):'')+'</td></tr>').join('')
+    +'</tbody></table></div></div>';
+
+  el.innerHTML=h;
+}
+
 function setRapKonsept(k){rapState.konsept=k;renderRapporter();}
 function setRapRegion(r){rapState.region=r;renderRapporter();}
 function setRapRegionFilter(f){rapState.regionFilter=f;renderRapporter();}
@@ -6155,6 +6228,11 @@ function _renderRapporter(){
   if(rapState.tab==='pris'){
     sub.style.display='none';
     lastRapPrisendringer();
+    return;
+  }
+  if(rapState.tab==='konsernintern'){
+    sub.style.display='none';
+    lastRapKonsernintern();
     return;
   }
   if(rapState.tab==='total'){
