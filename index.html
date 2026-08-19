@@ -1402,6 +1402,31 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="kpResultat" style="font-size:13px"></div>
       </div>
 
+      <!-- Kundenumre som er samme kunde. Bakgrunn: D22 renummererte Cici Kirkegata,
+           Cici Osteria og Maximus i uke 33/2026 etter et eierskifte, og Ukerapporten viste
+           tre av våre største kunder som «nye». Alt på kundenivå er nøklet på (kundenr,
+           grossist), så historikken brytes hver gang et kundenummer byttes. Se
+           konseptsuite-backend app/kundekonto.py for reglene. -->
+      <div class="d-panel" style="margin-top:18px" id="kkPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>7 · Kundenumre som er samme kunde</h3>
+          <span class="sub">Alle grossister</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Finner kundekontoer med <b>identisk navn</b> og samler dem som én kunde. To numre hos <b>samme grossist</b> er en renummerering — nyeste nummer gjelder, det gamle blir historikk. Numre hos <b>ulike grossister</b> er parallelle leverandørforhold, og alle er gjeldende. Kundekortet viser deretter alle numrene og hele historikken på tvers av byttet.</p>
+        <p class="sub" style="margin:0 0 10px">Kjør <b>Hent kundenavn</b> først: salgsimporten henter bare kundenummer og org.nr, så kontoer opprettet etter siste Excel-backfill står uten navn — og det er nettopp de nye kontoene kontrollen skal fange. Bruker tokenet øverst.</p>
+        <div class="d-verktoy">
+          <button class="d-knapp subtil sm" onclick="hentKundenavn(false)" id="kkNavnTorrBtn">Tørrkjør navn</button>
+          <button class="d-knapp subtil sm" onclick="hentKundenavn(true)" id="kkNavnBtn">Hent kundenavn</button>
+          <button class="d-knapp subtil sm" onclick="kkKontroll()" id="kkKontrollBtn">Kjør kontroll (skriver ingenting)</button>
+          <button class="d-knapp primar sm" onclick="kkKjor()" id="kkKjorBtn">Lagre gruppering</button>
+        </div>
+        <div class="d-verktoy" style="margin-top:6px">
+          <label style="font-size:12.5px"><input type="checkbox" id="kkKunRenum" checked> Vis bare renummereringer (samme grossist)</label>
+          <input class="d-input sm" id="kkGrossist" placeholder="Grossist, f.eks. D22" style="max-width:150px">
+        </div>
+        <div id="kkResultat" style="font-size:13px"></div>
+      </div>
+
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
            over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
            tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet

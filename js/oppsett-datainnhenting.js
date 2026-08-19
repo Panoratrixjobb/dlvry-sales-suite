@@ -568,3 +568,116 @@ async function visProduktMargin(){
   }catch(e){ el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>'; }
   finally{ btn.disabled=false; }
 }
+
+// ============ Kundenumre som er samme kunde (2026-08-19) ============
+// Bakgrunn: D22 ga Cici Kirkegata/Cici Osteria/Maximus nye kundenumre etter et eierskifte,
+// og Ukerapporten viste tre av våre største kunder som nye. Se konseptsuite-backend
+// app/kundekonto.py — navnet er den eneste koblingen som overlever et org.nr-bytte.
+
+async function hentKundenavn(bekreft){
+  const el=document.getElementById('kkResultat');
+  const knapper=['kkNavnTorrBtn','kkNavnBtn'].map(id=>document.getElementById(id));
+  const token=document.getElementById('pbToken').value.trim();
+  if(!token){
+    let sp=false;
+    try{ sp=(await api('/api/powerbi/status')).konfigurert; }catch(e){}
+    if(!sp){
+      el.innerHTML='<span style="color:var(--d-roed)">Lim inn et token i feltet <b>Token</b> i panelet øverst først.</span>';
+      const f=document.getElementById('pbToken');f.focus();f.scrollIntoView({block:'center'});
+      return;
+    }
+  }
+  knapper.forEach(b=>b.disabled=true);
+  el.innerHTML='<span class="sub">Henter kundenavn fra kundedimensjonen…</span>';
+  try{
+    const d=await api('/api/kundekonto/hent-navn?ar=2025&ar=2026&bekreft='+(bekreft?'true':'false'),
+                      {method:'POST',body:{token:token||null}});
+    const s=d.sammendrag||{};
+    el.innerHTML='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
+      +`<div>${(s.kontoer||0).toLocaleString('nb-NO')} kundekontoer · `
+      +`${(s.uten_navn||0).toLocaleString('nb-NO')} uten navn i modellen`
+      +(s.rader_uten_grossistkode?` · ${s.rader_uten_grossistkode} rader uten D-kode (hoppet over)`:'')+'</div>'
+      +'<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
+    if(bekreft)document.getElementById('pbToken').value='';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
+function kkGruppeHtml(g){
+  const rader=(g.kontoer||[]).map(k=>{
+    const periode=(k.forste_ar?`${k.forste_ar} uke ${k.forste_uke}`:'–')
+      +' → '+(k.siste_ar?`${k.siste_ar} uke ${k.siste_uke}`:'–');
+    return `<tr>
+      <td>${esc(k.grossist_kode||'–')}</td>
+      <td><b>${esc(k.kundenr)}</b> ${k.gjeldende
+          ? '<span class="rap-new-concept">gjeldende</span>'
+          : '<span class="sub">tidligere</span>'}</td>
+      <td class="sub">${esc(k.orgnr||'–')}</td>
+      <td class="sub">${esc(periode)}</td>
+      <td class="tall">${fmtKr(k.oms_2025||0)}</td>
+      <td class="tall">${fmtKr(k.oms_2026||0)}</td>
+    </tr>`;
+  }).join('');
+  return `<details style="margin:6px 0;border-top:1px solid var(--d-kantlinje);padding-top:6px">
+    <summary style="cursor:pointer"><b>${esc(g.navn||'(uten navn)')}</b>
+      <span class="sub"> — ${(g.kontoer||[]).length} kundenumre hos ${g.antall_grossister} grossist${g.antall_grossister===1?'':'er'}
+      · ${fmtKr((g.oms_2025||0)+(g.oms_2026||0))} samlet</span>
+      ${g.renummerert?'<span class="rap-new-concept">renummerert</span>':''}</summary>
+    <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+      <th>Grossist</th><th>Kundenr</th><th>Org.nr</th><th>Første → siste kjøp</th>
+      <th class="tall">2025</th><th class="tall">2026</th>
+    </tr></thead><tbody>${rader}</tbody></table></div>
+  </details>`;
+}
+
+async function kkKontroll(){
+  const el=document.getElementById('kkResultat');
+  const btn=document.getElementById('kkKontrollBtn');
+  btn.disabled=true;
+  el.innerHTML='<span class="sub">Kjører kontroll over alle grossister…</span>';
+  try{
+    const qs='?kun_renummerering='+(document.getElementById('kkKunRenum').checked?'true':'false')
+      +(document.getElementById('kkGrossist').value.trim()
+        ?'&grossist_kode='+encodeURIComponent(document.getElementById('kkGrossist').value.trim()):'');
+    const d=await api('/api/kundekonto/kontroll'+qs);
+    const s=d.sammendrag||{};
+    let html='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
+      +`<div>${(s.kontoer_totalt||0).toLocaleString('nb-NO')} kundekontoer med salg · `
+      +`<b>${(s.grupper||0).toLocaleString('nb-NO')}</b> grupper med mer enn ett kundenummer `
+      +`(${(s.kontoer_i_grupper||0).toLocaleString('nb-NO')} kontoer)</div>`
+      +`<div style="margin-top:2px">Derav <b>${(s.grupper_med_renummerering||0).toLocaleString('nb-NO')}</b> renummereringer hos samme grossist · `
+      +`${(s.kontoer_som_blir_historiske||0).toLocaleString('nb-NO')} kundenumre blir merket som tidligere</div>`;
+    if(s.kontoer_uten_brukbart_navn){
+      html+=`<div class="sub" style="margin-top:4px">${s.kontoer_uten_brukbart_navn.toLocaleString('nb-NO')} kontoer mangler brukbart navn og kan ikke grupperes — kjør «Hent kundenavn» først.</div>`;
+    }
+    (s.grupper_forkastet_for_store||[]).forEach(f=>{
+      html+=`<div class="sub" style="margin-top:4px;color:var(--d-gul)">«${esc(f.navn||f.navn_nokkel)}» har ${f.antall_kontoer} kontoer og er hoppet over — det ser ut som en samlepost hos grossisten, ikke ett kundenavn.</div>`;
+    });
+    html+=`<p class="sub" style="margin:8px 0 4px">Viser ${(d.grupper||[]).length} av ${d.antall_i_utvalg||0} i utvalget`
+      +(d.avkortet?` (${d.avkortet} til er ikke vist)`:'')+'.</p>';
+    html+=(d.grupper||[]).map(kkGruppeHtml).join('')||'<div class="sub">Ingen grupper i utvalget.</div>';
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}
+
+async function kkKjor(){
+  if(!confirm('Lagre grupperingen? Kundekortene vil deretter vise samlet historikk på tvers av kundenummerbytte. Kontrollen kan kjøres på nytt når som helst — grupperingen bygges alltid fra salgsdataene.'))return;
+  const el=document.getElementById('kkResultat');
+  const btn=document.getElementById('kkKjorBtn');
+  btn.disabled=true;
+  el.innerHTML='<span class="sub">Lagrer gruppering…</span>';
+  try{
+    const d=await api('/api/kundekonto/kjor',{method:'POST'});
+    const s=d.sammendrag||{};
+    el.innerHTML='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
+      +`<div><b>${(d.grupper_skrevet||0).toLocaleString('nb-NO')}</b> grupper · `
+      +`${(d.kontoer_skrevet||0).toLocaleString('nb-NO')} kundenumre · `
+      +`${(s.grupper_med_renummerering||0).toLocaleString('nb-NO')} renummereringer</div>`
+      +'<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}

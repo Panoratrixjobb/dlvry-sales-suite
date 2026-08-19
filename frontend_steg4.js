@@ -790,7 +790,9 @@ const Steg4 = (() => {
       return;
     }
 
-    if (!d.orgnr || !d.uker || !d.uker.length) {
+    /* Sjekker radene, ikke org.nr: en kunde som er koblet via kundekontogruppen har
+       historikk selv om org.nr mangler eller er byttet ut ved et eierskifte. */
+    if (!d.uker || !d.uker.length) {
       el.innerHTML = placeholderFane(
         "Salgshistorikk",
         d.orgnr
@@ -832,9 +834,35 @@ const Steg4 = (() => {
       .join("");
 
     const presisjonTekst =
-      d.presisjon === "kundekonto"
-        ? "Viser tall for akkurat dette utleveringsstedet (matchet på kundekonto)."
-        : "Viser tall summert på org.nr-nivå (kundekonto matchet ikke direkte).";
+      d.presisjon === "kundekontogruppe"
+        ? "Viser alle kundenumrene som er denne kunden, også kundenumre grossisten har byttet ut."
+        : d.presisjon === "kundekonto"
+          ? "Viser tall for akkurat dette utleveringsstedet (matchet på kundekonto)."
+          : "Viser tall summert på org.nr-nivå (kundekonto matchet ikke direkte).";
+
+    /* Kundenumrene kortet dekker. Vises bare når kunden faktisk har flere — for én konto
+       ville raden bare gjentatt kundekonto-feltet lenger oppe på kortet. Et tidligere
+       nummer står med sin siste kjøpsuke, så et eierskifte er lesbart som en dato i stedet
+       for som et hull i grafen. */
+    const numre = d.kundenumre || [];
+    const kundenumreHtml = numre.length < 2
+      ? ""
+      : [
+          '<h4 style="margin:var(--s4) 0 var(--s2);font-size:13px">Kundenumre</h4>',
+          '<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Grossisten har brukt flere kundenumre på denne kunden. Tallene over dekker alle sammen.</p>',
+          '<table class="d-tabell"><thead><tr><th>Grossist</th><th>Kundenr</th><th>Org.nr</th>' +
+            '<th>Status</th><th style="text-align:right">Siste kjøp</th></tr></thead><tbody>',
+          numre
+            .map(
+              (k) =>
+                `<tr><td>${esc(k.grossist_kode || "—")}</td><td>${esc(k.kundenr)}</td>` +
+                `<td class="sub">${esc(k.orgnr || "—")}</td>` +
+                `<td>${k.gjeldende ? "Gjeldende" : '<span class="sub">Tidligere</span>'}</td>` +
+                `<td style="text-align:right">${k.siste_ar ? esc(k.siste_ar) + " uke " + esc(k.siste_uke) : "—"}</td></tr>`
+            )
+            .join(""),
+          "</tbody></table>",
+        ].join("");
 
     /* Produktmiks: ekte omsetning/DG PER PRODUKT fra Consolidated Model (kunde_produkt_salg),
        ikke estimatet marginKpi() viser — se app/routers/kunder.py _produktmiks. Tom seksjon
@@ -878,6 +906,7 @@ const Steg4 = (() => {
       `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. ${esc(presisjonTekst)} Siste 12 uker med data:</p>`,
       '<table class="d-tabell"><thead><tr><th>År</th><th>Uke</th><th>Grossist</th><th style="text-align:right">Beløp</th></tr></thead>',
       `<tbody>${rader}</tbody></table>`,
+      kundenumreHtml,
       produktmiksHtml,
     ].join("");
   }
