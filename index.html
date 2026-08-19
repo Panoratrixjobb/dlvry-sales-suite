@@ -7274,6 +7274,28 @@ function renderRapNyeKunderUke(){
     </details>`;
   }).join('');
 
+  // Kontoer grossisten har renummerert (samme navn som en konto som allerede handlet hos
+  // samme grossist). De er trukket ut av tellingen, men vises her — en navnematch kan
+  // være feil, og da må den være mulig å se og overprøve.
+  const renummerert=d.renummerert||{antall:0,kunder:[]};
+  const renummerertRader=(renummerert.kunder||[]).map(k=>`<tr>
+    <td><b>${esc(k.navn&&k.navn!==k.kundenr?k.navn:'Navn mangler i kilden')}</b>
+      <div class="sub">${k.grossist_kode?esc(k.grossist_kode)+' · ':''}Nytt kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
+    <td>${(k.tidligere||[]).map(t=>`<div>Kundenr. ${esc(t.kundenr)} · ${fmtKr((t.omsetning_2025_kr||0)+(t.omsetning_2026_for_uken_kr||0))} tidligere</div>`).join('')||'–'}</td>
+    <td class="tall">${fmtKr(k.omsetning_uke_kr||0)}</td>
+  </tr>`).join('');
+  const renummerertHtml=renummerert.antall?`<details class="rap-new-details" style="margin-top:10px">
+    <summary><span class="rap-new-name">Renummererte kontoer — ikke nye kunder</span>
+      <span class="rap-new-count">${renummerert.antall} ${renummerert.antall===1?'konto':'kontoer'}</span>
+      <span class="rap-new-sum">${fmtKr(renummerert.sum_uke_kr||0)}</span>
+      <span class="rap-new-chevron" aria-hidden="true">›</span></summary>
+    <div class="rap-new-kunder">
+      <p class="sub" style="margin:0 0 8px">Grossisten har opprettet et nytt kundenummer på en kunde vi hadde fra før — samme navn hos samme grossist, typisk etter eierskifte med nytt org.nr. Disse er holdt utenfor telleverket over.</p>
+      <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Ny konto</th><th>Gammel konto</th><th class="tall">Første uke</th>
+      </tr></thead><tbody>${renummerertRader}</tbody></table></div></div>
+  </details>`:'';
+
   return `<div class="rap-card rap-new-card">
     <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Nye kunder per grossist</h3>
       <p>Første positive kjøpsuke i 2026. Tallene under er hele oversikten — åpne en grossist når du vil se kundene.</p></div>
@@ -7287,8 +7309,10 @@ function renderRapNyeKunderUke(){
       <div class="rap-new-stat"><span class="k">Nye kunder</span><span class="v">${d.antall||0}</span></div>
       <div class="rap-new-stat"><span class="k">Grossister med nye</span><span class="v">${d.antall_grossister||0}</span></div>
       <div class="rap-new-stat"><span class="k">Omsetning første uke</span><span class="v">${fmtKr(d.sum_uke_kr||0)}</span></div>
+      ${renummerert.antall?`<div class="rap-new-stat"><span class="k">Renummererte (ikke talt)</span><span class="v">${renummerert.antall}</span></div>`:''}
     </div>
     ${grossister?`<div class="rap-new-list">${grossister}</div>`:'<div class="rap-empty" style="padding:18px">Ingen nye kunder i denne uken.</div>'}
+    ${renummerertHtml}
     <div class="rap-new-foot">${esc(d.definisjon||'')}</div>
   </div>`;
 }
