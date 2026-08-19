@@ -525,6 +525,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-trend-table tr:first-child td{color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em}
 
 .d-tabell.rap-tabell tbody td{font-variant-numeric:tabular-nums}
+.rap-trend-celle{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.rap-trend-pp{font-weight:700;font-size:12px}
+.rap-trend-pp.opp{color:var(--d-gronn)}
+.rap-trend-pp.ned{color:var(--d-roed)}
+.rap-trend-pp.flat,.rap-trend-pp.ukjent{color:var(--muted);font-weight:600}
+.rap-spark{flex:none;overflow:visible}
 .d-tabell.rap-tabell tbody tr.total td{font-weight:750;background:var(--bg)}
 
 @media print{
@@ -6744,6 +6750,78 @@ function renderRapFiks(){
     <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene (grossistenes fulle omsetning). Pære-mot-pære: 2025 kappet til samme uker som 2026 har data for. D06 Wulff & Co og D24 Foodbroker inngår ikke i denne pivoten (ikke regionsfordelt).</div>`;
 }
 
+// ============ Trend over tid (ønsket av Manuele 19.08.2026) ============
+// Vekst opp/ned sier hvor vi STÅR. Trenden sier hvilken VEI det går: rullerende
+// 4-ukers vekst mot fjoråret, siste fire uker mot de fire før. En grossist kan ha
+// pen YTD-vekst og likevel være i fritt fall siden mai — det er nettopp den
+// forskjellen denne kolonnen finnes for.
+const RAP_TREND_TOTAL='__TOTAL__';
+
+function rapTrendFor(key,kode){
+  const t=DASH.grossist_trend&&DASH.grossist_trend[key];
+  return (t&&t[kode])||null;
+}
+
+// Liten graf over de rullerende vekst-tallene. Nullinja er midt i — over den er
+// veksten positiv, under er den negativ. Uker uten gyldig fjorårsgrunnlag tegnes som
+// brudd, ikke som null, som ville lest som «vekst nøyaktig 0 %».
+function rapTrendSpark(serie,farge){
+  const gyldige=(serie||[]).filter(p=>p.vekst!=null);
+  if(gyldige.length<2)return '';
+  const maks=Math.max(0.02,...gyldige.map(p=>Math.abs(p.vekst)));
+  const B=64,H=18,mid=H/2;
+  const x=i=>serie.length>1?(i*(B-2)/(serie.length-1))+1:B/2;
+  const y=v=>mid-(v/maks)*(mid-2);
+  const seg=[];let cur=[];
+  serie.forEach((p,i)=>{
+    if(p.vekst==null){ if(cur.length)seg.push(cur); cur=[]; }
+    else cur.push(x(i).toFixed(1)+','+y(p.vekst).toFixed(1));
+  });
+  if(cur.length)seg.push(cur);
+  const linjer=seg.map(sg=>sg.length>1
+    ? `<polyline points="${sg.join(' ')}" fill="none" style="stroke:${farge}" stroke-width="1.5" stroke-linejoin="round"/>`
+    : `<circle cx="${sg[0].split(',')[0]}" cy="${sg[0].split(',')[1]}" r="1.6" style="fill:${farge}"/>`).join('');
+  const sisteX=x(serie.length-1), sisteY=y(serie[serie.length-1].vekst);
+  const punkt=serie[serie.length-1].vekst!=null
+    ? `<circle cx="${sisteX.toFixed(1)}" cy="${sisteY.toFixed(1)}" r="2" style="fill:${farge}"/>`:'';
+  return `<svg class="rap-spark" viewBox="0 0 ${B} ${H}" width="${B}" height="${H}" aria-hidden="true">`
+    +`<line x1="0" y1="${mid}" x2="${B}" y2="${mid}" style="stroke:var(--line,#d8dde6)" stroke-width="1"/>`
+    +linjer+punkt+'</svg>';
+}
+
+const RAP_TREND_TEKST={opp:'styrker seg',ned:'svekkes',flat:'stabil',ukjent:'for tynt fjorårsgrunnlag'};
+const RAP_TREND_PIL={opp:'↗',ned:'↘',flat:'→',ukjent:''};
+const RAP_TREND_FARGE={opp:'var(--d-gronn,#1f7a3d)',ned:'var(--d-roed,#c0392b)',flat:'var(--muted,#7b8794)',ukjent:'var(--muted,#7b8794)'};
+
+function rapTrendCelle(key,kode){
+  const t=rapTrendFor(key,kode);
+  if(!t)return '<span class="rap-trend-pp ukjent" title="Ingen ukesdata å regne trend av for denne raden.">–</span>';
+  const pp=t.endring_pp==null?'–':(t.endring_pp>=0?'+':'−')
+    +Math.abs(t.endring_pp).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
+  const pct=v=>v==null?'lav base':rapFmtPct(v);
+  const tittel=`${RAP_TREND_TEKST[t.retning]||''}\n`
+    +`Uke ${t.naa.fra_uke}–${t.naa.til_uke}: ${pct(t.naa.vekst)} mot samme uker i 2025\n`
+    +`Uke ${t.forrige.fra_uke}–${t.forrige.til_uke}: ${pct(t.forrige.vekst)}\n`
+    +`Endring: ${pp} — dette er endringen i VEKSTTAKT, ikke i omsetning.`;
+  return `<span class="rap-trend-celle" title="${esc(tittel)}">`
+    +rapTrendSpark(t.serie,RAP_TREND_FARGE[t.retning]||'var(--muted,#7b8794)')
+    +`<span class="rap-trend-pp ${t.retning}">${RAP_TREND_PIL[t.retning]||''} ${pp}</span></span>`;
+}
+
+// Fotnote under tabellene som har trendkolonnen. Står der fordi «pp» i en veksttakt
+// er lett å lese som omsetningsendring — og det er to helt ulike ting.
+function rapTrendForklaring(){
+  const t=DASH.grossist_trend||{};
+  const noen=Object.values(t)[0]||{};
+  const ett=Object.values(noen)[0];
+  if(!ett)return '';
+  return `<div class="rap-card-note">Trend ${ett.vindu} uker: rullerende ${ett.vindu}-ukers vekst mot samme uker i fjor — `
+    +`uke ${ett.naa.fra_uke}–${ett.naa.til_uke} mot uke ${ett.forrige.fra_uke}–${ett.forrige.til_uke}. `
+    +`Tallet er endringen i VEKSTTAKT i prosentpoeng: «+5 pp» betyr at veksten er fem prosentpoeng høyere enn forrige periode, `
+    +`ikke at omsetningen steg 5 %. Endring under ${RAP_TREND_FLAT_PP} pp regnes som stabil. Grafen viser de siste ukene, nullinja er midt i.</div>`;
+}
+const RAP_TREND_FLAT_PP=2;
+
 // Grossist-trend for ett konsept — gjenbrukt av Ukerapport (LS+EE, som i PDF-en) og Konseptrapport.
 // Returnerer {card, innsikt} der innsikt er én <p>-linje pluss «største grossist»-linje (som i PDF-ens INNSIKT-seksjon).
 function rapGrossistTrend(key){
@@ -6764,20 +6842,24 @@ function rapGrossistTrend(key){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
       <td class="tall">${statusHtml}</td>
+      <td class="tall">${rapTrendCelle(key,r.kode)}</td>
     </tr>`;
   }).join('');
   const totalRow=`<tr class="total"><td>TOTAL ${navn.toUpperCase()}</td>
     <td class="tall">${rapFmtM(kons.y2026)}</td><td class="tall">${rapFmtM(kons.y2025)}</td>
     <td class="tall">${rapFmtM((kons.y2026||0)-(kons.y2025||0))}</td>
     <td class="tall">${rapFmtPP(kons.vekst)}</td>
-    <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td></tr>`;
+    <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
+    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL)}</td></tr>`;
 
   const card=`<div class="rap-card">
     <h3><span class="rap-dot" style="background:${kons.farge}"></span>${navn} — grossist-trend (YTD)</h3>
     <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
       <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
       <th class="tall">Endring</th><th class="tall">Bidrag til vekst</th><th class="tall">Status</th>
-    </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+      <th class="tall" title="Er veksten på vei opp, står den stille, eller er den på vei ned?">Trend 4 uker</th>
+    </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+    ${rapTrendForklaring()}
   </div>`;
 
   let best=null,worst=null;
@@ -7129,6 +7211,7 @@ function renderRapKonsept(key){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${statusHtml}</td>
       <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
+      <td class="tall">${rapTrendCelle(key,r.kode)}</td>
     </tr>`;
   }).join('');
 
@@ -7139,6 +7222,7 @@ function renderRapKonsept(key){
     <td class="tall">${rapFmtM(totalDelta)}</td>
     <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
     <td class="tall">${rapFmtPP(kons.vekst)}</td>
+    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL)}</td>
   </tr>`;
 
   let best=null,worst=null;
@@ -7168,7 +7252,9 @@ function renderRapKonsept(key){
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til vekst</th>
-      </tr></thead><tbody>${rows||'<tr><td colspan="6" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+        <th class="tall" title="Er veksten på vei opp, står den stille, eller er den på vei ned?">Trend 4 uker</th>
+      </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
+      ${rapTrendForklaring()}
     </div>
     <div class="rap-note">«Bidrag til vekst» er regnet mot ${navn}s eget 2025-tall, aldri mot en region.</div>
   `;
