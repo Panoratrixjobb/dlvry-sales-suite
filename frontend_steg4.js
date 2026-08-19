@@ -87,7 +87,11 @@ const Steg4 = (() => {
     const auto = (rad.kilde || "manuell") === "auto";
     const grunnlag = rad.grunnlag === "orgnr"
       ? " Regnet på org.nr — kan dekke flere utleveringssteder på samme org.nr."
-      : rad.grunnlag === "kundekonto" ? " Regnet på kundekontoen til akkurat dette stedet." : "";
+      : rad.grunnlag === "kundekontogruppe"
+        ? " Regnet på alle kundenumrene som er denne kunden, også hos andre grossister."
+        : rad.grunnlag === "kundekonto"
+          ? " Regnet på ett kundenummer hos én grossist — handler kunden hos flere, mangler de her."
+          : "";
     const tittel = auto
       ? "Tildelt automatisk fra salgshistorikk." + grunnlag
       : "Satt manuelt. Automatiske kjøringer overskriver ikke denne.";
@@ -840,6 +844,38 @@ const Steg4 = (() => {
           ? "Viser tall for akkurat dette utleveringsstedet (matchet på kundekonto)."
           : "Viser tall summert på org.nr-nivå (kundekonto matchet ikke direkte).";
 
+    /* Grossistvekting: hvor stor del av kundens omsetning hver grossist står for.
+       Regnet på de samme radene som tallene over — ikke på allokeringens 52-ukersvindu,
+       som er det grossist-taggene lenger oppe viser. Vises også for én grossist: «100 %
+       hos Wulff» er et svar, og at det står der gjør at fravær av andre grossister er
+       lest og ikke bare uteblitt. */
+    const fordeling = d.grossist_fordeling || [];
+    const fordelingHtml = !fordeling.length
+      ? ""
+      : [
+          '<h4 style="margin:var(--s4) 0 var(--s2);font-size:13px">Grossister — andel av omsetningen</h4>',
+          '<table class="d-tabell"><thead><tr><th>Grossist</th>' +
+            '<th style="width:34%">Andel</th><th style="text-align:right">Omsetning</th>' +
+            '<th style="text-align:right">Siste kjøp</th></tr></thead><tbody>',
+          fordeling
+            .map((g) => {
+              const pct = Math.round(g.andel * 1000) / 10;
+              return (
+                `<tr><td>${esc(g.grossist)}</td>` +
+                '<td><div style="display:flex;align-items:center;gap:8px">' +
+                '<div style="flex:1;height:8px;border-radius:4px;background:var(--d-kantlinje);overflow:hidden">' +
+                `<div style="width:${Math.max(0, Math.min(100, pct))}%;height:100%;background:var(--d-gronn)"></div></div>` +
+                `<span style="font-variant-numeric:tabular-nums">${pct.toLocaleString("nb-NO", { maximumFractionDigits: 1 })} %</span>` +
+                "</div></td>" +
+                `<td style="text-align:right">${kr(g.omsetning)}</td>` +
+                `<td style="text-align:right">${g.siste_ar ? esc(g.siste_ar) + " uke " + esc(g.siste_uke) : "—"}</td></tr>`
+              );
+            })
+            .join(""),
+          "</tbody></table>",
+          '<p style="font-size:12px;color:var(--d-tekst-3);margin:var(--s2) 0 0">Andelen er regnet på hele perioden kortet viser. Prosenten på grossist-taggene under «Grossister» kommer fra allokeringen, som regner på de siste 52 ukene og utelater grossister under 2 %.</p>',
+        ].join("");
+
     /* Kundenumrene kortet dekker. Vises bare når kunden faktisk har flere — for én konto
        ville raden bare gjentatt kundekonto-feltet lenger oppe på kortet. Et tidligere
        nummer står med sin siste kjøpsuke, så et eierskifte er lesbart som en dato i stedet
@@ -906,6 +942,7 @@ const Steg4 = (() => {
       `<p style="font-size:12px;color:var(--d-tekst-3);margin:0 0 var(--s2)">Viser ukentlig omsetningssum fra grossist (FIKS-14) — ikke enkeltordre. ${esc(presisjonTekst)} Siste 12 uker med data:</p>`,
       '<table class="d-tabell"><thead><tr><th>År</th><th>Uke</th><th>Grossist</th><th style="text-align:right">Beløp</th></tr></thead>',
       `<tbody>${rader}</tbody></table>`,
+      fordelingHtml,
       kundenumreHtml,
       produktmiksHtml,
     ].join("");
