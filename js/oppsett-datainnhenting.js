@@ -708,3 +708,54 @@ async function kkKjor(){
     el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
   }finally{btn.disabled=false;}
 }
+
+// Dublette KUNDERADER i CRM — en annen ting enn grupperingen over. Grupperingen samler
+// salgskontoene; kunderadene står urørt. Kragerø Resort har tre kunderader på samme
+// org.nr som alle nå viser samme historikk, men fortsatt er tre rader i kundelista.
+// Denne visningen leser bare — ingenting slås sammen.
+async function kkDuplikater(){
+  const el=document.getElementById('kkDupResultat');
+  const btn=document.getElementById('kkDupBtn');
+  btn.disabled=true;
+  el.innerHTML='<span class="sub">Leter etter dublette kunderader…</span>';
+  try{
+    const sok=document.getElementById('kkSok').value.trim();
+    const d=await api('/api/kundekonto/duplikater'+(sok?'?sok='+encodeURIComponent(sok):''));
+    let html=`<p style="margin:0 0 6px"><b>${(d.antall_sett||0).toLocaleString('nb-NO')} sett med dublette kunderader</b> `
+      +`(${(d.antall_rader||0).toLocaleString('nb-NO')} rader) · `
+      +`${(d.antall_sikre||0).toLocaleString('nb-NO')} av dem bekreftet av kundekontogruppen</p>`
+      +'<p class="sub" style="margin:0 0 8px">Dette er en oversikt — ingenting er slått sammen. Grupperingen over samler salgskontoene; kunderadene i CRM står urørt.</p>';
+    if(d.antall_i_utvalg===0){
+      el.innerHTML=html+'<div class="sub">Ingen dublette kunderader i utvalget.</div>';
+      return;
+    }
+    html+=(d.sett||[]).map(sett=>{
+      const rader=(sett.kunder||[]).map(k=>{
+        const innhold=Object.entries(k.innhold||{})
+          .map(([t,n])=>`${esc(t)} ${n}`).join(' · ')||'ingenting';
+        return `<tr${k.id===sett.foreslatt_beholdt?' style="font-weight:600"':''}>
+          <td>${k.id===sett.foreslatt_beholdt?'▸ ':''}${esc(k.navn||'(uten navn)')}</td>
+          <td class="sub">${esc(k.kundekonto||'–')}</td>
+          <td class="sub">${esc(k.grossister||'–')}</td>
+          <td class="sub">${esc(k.selger||'ingen')}</td>
+          <td class="sub">${esc(k.status||'–')}</td>
+          <td class="sub">${innhold}</td></tr>`;
+      }).join('');
+      return `<details style="margin:6px 0;border-top:1px solid var(--d-kantlinje);padding-top:6px">
+        <summary style="cursor:pointer"><b>${esc(sett.kunder[0].navn||sett.orgnr)}</b>
+          <span class="sub"> — ${sett.antall_rader} kunderader · org.nr ${esc(sett.orgnr)}</span>
+          <span class="rap-new-concept" title="${sett.sikkerhet==='gruppe'
+            ?'Radene peker inn i samme kundekontogruppe — samme utsalgssted, bekreftet av salgsdataene'
+            :'Radene deler bare org.nr — kan være en kjede med flere steder på ett selskap'}">${sett.sikkerhet==='gruppe'?'sikker':'kun org.nr'}</span></summary>
+        <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
+          <th>Kundenavn</th><th>Kundekonto</th><th>Grossister</th><th>Selger</th><th>Status</th><th>Innhold</th>
+        </tr></thead><tbody>${rader}</tbody></table></div>
+        <p class="sub" style="margin:6px 0 0">▸ = raden som bærer mest innhold. Et forslag til hvilken som bør beholdes, ikke et vedtak.</p>
+      </details>`;
+    }).join('');
+    if(d.avkortet)html+=`<p class="sub" style="margin:8px 0 0">${d.avkortet} sett til er ikke vist.</p>`;
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}

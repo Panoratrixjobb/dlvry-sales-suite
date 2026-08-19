@@ -1420,6 +1420,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp subtil sm" onclick="hentKundenavn(true)" id="kkNavnBtn">Hent kundenavn</button>
           <button class="d-knapp subtil sm" onclick="kkKontroll()" id="kkKontrollBtn">Kjør kontroll (skriver ingenting)</button>
           <button class="d-knapp primar sm" onclick="kkKjor()" id="kkKjorBtn">Lagre gruppering</button>
+          <button class="d-knapp subtil sm" onclick="kkDuplikater()" id="kkDupBtn">Vis dublette kunderader</button>
         </div>
         <div class="d-verktoy" style="margin-top:6px">
           <label style="font-size:12.5px"><input type="checkbox" id="kkKunRenum"> Bare renummereringer (samme grossist)</label>
@@ -1429,6 +1430,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <input class="d-input sm" id="kkSok" placeholder="Navn, org.nr eller kundenr" style="max-width:210px">
         </div>
         <div id="kkResultat" style="font-size:13px"></div>
+        <div id="kkDupResultat" style="font-size:13px;margin-top:10px"></div>
       </div>
 
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
