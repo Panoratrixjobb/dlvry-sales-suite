@@ -3997,11 +3997,6 @@ function kunderParams(){
 async function klMountFiltre(){
   if(klMounted) return;
   klMounted=true;
-  // Allokeringen skriver på tvers av hele kundemassen — samme rolleskille som backend
-  // (krev_leder_eller_admin). Knappen skjules for andre i stedet for å gi 403 ved klikk.
-  const allokBtn=document.getElementById('kunderAllokBtn');
-  if(allokBtn&&CURRENT_USER&&['leder','admin','superadmin'].includes(CURRENT_USER.rolle))
-    allokBtn.style.display='';
   // Region
   document.getElementById('klRegionWrap').innerHTML=mfBygd('klRegion','Region',['Øst','Vest','Nord','Sør'],'klResetLoad()');
   // Grossist
@@ -7669,6 +7664,11 @@ async function showApp(){
   const erAdmin = ['admin','superadmin'].includes(_brukerRolle);
   const exportKnapper = ['kunderExportBtn','leadsExportBtn'];
   exportKnapper.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=erAdmin?'':'none';});
+  // Allokeringen er en HANDLING, ikke en side: menyen eies av modulene (harModul), mens
+  // denne knappen følger samme rolleskille som backend (deps.krev_leder_eller_admin =
+  // leder/admin/superadmin). Skjules i stedet for å gi 403 ved klikk.
+  const allokBtn = document.getElementById('kunderAllokBtn');
+  if(allokBtn) allokBtn.style.display = (erAdmin || _brukerRolle === 'leder') ? '' : 'none';
   // Ni paneler ble tidligere vist/skjult hver for seg her. Nå eier faneinndelingen
   // synligheten, og rollen avgjør bare hvilke faner som finnes i det hele tatt.
   OPPSETT_ER_ADMIN=erAdmin;
