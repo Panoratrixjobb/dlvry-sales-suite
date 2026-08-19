@@ -2840,7 +2840,18 @@ async function api(path,{method='GET',body=null,onResponse=null}={}){
   if(r.status===204)return null;
   const txt=await r.text();
   let data=null; try{data=txt?JSON.parse(txt):null;}catch(_){data=txt;}
-  if(!r.ok){const msg=(data&&data.detail)?data.detail:('HTTP '+r.status);throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));}
+  if(!r.ok){
+    let msg=(data&&data.detail)?data.detail:('HTTP '+r.status);
+    // FastAPI svarer «Not Found» når RUTA ikke finnes — ikke når noe den lette etter
+    // manglet. Den vanligste grunnen er at nettsiden (Static Web App) er oppdatert før
+    // backend (App Service) er ferdig med å starte på nytt, og da er «Feil: Not Found»
+    // et av de mest villedende svarene appen kan gi: alt ser riktig ut, knappen finnes,
+    // og feilen forsvinner av seg selv om et par minutter.
+    if(r.status===404&&msg==='Not Found')
+      msg='Endepunktet finnes ikke på serveren (HTTP 404). Vanligste årsak: nettsiden er '
+        +'oppdatert før backend er ferdig deployet — vent et par minutter og prøv igjen.';
+    throw new Error(typeof msg==='string'?msg:JSON.stringify(msg));
+  }
   return data;
 }
 
