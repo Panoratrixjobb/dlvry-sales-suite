@@ -96,6 +96,14 @@ for (const rolleliste of ["['leder','admin','superadmin'].includes(CURRENT_USER.
   if (html.includes(rolleliste)) throw new Error(`Menytilgang skal komme fra moduler, ikke rollelista ${rolleliste}`);
 }
 
+// normalizeDash bygger et EKSPLISITT objekt: et felt backend sender, men som ikke er
+// nevnt der, forsvinner stille. Det har skjedd tre ganger (importhus, siste_uke_med_data,
+// grossist_trend). Testen fanger den fjerde.
+for (const dashFelt of ['siste_uke_med_data:d.siste_uke_med_data', 'importhus:d.importhus',
+                        'grossist_trend:d.grossist_trend']) {
+  if (!html.includes(dashFelt)) throw new Error(`normalizeDash slipper ikke gjennom ${dashFelt} — feltet blir stille kastet`);
+}
+
 for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'lastNyeKunderCsv', '/api/dashboard-excel/nye-kunder-uke']) {
   if (!html.includes(rapportfunksjon)) throw new Error(`Ukerapporten mangler nye-kunder-funksjonen ${rapportfunksjon}`);
 }

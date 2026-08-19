@@ -2080,7 +2080,12 @@ function normalizeDash(d){
     // normalizeDash returnerer et eksplisitt objekt, så et felt som ikke nevnes blir
     // stille kastet selv om backend sender det. Det var grunnen til at kortet aldri
     // dukket opp, mens tallene ellers var oppdatert.
-    importhus:d.importhus||null
+    importhus:d.importhus||null,
+    // Trend over tid per grossist. Tredje gang samme felle: normalizeDash returnerer et
+    // EKSPLISITT objekt, så et felt backend sender, men som ikke står her, forsvinner
+    // uten en feilmelding noe sted. Kolonnen «Trend 4 uker» sto tom av nøyaktig den
+    // grunnen — dataene lå i svaret hele tiden.
+    grossist_trend:d.grossist_trend||null
   };
 }
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
