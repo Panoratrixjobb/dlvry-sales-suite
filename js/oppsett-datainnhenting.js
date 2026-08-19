@@ -590,13 +590,14 @@ async function hentKundenavn(bekreft){
   knapper.forEach(b=>b.disabled=true);
   el.innerHTML='<span class="sub">Henter kundenavn fra kundedimensjonen…</span>';
   try{
-    const d=await api('/api/kundekonto/hent-navn?ar=2025&ar=2026&bekreft='+(bekreft?'true':'false'),
+    const d=await api('/api/kundekonto/hent-navn?bekreft='+(bekreft?'true':'false'),
                       {method:'POST',body:{token:token||null}});
     const s=d.sammendrag||{};
     el.innerHTML='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
-      +`<div>${(s.kontoer||0).toLocaleString('nb-NO')} kundekontoer · `
-      +`${(s.uten_navn||0).toLocaleString('nb-NO')} uten navn i modellen`
-      +(s.rader_uten_grossistkode?` · ${s.rader_uten_grossistkode} rader uten D-kode (hoppet over)`:'')+'</div>'
+      +`<div>${(s.kontoer||0).toLocaleString('nb-NO')} kundekontoer i kundedimensjonen · `
+      +`${(s.uten_navn||0).toLocaleString('nb-NO')} uten navn`
+      +(s.navn_lik_kundenr?` · ${s.navn_lik_kundenr.toLocaleString('nb-NO')} har kundenummeret som navn`:'')
+      +(s.rader_uten_kontonokkel?` · ${s.rader_uten_kontonokkel} rader uten Dxx-kontonøkkel (hoppet over)`:'')+'</div>'
       +'<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
     if(bekreft)document.getElementById('pbToken').value='';
   }catch(e){
@@ -655,7 +656,27 @@ async function kkKontroll(){
       +`(${(s.grupper_koblet_kun_paa_orgnr||0).toLocaleString('nb-NO')} funnet kun via org.nr) · `
       +`${(s.kontoer_som_blir_historiske||0).toLocaleString('nb-NO')} kundenumre blir merket som tidligere</div>`;
     if(s.kontoer_uten_brukbart_navn){
-      html+=`<div class="sub" style="margin-top:4px">${s.kontoer_uten_brukbart_navn.toLocaleString('nb-NO')} kontoer mangler brukbart navn og kan ikke grupperes — kjør «Hent kundenavn» først.</div>`;
+      const dg=s.uten_navn_diagnose||{};
+      const TEKST={
+        mangler_navnerad:'ingen rad i kundedimensjonen for (grossist, kundenr) — kontoen finnes i salgsdataene, men ikke i navneuttrekket',
+        navnerad_uten_navn:'raden finnes, men navnefeltet er tomt i modellen',
+        navn_er_kundenr:'navnet ER kundenummeret — modellen har ikke noe navn å gi',
+        navn_for_kort:'navnet er for kort til å identifisere en kunde'
+      };
+      html+=`<div class="sub" style="margin-top:6px"><b>${s.kontoer_uten_brukbart_navn.toLocaleString('nb-NO')}</b> kontoer mangler brukbart navn og kan ikke grupperes på navn`
+        +(dg.ekstern_omsetning?` (${fmtKr(dg.ekstern_omsetning)} ekstern omsetning)`:'')+'. Fordelt på årsak:</div>';
+      html+='<ul class="sub" style="margin:4px 0 0 18px">'
+        +Object.entries(dg.per_arsak||{}).map(([k,v])=>
+          `<li><b>${v.toLocaleString('nb-NO')}</b> — ${esc(TEKST[k]||k)}</li>`).join('')
+        +'</ul>';
+      if((dg.eksempler||[]).length){
+        html+='<details class="sub" style="margin-top:4px"><summary style="cursor:pointer">Vis de største uten navn</summary>'
+          +'<div style="overflow-x:auto"><table class="d-tabell"><thead><tr><th>Grossist</th><th>Kundenr</th><th>Org.nr</th><th>Årsak</th><th class="tall">Omsetning</th></tr></thead><tbody>'
+          +dg.eksempler.map(e=>`<tr><td>${esc(e.grossist_kode||'–')}</td><td>${esc(e.kundenr)}</td>`
+            +`<td>${esc(e.orgnr||'–')}</td><td>${esc(e.grunn)}</td>`
+            +`<td class="tall">${fmtKr(e.omsetning||0)}</td></tr>`).join('')
+          +'</tbody></table></div></details>';
+      }
     }
     (s.grupper_forkastet_for_store||[]).forEach(f=>{
       html+=`<div class="sub" style="margin-top:4px;color:var(--d-gul)">«${esc(f.navn||f.navn_nokkel)}» har ${f.antall_kontoer} kontoer og er hoppet over — det ser ut som en samlepost hos grossisten, ikke ett kundenavn.</div>`;

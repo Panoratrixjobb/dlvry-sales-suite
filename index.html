@@ -1414,7 +1414,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
         <p class="sub" style="margin:0 0 10px">Samler kundekontoer som er samme kunde, på to signaler: <b>identisk navn</b>, og <b>samme org.nr</b> når org.nr-et har nøyaktig én konto hos hver av minst to grossister (testen som skiller ett utsalgssted fra en kjede). To numre hos <b>samme grossist</b> er en renummerering — nyeste gjelder, det gamle blir historikk. Numre hos <b>ulike grossister</b> er parallelle leverandørforhold, og alle er gjeldende.</p>
         <p class="sub" style="margin:0 0 10px">Resultatet er en totalkunde på kundekortet: Kragerø Resort Drift AS er én kunde med tre grossister, ikke tre kunder. Kortet viser samlet omsetning først, med mulighet til å drille ned i én grossist.</p>
-        <p class="sub" style="margin:0 0 10px">Kjør <b>Hent kundenavn</b> først: salgsimporten henter bare kundenummer og org.nr, så kontoer opprettet etter siste Excel-backfill står uten navn — og det er nettopp de nye kontoene kontrollen skal fange. Bruker tokenet øverst.</p>
+        <p class="sub" style="margin:0 0 10px">Kjør <b>Hent kundenavn</b> først: salgsimporten henter bare kundenummer og org.nr, så kontoer opprettet etter siste Excel-backfill står uten navn — og det er nettopp de nye kontoene kontrollen skal fange. Hentingen leser hele kundedimensjonen (kontonøkkelen «D05-5103263»), ikke bare kontoer med omsetning. Bruker tokenet øverst.</p>
         <div class="d-verktoy">
           <button class="d-knapp subtil sm" onclick="hentKundenavn(false)" id="kkNavnTorrBtn">Tørrkjør navn</button>
           <button class="d-knapp subtil sm" onclick="hentKundenavn(true)" id="kkNavnBtn">Hent kundenavn</button>
