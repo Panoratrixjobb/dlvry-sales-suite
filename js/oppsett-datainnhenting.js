@@ -713,6 +713,16 @@ async function kkKjor(){
 // salgskontoene; kunderadene står urørt. Kragerø Resort har tre kunderader på samme
 // org.nr som alle nå viser samme historikk, men fortsatt er tre rader i kundelista.
 // Denne visningen leser bare — ingenting slås sammen.
+// Hva salgsdataene sier om hvert dublettsett — samme tekster som backend sender med i
+// tørrkjøringen, her fordi lista viser dem per sett.
+const KK_GRUNN={
+  en_kontogruppe:'Alle kundekontoene på org.nr-et hører til samme kunde.',
+  en_kundekonto:'Org.nr-et har bare én kundekonto — det finnes bare ett sted å være.',
+  flere_kontogrupper:'Salgsdataene viser FLERE utsalgssteder på dette org.nr-et (kjede). Å slå sammen ville blandet stedene.',
+  kontoer_uten_gruppe:'Org.nr-et har kundekontoer som ikke er med i noen gruppe — kjør grupperingen på nytt, eller så mangler de navn.',
+  ingen_salgsdata:'Ingen av kunderadene har kjøpt noe. Uten salgsdata finnes det ingenting å bekrefte med.'
+};
+
 async function kkDuplikater(){
   const el=document.getElementById('kkDupResultat');
   const btn=document.getElementById('kkDupBtn');
@@ -723,7 +733,12 @@ async function kkDuplikater(){
     const d=await api('/api/kundekonto/duplikater'+(sok?'?sok='+encodeURIComponent(sok):''));
     let html=`<p style="margin:0 0 6px"><b>${(d.antall_sett||0).toLocaleString('nb-NO')} sett med dublette kunderader</b> `
       +`(${(d.antall_rader||0).toLocaleString('nb-NO')} rader) · `
-      +`${(d.antall_sikre||0).toLocaleString('nb-NO')} av dem bekreftet av kundekontogruppen</p>`
+      +`<b>${(d.antall_sikre||0).toLocaleString('nb-NO')}</b> bekreftet av salgsdataene og klare til sammenslåing</p>`
+      +((Object.keys(d.ikke_bekreftet_per_grunn||{}).length)
+        ? '<ul class="sub" style="margin:0 0 8px 18px">'
+          +Object.entries(d.ikke_bekreftet_per_grunn).map(([k,v])=>
+            `<li><b>${v.toLocaleString('nb-NO')}</b> ikke bekreftet — ${esc(KK_GRUNN[k]||k)}</li>`).join('')
+          +'</ul>' : '')
       +'<p class="sub" style="margin:0 0 8px">Dette er en oversikt — ingenting er slått sammen. Grupperingen over samler salgskontoene; kunderadene i CRM står urørt.</p>';
     if(d.antall_i_utvalg===0){
       el.innerHTML=html+'<div class="sub">Ingen dublette kunderader i utvalget.</div>';
@@ -744,9 +759,7 @@ async function kkDuplikater(){
       return `<details style="margin:6px 0;border-top:1px solid var(--d-kantlinje);padding-top:6px">
         <summary style="cursor:pointer"><b>${esc(sett.kunder[0].navn||sett.orgnr)}</b>
           <span class="sub"> — ${sett.antall_rader} kunderader · org.nr ${esc(sett.orgnr)}</span>
-          <span class="rap-new-concept" title="${sett.sikkerhet==='gruppe'
-            ?'Radene peker inn i samme kundekontogruppe — samme utsalgssted, bekreftet av salgsdataene'
-            :'Radene deler bare org.nr — kan være en kjede med flere steder på ett selskap'}">${sett.sikkerhet==='gruppe'?'sikker':'kun org.nr'}</span></summary>
+          <span class="rap-new-concept" title="${esc(KK_GRUNN[sett.grunn]||sett.grunn||'')}">${sett.sikkerhet==='orgnr'?'ikke bekreftet':'bekreftet'}</span></summary>
         <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
           <th>Kundenavn</th><th>Kundekonto</th><th>Grossister</th><th>Selger</th><th>Status</th><th>Innhold</th>
         </tr></thead><tbody>${rader}</tbody></table></div>
@@ -784,6 +797,15 @@ async function kkSlaaSammen(bekreft){
       html+=`<div>${(s.sett||0).toLocaleString('nb-NO')} sett · `
         +`<b>${(s.kunder_som_slettes||0).toLocaleString('nb-NO')}</b> kunderader ville blitt slått sammen · `
         +`${(s.rader_som_flyttes||0).toLocaleString('nb-NO')} rader ville blitt flyttet</div>`;
+      // Null sett er ikke et svar i seg selv: enten finnes det ingen dubletter, eller så
+      // finnes de uten at salgsdataene bekrefter dem. Bare det siste er noe å gjøre noe med.
+      if(!s.sett&&s.dublettsett_funnet){
+        html+=`<div class="sub" style="margin-top:4px">${s.dublettsett_funnet.toLocaleString('nb-NO')} dublettsett finnes i utvalget, men ingen er bekreftet av salgsdataene:</div>`
+          +'<ul class="sub" style="margin:4px 0 0 18px">'
+          +Object.entries(s.ikke_bekreftet_per_grunn||{}).map(([k,v])=>
+            `<li><b>${v.toLocaleString('nb-NO')}</b> — ${esc((d.grunner_forklart||{})[k]||k)}</li>`).join('')
+          +'</ul>';
+      }
       if((d.sett||[]).length){
         html+='<div style="overflow-x:auto;margin-top:6px"><table class="d-tabell"><thead><tr>'
           +'<th>Org.nr</th><th>Beholdes</th><th>Slettes</th><th class="tall">Rader som flyttes</th>'
