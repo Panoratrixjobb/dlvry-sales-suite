@@ -950,6 +950,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <input id="klKundekonto" type="search" class="d-input" placeholder="Kundekonto…" style="width:140px" oninput="klResetLoad()">
             <button class="d-knapp primar" onclick="openCustModal()">+ Ny kunde</button>
             <button id="kunderExportBtn" class="d-knapp subtil sm" style="display:none" onclick="eksporterFil('/api/export/kunder.xlsx','kunder.csv')">⤓ Eksporter</button>
+            <button id="kunderAllokBtn" class="d-knapp subtil sm" style="display:none" onclick="apneAllokering()" title="Tildel konsept og grossister fra faktisk salgshistorikk">⚖ Allokér fra salgsdata</button>
             <span id="klCount" class="d-t-label"></span>
           </div>
           <div id="klFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
@@ -988,6 +989,36 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div id="kundekort-steg4" style="margin-top:24px"></div>
         </div>
 
+      </div>
+
+      <!-- Allokering fra salgsdata: forhåndsvisning før skriving, som leads-importen -->
+      <div id="allokModal" class="modal-bg">
+        <div class="modal" style="max-width:900px">
+          <h3 style="margin:0 0 4px">Allokér konsept og grossister fra salgsdata</h3>
+          <p class="sub" style="margin:0 0 14px">
+            Konsept settes av <b>majoriteten av omsetningen</b> — 60 % La Salumeria / 40 % Wulff gir en
+            La Salumeria-kunde. Grossister kobles <b>alle sammen, med hver sin andel</b> (Wulff 70 %,
+            Carl Evensen 30 %). Rader som er satt manuelt blir aldri overskrevet.
+          </p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
+            <label style="font-size:12px">Periode<br>
+              <select id="allokPeriode" class="d-select" style="min-width:210px">
+                <option value="siste12">Siste 52 uker med data (anbefalt)</option>
+                <option value="alt">All historikk</option>
+              </select></label>
+            <label style="font-size:12px">Omfang<br>
+              <select id="allokOmfang" class="d-select" style="min-width:280px">
+                <option value="mangler">Kun kunder som mangler tildeling</option>
+                <option value="oppdater">Oppdater også tidligere automatisk tildelte</option>
+              </select></label>
+            <button class="d-knapp sekundar" onclick="allokForhandsvis()">Forhåndsvis</button>
+          </div>
+          <div id="allokResultat"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+            <button class="d-knapp subtil" onclick="lukkAllokering()">Lukk</button>
+            <button id="allokKjorBtn" class="d-knapp primar" style="display:none" onclick="allokKjor()">Kjør allokeringen</button>
+          </div>
+        </div>
       </div>
 
       <!-- Undervisning: Leads (prospekt-tabell m/ filtre + masse-tildel) -->
@@ -1868,6 +1899,22 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .mf-box label:hover{background:var(--d-flate,#f4f6fb)}
 .mf-sok{position:sticky;top:-6px;width:100%;box-sizing:border-box;margin:-6px 0 6px;padding:6px 8px;border:1px solid var(--d-ramme,#e0e4ee);border-radius:5px;font:inherit;font-size:12.5px;background:var(--panel)}
 .mf-tom{padding:6px;font-size:12px;color:var(--d-tekst-3)}
+.d-kk-andel{font-variant-numeric:tabular-nums;font-weight:700;opacity:.85}
+.d-kk-kilde{font-size:9px;letter-spacing:.05em;text-transform:uppercase;font-weight:800;
+  padding:1px 5px;border-radius:999px;opacity:.9}
+.d-kk-kilde.auto{background:color-mix(in srgb,var(--d-bla,#3b82f6) 18%,transparent)}
+.d-kk-kilde.manuell{background:color-mix(in srgb,var(--d-tekst-3,#7b8794) 20%,transparent)}
+.allok-tabell{width:100%;border-collapse:collapse;font-size:12px}
+.allok-tabell th{text-align:left;font-size:10px;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--d-tekst-3);padding:6px 8px;border-bottom:1px solid var(--d-ramme);position:sticky;top:0;
+  background:var(--panel,#fff)}
+.allok-tabell td{padding:6px 8px;border-bottom:1px solid var(--d-ramme)}
+.allok-uklar{color:var(--d-gul,#b7791f);font-weight:700}
+.allok-kort{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.allok-kort > div{border:1px solid var(--d-ramme);border-radius:8px;padding:9px 11px}
+.allok-kort .k{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--d-tekst-3);font-weight:700}
+.allok-kort .v{display:block;font-size:19px;font-weight:780;margin-top:2px;font-variant-numeric:tabular-nums}
 
 /* Modulvalg i brukerlista (Innstillinger). Avkrysningene er selve arbeidsflaten der,
    så de skal bryte over flere linjer i stedet for å presse tabellen bred. */
@@ -3833,6 +3880,98 @@ function klGaaSide(d){
   klPage=Math.max(0,Math.min(klPage+d,maxPage));
   klLastOgVis();
 }
+// ============ Allokering fra salgsdata (ønsket av Manuele 19.08.2026) ============
+// Forhåndsvisning først, kjøring etterpå — samme rekkefølge som leads-importen og
+// Power BI-hentingen. En allokering som treffer tusenvis av kunder er ikke noe man
+// angrer på med et klikk.
+let ALLOK_SISTE=null;
+
+function apneAllokering(){
+  document.getElementById('allokResultat').innerHTML='';
+  document.getElementById('allokKjorBtn').style.display='none';
+  document.getElementById('allokModal').classList.add('open');
+}
+function lukkAllokering(){ document.getElementById('allokModal').classList.remove('open'); }
+
+function allokValg(){
+  return {periode:document.getElementById('allokPeriode').value,
+          omfang:document.getElementById('allokOmfang').value};
+}
+
+function allokPct(a){
+  return a==null?'–':Math.round(a*100)+' %';
+}
+
+async function allokForhandsvis(){
+  const ut=document.getElementById('allokResultat');
+  ut.innerHTML='<p class="sub">Regner ut forslag …</p>';
+  document.getElementById('allokKjorBtn').style.display='none';
+  let d;
+  try{ d=await api('/api/kunder/allokering/forhandsvis',{method:'POST',body:allokValg()}); }
+  catch(e){ ut.innerHTML='<p style="color:var(--d-roed)">Feil: '+esc(e.message)+'</p>'; return; }
+  ALLOK_SISTE=d;
+
+  const rader=(d.planlagt||[]).map(p=>{
+    const kons=p.skriv_konsept&&p.konsept
+      ? esc(p.konsept_navn||'')+' <b>'+allokPct(p.konsept.andel)+'</b>'
+        +(p.konsept.uklar?' <span class="allok-uklar" title="Under 55 % — kan snu på én ordre">uklar</span>':'')
+      : '<span class="sub">– beholdes</span>';
+    const gros=p.skriv_grossister
+      ? (p.grossister||[]).map(g=>esc(g.navn||g.kode)+' <b>'+allokPct(g.andel)+'</b>').join('<br>')
+      : '<span class="sub">– beholdes</span>';
+    const grunn=p.grunnlag==='orgnr'
+      ? '<span title="Regnet på org.nr. Deles org.nr med flere kunder, får alle samme fordeling.">org.nr'
+        +(p.delt_orgnr?' ⚠ delt':'')+'</span>'
+      : 'kundekonto';
+    return '<tr><td>'+esc(p.kunde_navn||p.kunde_id)+'</td><td>'+kons+'</td><td>'+gros
+      +'</td><td class="sub">'+grunn+'</td></tr>';
+  }).join('');
+
+  ut.innerHTML=
+    '<div class="allok-kort">'
+    +'<div><span class="k">Blir endret</span><span class="v">'+(d.antall_planlagt||0).toLocaleString('nb-NO')+'</span></div>'
+    +'<div><span class="k">Uendret</span><span class="v">'+(d.antall_uendret||0).toLocaleString('nb-NO')+'</span></div>'
+    +'<div><span class="k">Hoppet over (manuelt)</span><span class="v">'+(d.antall_hoppet_manuell||0).toLocaleString('nb-NO')+'</span></div>'
+    +'<div><span class="k">Uklare (under 55 %)</span><span class="v">'+(d.antall_uklar||0).toLocaleString('nb-NO')+'</span></div>'
+    +'<div><span class="k">På org.nr-nivå</span><span class="v">'+(d.antall_orgnr_niva||0).toLocaleString('nb-NO')+'</span></div>'
+    +'</div>'
+    +'<p class="sub" style="margin:0 0 8px">Grunnlag: '+esc(d.periode_tekst||'')+' · '+esc(d.omfang_tekst||'')
+    +' · '+(d.kunder_med_salgsdata||0).toLocaleString('nb-NO')+' kunder har salgsdata i perioden.'
+    +(d.ukjente_grossistkoder&&d.ukjente_grossistkoder.length
+      ? ' <span style="color:var(--d-gul)">⚠ Ukjente grossistkoder i salgsdata: '+esc(d.ukjente_grossistkoder.join(', '))
+        +' — disse kobles ikke.</span>':'')
+    +'</p>'
+    +(d.antall_planlagt
+      ? '<div style="max-height:300px;overflow:auto;border:1px solid var(--d-ramme);border-radius:8px">'
+        +'<table class="allok-tabell"><thead><tr><th>Kunde</th><th>Konsept</th><th>Grossister</th><th>Grunnlag</th></tr></thead>'
+        +'<tbody>'+rader+'</tbody></table></div>'
+        +'<p class="sub" style="margin:8px 0 0">Viser '+(d.vist||0)+' av '+(d.antall_planlagt||0)+' endringer.</p>'
+      : '<p class="sub">Ingenting å endre med disse valgene.</p>');
+
+  document.getElementById('allokKjorBtn').style.display=d.antall_planlagt?'':'none';
+}
+
+async function allokKjor(){
+  const d=ALLOK_SISTE;
+  if(!d||!d.antall_planlagt)return;
+  if(!confirm('Tildeler konsept og/eller grossister på '+d.antall_planlagt.toLocaleString('nb-NO')
+              +' kunder.\n\nManuelt satte rader røres ikke. Fortsette?'))return;
+  const btn=document.getElementById('allokKjorBtn');
+  btn.disabled=true; btn.textContent='Kjører …';
+  try{
+    const r=await api('/api/kunder/allokering/kjor',{method:'POST',body:allokValg()});
+    document.getElementById('allokResultat').innerHTML=
+      '<p style="color:var(--d-gronn);font-weight:600">Ferdig: '+r.konsept_satt+' konsept satt, '
+      +r.grossistkoblinger+' grossistkoblinger, '+(r.manuelle_beriket||0)+' manuelle koblinger fikk andel, '
+      +(r.hovedgrossist_fylt||0)+' fikk hovedgrossist utfylt. '
+      +r.antall_hoppet_manuell+' hoppet over fordi konseptet er satt manuelt.</p>';
+    btn.style.display='none';
+    klResetLoad();
+  }catch(e){
+    document.getElementById('allokResultat').innerHTML='<p style="color:var(--d-roed)">Feil: '+esc(e.message)+'</p>';
+  }finally{ btn.disabled=false; btn.textContent='Kjør allokeringen'; }
+}
+
 function kunderParams(){
   const p=new URLSearchParams();
   p.set('status_ikke','Lead');
@@ -3858,6 +3997,11 @@ function kunderParams(){
 async function klMountFiltre(){
   if(klMounted) return;
   klMounted=true;
+  // Allokeringen skriver på tvers av hele kundemassen — samme rolleskille som backend
+  // (krev_leder_eller_admin). Knappen skjules for andre i stedet for å gi 403 ved klikk.
+  const allokBtn=document.getElementById('kunderAllokBtn');
+  if(allokBtn&&CURRENT_USER&&['leder','admin','superadmin'].includes(CURRENT_USER.rolle))
+    allokBtn.style.display='';
   // Region
   document.getElementById('klRegionWrap').innerHTML=mfBygd('klRegion','Region',['Øst','Vest','Nord','Sør'],'klResetLoad()');
   // Grossist

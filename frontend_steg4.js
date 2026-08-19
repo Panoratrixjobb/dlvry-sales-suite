@@ -74,8 +74,48 @@ const Steg4 = (() => {
   function konseptFarge(k) {
     return (
       { "La Salumeria": "roed", "East Essence": "bla",
-        "Godt Lokalt": "gronn", "Sabor": "gul" }[k] || "graa"
+        "Godt Lokalt": "gronn", "Wulff & Co": "bla", "Fast Food": "roed",
+        "Sabor": "gul" }[k] || "graa"
     );
+  }
+
+  /* Kilde-merke på konsept- og grossist-taggene (allokering, 2026-08-19).
+     Uten det ser en beregnet tildeling nøyaktig ut som et menneskes valg, og da tør
+     ingen røre noen av dem. `andel` er hvor stor del av omsetningen raden utgjør. */
+  function kildeMerke(rad) {
+    const andel = rad.andel != null ? Math.round(rad.andel * 100) + " %" : null;
+    const auto = (rad.kilde || "manuell") === "auto";
+    const grunnlag = rad.grunnlag === "orgnr"
+      ? " Regnet på org.nr — kan dekke flere utleveringssteder på samme org.nr."
+      : rad.grunnlag === "kundekonto" ? " Regnet på kundekontoen til akkurat dette stedet." : "";
+    const tittel = auto
+      ? "Tildelt automatisk fra salgshistorikk." + grunnlag
+      : "Satt manuelt. Automatiske kjøringer overskriver ikke denne.";
+    return (
+      (andel ? `<span class="d-kk-andel" title="Andel av kundens omsetning">${esc(andel)}</span>` : "") +
+      `<span class="d-kk-kilde ${auto ? "auto" : "manuell"}" title="${esc(tittel)}">${auto ? "auto" : "manuelt"}</span>`
+    );
+  }
+
+  /* Henter konsept + grossistfordeling for ÉN kunde fra salgshistorikken. Samme motor
+     som masse-kjøringen på Kunder-siden, avgrenset til denne kunden. */
+  async function hentFraSalgsdata(kundeId, statusEl, etterpaa) {
+    if (statusEl) statusEl.textContent = "Henter fra salgsdata…";
+    try {
+      const r = await api(`/api/kunder/${kundeId}/allokering`, { method: "POST" });
+      if (statusEl) {
+        statusEl.textContent = r.endret
+          ? `Oppdatert: ${r.konsept_satt ? "konsept" : "ingen konseptendring"}, ` +
+            `${r.grossistkoblinger + (r.manuelle_beriket || 0)} grossist(er).`
+          : r.melding || "Ingen endring.";
+      }
+      if (typeof etterpaa === "function") etterpaa();
+    } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = "Feil: " + e.message;
+        statusEl.style.color = "var(--d-roed)";
+      }
+    }
   }
 
   /* Type-ikon for aktivitet */
@@ -577,7 +617,11 @@ const Steg4 = (() => {
   }
 
   // ---------- KONSEPTER ----------
-  const KONSEPTER = ["La Salumeria", "East Essence", "Godt Lokalt", "Sabor"];
+  /* Samme seks konsepter som salgsdataene og backend (konsepter.KONSEPT_NOKKEL).
+     «Wulff & Co» og «Fast Food» manglet her — en kunde som kjøper mest Wulff kunne
+     derfor ikke tildeles konseptet sitt, verken for hånd eller av allokeringen. */
+  const KONSEPTER = ["La Salumeria", "East Essence", "Godt Lokalt",
+                     "Wulff & Co", "Fast Food", "Sabor"];
 
   async function monterKonsepter(kundeId, el) {
     el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--d-tekst-3)">Laster konsepter…</p>';
@@ -595,6 +639,7 @@ const Steg4 = (() => {
         (k) =>
           `<span class="d-badge ${konseptFarge(k.konsept)} flat" style="gap:6px">` +
           esc(k.konsept) +
+          kildeMerke(k) +
           `<button data-slett-kon="${k.id}" title="Fjern" style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;font-size:14px;line-height:1;color:currentColor;opacity:.7">×</button>` +
           `</span>`
       )
@@ -612,9 +657,23 @@ const Steg4 = (() => {
       `</div>`,
       `<div style="display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap">`,
       addCtrl,
+      `<button id="kon-hent" class="d-knapp subtil sm" title="Setter konsept fra majoriteten av omsetningen, og kobler grossistene kunden faktisk handler hos. Rører ikke det som er satt manuelt.">⟳ Hent fra salgsdata</button>`,
       `<span id="kon-status" style="font-size:12px;color:var(--d-tekst-3)"></span>`,
       `</div>`,
     ].join("");
+
+    const hentBtn = el.querySelector("#kon-hent");
+    if (hentBtn)
+      hentBtn.addEventListener("click", () =>
+        hentFraSalgsdata(kundeId, el.querySelector("#kon-status"), () => {
+          monterKonsepter(kundeId, el);
+          // Grossistene endres av samme kall — lista ved siden av ville ellers stått
+          // og vist gårsdagens kobling til man lastet kundekortet på nytt.
+          const gEl = document.querySelector("#ks-grossister");
+          const rolle = typeof window._brukerRolle !== "undefined" ? window._brukerRolle : "";
+          if (gEl) monterKundeGrossister(kundeId, gEl, rolle);
+        })
+      );
 
     el.querySelectorAll("[data-slett-kon]").forEach((b) =>
       b.addEventListener("click", async () => {
@@ -665,6 +724,7 @@ const Steg4 = (() => {
         (g) =>
           `<span class="d-badge gronn flat" style="gap:6px">` +
           esc(g.grossist_navn) +
+          kildeMerke(g) +
           (kanRedigere
             ? `<button data-slett-gr="${g.grossist_id}" title="Fjern" style="background:none;border:none;cursor:pointer;padding:0;margin-left:2px;font-size:14px;line-height:1;color:currentColor;opacity:.7">×</button>`
             : "") +
