@@ -648,6 +648,7 @@ async function kkKontroll(){
     const d=await api('/api/kundekonto/kontroll'+qs);
     const s=d.sammendrag||{};
     let html='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
+      +kkUtdatertVarsel(d.gruppering_status)
       +`<div>${(s.kontoer_totalt||0).toLocaleString('nb-NO')} kundekontoer med salg · `
       +`<b>${(s.grupper||0).toLocaleString('nb-NO')}</b> grupper med mer enn ett kundenummer `
       +`(${(s.kontoer_i_grupper||0).toLocaleString('nb-NO')} kontoer)</div>`
@@ -715,6 +716,18 @@ async function kkKjor(){
 // Denne visningen leser bare — ingenting slås sammen.
 // Hva salgsdataene sier om hvert dublettsett — samme tekster som backend sender med i
 // tørrkjøringen, her fordi lista viser dem per sett.
+// Advarsel når den lagrede grupperingen er eldre enn navnene. Da er alle «kontoer uten
+// gruppe» sannsynligvis bare et resultat av rekkefølgen, ikke av manglende data.
+function kkUtdatertVarsel(st){
+  if(!st||!st.utdatert)return '';
+  return '<div style="background:var(--d-gul-bg);color:var(--d-gul);border:1px solid #E9D9A8;'
+    +'border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12.5px">'
+    +'⚠ Kundenavnene er hentet <b>etter</b> at grupperingen sist ble lagret'
+    +(st.navn_hentet?' ('+esc(st.navn_hentet.slice(0,16).replace('T',' '))+' mot '
+      +esc((st.gruppering_lagret||'aldri').slice(0,16).replace('T',' '))+')':'')
+    +'. Grupperingen står da på de gamle navnene. Kjør <b>Lagre gruppering</b> på nytt før du går videre.</div>';
+}
+
 const KK_GRUNN={
   en_kontogruppe:'Alle kundekontoene på org.nr-et hører til samme kunde.',
   en_kundekonto:'Org.nr-et har bare én kundekonto — det finnes bare ett sted å være.',
@@ -731,7 +744,8 @@ async function kkDuplikater(){
   try{
     const sok=document.getElementById('kkSok').value.trim();
     const d=await api('/api/kundekonto/duplikater'+(sok?'?sok='+encodeURIComponent(sok):''));
-    let html=`<p style="margin:0 0 6px"><b>${(d.antall_sett||0).toLocaleString('nb-NO')} sett med dublette kunderader</b> `
+    let html=kkUtdatertVarsel(d.gruppering_status)
+      +`<p style="margin:0 0 6px"><b>${(d.antall_sett||0).toLocaleString('nb-NO')} sett med dublette kunderader</b> `
       +`(${(d.antall_rader||0).toLocaleString('nb-NO')} rader) · `
       +`<b>${(d.antall_sikre||0).toLocaleString('nb-NO')}</b> bekreftet av salgsdataene og klare til sammenslåing</p>`
       +((Object.keys(d.ikke_bekreftet_per_grunn||{}).length)
@@ -799,12 +813,17 @@ async function kkSlaaSammen(bekreft){
         +`${(s.rader_som_flyttes||0).toLocaleString('nb-NO')} rader ville blitt flyttet</div>`;
       // Null sett er ikke et svar i seg selv: enten finnes det ingen dubletter, eller så
       // finnes de uten at salgsdataene bekrefter dem. Bare det siste er noe å gjøre noe med.
+      html+=kkUtdatertVarsel(d.gruppering_status);
       if(!s.sett&&s.dublettsett_funnet){
         html+=`<div class="sub" style="margin-top:4px">${s.dublettsett_funnet.toLocaleString('nb-NO')} dublettsett finnes i utvalget, men ingen er bekreftet av salgsdataene:</div>`
           +'<ul class="sub" style="margin:4px 0 0 18px">'
           +Object.entries(s.ikke_bekreftet_per_grunn||{}).map(([k,v])=>
             `<li><b>${v.toLocaleString('nb-NO')}</b> — ${esc((d.grunner_forklart||{})[k]||k)}</li>`).join('')
           +'</ul>';
+        if((d.lose_kontoer||[]).length){
+          html+='<div class="sub" style="margin-top:4px">Kontoene som står utenfor gruppen: '
+            +d.lose_kontoer.map(k=>'<code>'+esc(k)+'</code>').join(', ')+'</div>';
+        }
       }
       if((d.sett||[]).length){
         html+='<div style="overflow-x:auto;margin-top:6px"><table class="d-tabell"><thead><tr>'
