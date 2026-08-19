@@ -844,6 +844,19 @@ const Steg4 = (() => {
           "</div>"
         : "";
 
+    /* Konsernselskap, ikke kunde: grossistene kjøper av hverandre og ligger som
+       kundekontoer hos hverandre. Tallene er ekte fakturering, men varen har ikke forlatt
+       konsernet — de er holdt utenfor «Total ekstern» og alle kundetall ellers i appen, og
+       da må kortet si det, ikke bare vise et stort beløp. */
+    const internHtml = d.konsernintern
+      ? '<div style="background:var(--d-gul-bg);color:var(--d-gul);border:1px solid #E9D9A8;' +
+        'border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-size:13px">' +
+        "⚠ Konsernintern — dette er et av konsernets egne selskaper. Beløpene under er intern " +
+        "fakturering mellom grossistene, ikke omsetning mot marked, og de teller ikke med i " +
+        "«Total ekstern» eller i kundetallene ellers i appen." +
+        "</div>"
+      : "";
+
     const siste = d.uker.slice(-12).reverse();
     const rader = siste
       .map(
@@ -968,6 +981,7 @@ const Steg4 = (() => {
           ].join("");
 
     el.innerHTML = [
+      internHtml,
       avvikHtml,
       orgDeltHtml,
       velgerHtml,

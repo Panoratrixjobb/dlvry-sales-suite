@@ -622,7 +622,7 @@ function kkGruppeHtml(g){
   return `<details style="margin:6px 0;border-top:1px solid var(--d-kantlinje);padding-top:6px">
     <summary style="cursor:pointer"><b>${esc(g.navn||'(uten navn)')}</b>
       <span class="sub"> — ${(g.kontoer||[]).length} kundenumre hos ${g.antall_grossister} grossist${g.antall_grossister===1?'':'er'}
-      · ${fmtKr((g.oms_2025||0)+(g.oms_2026||0))} samlet</span>
+      · ${fmtKr((g.oms_2025||0)+(g.oms_2026||0))} ekstern${g.oms_intern?' · '+fmtKr(g.oms_intern)+' intern':''}</span>
       ${g.renummerert?'<span class="rap-new-concept">renummerert</span>':''}
       <span class="sub" title="Signalet som knyttet kontoene sammen">koblet på ${esc((g.koblet_paa||[]).join(' + ')||'navn')}</span></summary>
     <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
