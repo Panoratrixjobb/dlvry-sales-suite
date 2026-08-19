@@ -623,7 +623,8 @@ function kkGruppeHtml(g){
     <summary style="cursor:pointer"><b>${esc(g.navn||'(uten navn)')}</b>
       <span class="sub"> — ${(g.kontoer||[]).length} kundenumre hos ${g.antall_grossister} grossist${g.antall_grossister===1?'':'er'}
       · ${fmtKr((g.oms_2025||0)+(g.oms_2026||0))} samlet</span>
-      ${g.renummerert?'<span class="rap-new-concept">renummerert</span>':''}</summary>
+      ${g.renummerert?'<span class="rap-new-concept">renummerert</span>':''}
+      <span class="sub" title="Signalet som knyttet kontoene sammen">koblet på ${esc((g.koblet_paa||[]).join(' + ')||'navn')}</span></summary>
     <div style="overflow-x:auto"><table class="d-tabell"><thead><tr>
       <th>Grossist</th><th>Kundenr</th><th>Org.nr</th><th>Første → siste kjøp</th>
       <th class="tall">2025</th><th class="tall">2026</th>
@@ -637,9 +638,12 @@ async function kkKontroll(){
   btn.disabled=true;
   el.innerHTML='<span class="sub">Kjører kontroll over alle grossister…</span>';
   try{
+    const gr=document.getElementById('kkGrossist').value.trim();
+    const sok=document.getElementById('kkSok').value.trim();
     const qs='?kun_renummerering='+(document.getElementById('kkKunRenum').checked?'true':'false')
-      +(document.getElementById('kkGrossist').value.trim()
-        ?'&grossist_kode='+encodeURIComponent(document.getElementById('kkGrossist').value.trim()):'');
+      +'&kun_flere_grossister='+(document.getElementById('kkKunFlereGr').checked?'true':'false')
+      +(gr?'&grossist_kode='+encodeURIComponent(gr):'')
+      +(sok?'&sok='+encodeURIComponent(sok):'');
     const d=await api('/api/kundekonto/kontroll'+qs);
     const s=d.sammendrag||{};
     let html='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>'
@@ -647,6 +651,8 @@ async function kkKontroll(){
       +`<b>${(s.grupper||0).toLocaleString('nb-NO')}</b> grupper med mer enn ett kundenummer `
       +`(${(s.kontoer_i_grupper||0).toLocaleString('nb-NO')} kontoer)</div>`
       +`<div style="margin-top:2px">Derav <b>${(s.grupper_med_renummerering||0).toLocaleString('nb-NO')}</b> renummereringer hos samme grossist · `
+      +`<b>${(s.grupper_med_flere_grossister||0).toLocaleString('nb-NO')}</b> kunder hos flere grossister `
+      +`(${(s.grupper_koblet_kun_paa_orgnr||0).toLocaleString('nb-NO')} funnet kun via org.nr) · `
       +`${(s.kontoer_som_blir_historiske||0).toLocaleString('nb-NO')} kundenumre blir merket som tidligere</div>`;
     if(s.kontoer_uten_brukbart_navn){
       html+=`<div class="sub" style="margin-top:4px">${s.kontoer_uten_brukbart_navn.toLocaleString('nb-NO')} kontoer mangler brukbart navn og kan ikke grupperes — kjør «Hent kundenavn» først.</div>`;

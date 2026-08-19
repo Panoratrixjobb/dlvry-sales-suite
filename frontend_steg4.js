@@ -784,11 +784,16 @@ const Steg4 = (() => {
   }
 
   // ---------- SALGSHISTORIKK (FIKS-14: ukentlig omsetning pr. org.nr, ikke enkeltordre) ----------
-  async function monterSalgshistorikk(kundeId, el) {
+  /* `valgtGrossist` er drill-down: null = samlet for alle grossister kunden handler hos.
+     Filtreringen gjøres i backend, ikke her, slik at totaler, margin og produktmiks
+     regnes på samme utvalg som ukestabellen — en klientside-filtrering ville bare truffet
+     tabellen og latt tallene over den bli stående som om ingenting var valgt. */
+  async function monterSalgshistorikk(kundeId, el, valgtGrossist) {
     el.innerHTML = '<p style="margin:0;font-size:12px;color:var(--d-tekst-3)">Laster salgshistorikk…</p>';
     let d;
     try {
-      d = await api(`/api/kunder/${kundeId}/salgshistorikk`);
+      const qs = valgtGrossist ? "?grossist=" + encodeURIComponent(valgtGrossist) : "";
+      d = await api(`/api/kunder/${kundeId}/salgshistorikk${qs}`);
     } catch (e) {
       el.innerHTML = `<p style="margin:0;color:var(--d-roed);font-size:12px">Feil: ${esc(e.message)}</p>`;
       return;
@@ -797,12 +802,23 @@ const Steg4 = (() => {
     /* Sjekker radene, ikke org.nr: en kunde som er koblet via kundekontogruppen har
        historikk selv om org.nr mangler eller er byttet ut ved et eierskifte. */
     if (!d.uker || !d.uker.length) {
-      el.innerHTML = placeholderFane(
-        "Salgshistorikk",
-        d.orgnr
-          ? "Ingen kjøp registrert på dette org.nr i salgsdataene (FIKS-14)."
-          : "Kunden mangler org.nr — kan ikke kobles mot salgsdata (FIKS-14)."
-      );
+      el.innerHTML =
+        (d.valgt_grossist
+          ? `<p style="margin:0 0 var(--s3);font-size:12px">Ingen kjøp hos ${esc(d.valgt_grossist)}. ` +
+            `<a href="#" id="sh-tilbake">Vis samlet igjen</a></p>`
+          : "") +
+        placeholderFane(
+          "Salgshistorikk",
+          d.orgnr
+            ? "Ingen kjøp registrert på dette org.nr i salgsdataene (FIKS-14)."
+            : "Kunden mangler org.nr — kan ikke kobles mot salgsdata (FIKS-14)."
+        );
+      const tilbake = el.querySelector("#sh-tilbake");
+      if (tilbake)
+        tilbake.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          monterSalgshistorikk(kundeId, el, null);
+        });
       return;
     }
 
@@ -850,6 +866,30 @@ const Steg4 = (() => {
        hos Wulff» er et svar, og at det står der gjør at fravær av andre grossister er
        lest og ikke bare uteblitt. */
     const fordeling = d.grossist_fordeling || [];
+    const valgt = d.valgt_grossist || null;
+
+    /* Samlet først, drill-down etterpå. Villa Paradiso Munch Brygge og Kragerø Resort er
+       én kunde med henholdsvis to og tre leverandører — totalen er det man skal se først,
+       og så kunne åpne én grossist når man lurer på hvor bevegelsen ligger. */
+    const velgerHtml = fordeling.length < 2
+      ? ""
+      : `<div style="display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap;margin-bottom:var(--s3)">` +
+        `<span style="font-size:12px;color:var(--d-tekst-3)">Viser</span>` +
+        `<select id="sh-grossist" class="d-select" style="width:auto;min-width:220px">` +
+        `<option value="" ${valgt ? "" : "selected"}>Samlet — alle ${fordeling.length} grossister</option>` +
+        fordeling
+          .map(
+            (g) =>
+              `<option value="${esc(g.grossist)}" ${valgt === g.grossist ? "selected" : ""}>` +
+              `${esc(g.grossist)} (${Math.round(g.andel * 100)} %)</option>`
+          )
+          .join("") +
+        `</select>` +
+        (valgt
+          ? `<span style="font-size:12px;color:var(--d-tekst-3)">Tallene under gjelder kun ${esc(valgt)}.</span>`
+          : `<span style="font-size:12px;color:var(--d-tekst-3)">Tallene under er totalen for kunden.</span>`) +
+        `</div>`;
+
     const fordelingHtml = !fordeling.length
       ? ""
       : [
@@ -860,8 +900,11 @@ const Steg4 = (() => {
           fordeling
             .map((g) => {
               const pct = Math.round(g.andel * 1000) / 10;
+              const erValgt = valgt === g.grossist;
               return (
-                `<tr><td>${esc(g.grossist)}</td>` +
+                `<tr data-velg-grossist="${esc(g.grossist)}" style="cursor:pointer${erValgt ? ";font-weight:600" : ""}" ` +
+                `title="Vis bare tall for denne grossisten">` +
+                `<td>${erValgt ? "▸ " : ""}${esc(g.grossist)}</td>` +
                 '<td><div style="display:flex;align-items:center;gap:8px">' +
                 '<div style="flex:1;height:8px;border-radius:4px;background:var(--d-kantlinje);overflow:hidden">' +
                 `<div style="width:${Math.max(0, Math.min(100, pct))}%;height:100%;background:var(--d-gronn)"></div></div>` +
@@ -927,6 +970,7 @@ const Steg4 = (() => {
     el.innerHTML = [
       avvikHtml,
       orgDeltHtml,
+      velgerHtml,
       '<div style="display:flex;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap">',
       '<div class="kort" style="flex:1;min-width:150px">',
       '<div class="lbl">Omsetning 2026</div>',
@@ -946,6 +990,18 @@ const Steg4 = (() => {
       kundenumreHtml,
       produktmiksHtml,
     ].join("");
+
+    const velger = el.querySelector("#sh-grossist");
+    if (velger)
+      velger.addEventListener("change", () =>
+        monterSalgshistorikk(kundeId, el, velger.value || null)
+      );
+    el.querySelectorAll("[data-velg-grossist]").forEach((rad) =>
+      rad.addEventListener("click", () => {
+        const g = rad.dataset.velgGrossist;
+        monterSalgshistorikk(kundeId, el, valgt === g ? null : g);
+      })
+    );
   }
 
   // ---------- KUNDEKORT (kundeinfo + faner) — Variant A "Oversikt" ----------
