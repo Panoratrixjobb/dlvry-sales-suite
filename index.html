@@ -948,6 +948,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           </div>
           <div id="klFilterBar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
             <div id="klRegionWrap"></div>
+            <div id="klKommuneWrap"></div>
             <div id="klBransjeWrap"></div>
             <div id="klKjedeWrap"></div>
             <select id="klGrossist" class="d-select" onchange="klResetLoad()" style="width:auto;min-width:150px"><option value="">Alle grossister</option></select>
@@ -1025,6 +1026,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="leadsFilter2" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px">
           <div id="leadsRegionWrap"></div>
           <div id="leadsFylkeWrap"></div>
+          <div id="leadsKommuneWrap"></div>
           <div id="leadsKategoriWrap"></div>
           <div id="leadsSegmentWrap"></div>
           <div id="leadsOkonomiWrap"></div>
@@ -1858,6 +1860,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .mf-box.open{display:block}
 .mf-box label{display:flex;align-items:center;gap:7px;padding:4px 6px;font-size:13px;cursor:pointer;border-radius:4px;user-select:none}
 .mf-box label:hover{background:var(--d-flate,#f4f6fb)}
+.mf-sok{position:sticky;top:-6px;width:100%;box-sizing:border-box;margin:-6px 0 6px;padding:6px 8px;border:1px solid var(--d-ramme,#e0e4ee);border-radius:5px;font:inherit;font-size:12.5px;background:var(--panel)}
+.mf-tom{padding:6px;font-size:12px;color:var(--d-tekst-3)}
 
 /* Modulvalg i brukerlista (Innstillinger). Avkrysningene er selve arbeidsflaten der,
    så de skal bryte over flere linjer i stedet for å presse tabellen bred. */
@@ -3833,6 +3837,7 @@ function kunderParams(){
   const g=document.getElementById('klGrossist').value; if(g) p.set('grossist_id',g);
   const reg=mfValgte('klRegion'); if(reg) p.set('region',reg);
   const br=mfValgte('klBransje'); if(br) p.set('bransje',br);
+  const km=mfValgte('klKommune'); if(km) p.set('kommune',km);
   const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
   if(klRisikoFiltr){
     p.set('risiko','true');
@@ -3854,6 +3859,11 @@ async function klMountFiltre(){
     const gl=await api('/api/grossister')||[];
     document.getElementById('klGrossist').innerHTML='<option value="">Alle grossister</option>'
       +gl.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+'</option>').join('');
+  }catch(e){}
+  // Kommune — dynamisk, med sokefelt (lista er flere hundre lang)
+  try{
+    const kommuner=await api('/api/kunder/kommuner')||[];
+    document.getElementById('klKommuneWrap').innerHTML=kommuner.length?mfBygd('klKommune','Kommune',kommuner,'klResetLoad()'):'';
   }catch(e){}
   // Bransje + kjede — dynamisk
   try{
@@ -3981,17 +3991,18 @@ async function mountLeads(){
     // Dynamiske filtre fra DB — hentes parallelt (feiler mykt hver for seg)
     const dynFilter=[
       ['/api/kunder/bransjer','leadsBransjeWrap','leadsBransje','Bransje'],
-      ['/api/kunder/fylker','leadsFylkeWrap','leadsFylke','Fylke'],
+      ['/api/kunder/fylker','leadsFylkeWrap','leadsFylke','Fylke','leadsFylkeEndret()'],
       ['/api/kunder/kategorier','leadsKategoriWrap','leadsKategori','Kategori'],
       ['/api/kunder/segmenter','leadsSegmentWrap','leadsSegment','Segment'],
       ['/api/kunder/est-omsetninger','leadsEstOmsWrap','leadsEstOms','Est. omsetning'],
     ];
-    await Promise.all(dynFilter.map(async ([url,wrapId,mfId,label])=>{
+    await Promise.all(dynFilter.map(async ([url,wrapId,mfId,label,onchange])=>{
       try{
         const verdier=await api(url)||[];
-        document.getElementById(wrapId).innerHTML=verdier.length?mfBygd(mfId,label,verdier,'leadsResetAndLoad()'):'';
+        document.getElementById(wrapId).innerHTML=verdier.length?mfBygd(mfId,label,verdier,onchange||'leadsResetAndLoad()'):'';
       }catch(e){ document.getElementById(wrapId).innerHTML=''; }
     }));
+    await leadsOppdaterKommuner();
     // Kilde — fra konfig-tabell i backend
     try{
       const kilder=await api('/api/rapport/lead-kilder')||[];
@@ -4000,6 +4011,26 @@ async function mountLeads(){
         kilder.map(k=>'<option value="'+esc(k)+'">'+esc(k)+'</option>').join('');
     }catch(e){}
   }
+  leadsResetAndLoad();
+}
+
+// Kommunelista folger fylke-valget: staar Vestland valgt, er det bare kommunene i
+// Vestland som ligger i nedtrekket. Uten det er lista flere hundre lang uansett hvor
+// smalt man allerede har filtrert. Avkryssinger som fortsatt finnes, beholdes.
+async function leadsOppdaterKommuner(){
+  const wrap=document.getElementById('leadsKommuneWrap');
+  if(!wrap)return;
+  const valgt=mfValgte('leadsKommune').split(',').filter(Boolean);
+  const fy=mfValgte('leadsFylke');
+  let verdier=[];
+  try{ verdier=await api('/api/kunder/kommuner'+(fy?'?fylke='+encodeURIComponent(fy):''))||[]; }
+  catch(e){ verdier=[]; }
+  wrap.innerHTML=verdier.length?mfBygd('leadsKommune','Kommune',verdier,'leadsResetAndLoad()'):'';
+  mfSettValgte('leadsKommune',valgt);
+}
+
+async function leadsFylkeEndret(){
+  await leadsOppdaterKommuner();
   leadsResetAndLoad();
 }
 
@@ -4016,6 +4047,7 @@ function leadsParams(extra){
   const bg=mfValgte('leadsBransjegruppe'); if(bg) p.set('bransjegruppe',bg);
   const br=mfValgte('leadsBransje'); if(br) p.set('bransje',br);
   const fy=mfValgte('leadsFylke'); if(fy) p.set('fylke',fy);
+  const km=mfValgte('leadsKommune'); if(km) p.set('kommune',km);
   const kat=mfValgte('leadsKategori'); if(kat) p.set('kategori',kat);
   const seg=mfValgte('leadsSegment'); if(seg) p.set('kjokkensegment',seg);
   const oko=mfValgte('leadsOkonomi'); if(oko) p.set('okonomi',oko);
@@ -4049,11 +4081,14 @@ function leadsNullstillFilter(){
   document.getElementById('leadsScore').value='';
   document.getElementById('leadsTemperatur').value='';
   document.getElementById('leadsKilde').value='';
-  ['leadsRegion','leadsBransjegruppe','leadsBransje','leadsFylke','leadsKategori','leadsSegment','leadsOkonomi','leadsEstOms'].forEach(id=>{
+  ['leadsRegion','leadsBransjegruppe','leadsBransje','leadsFylke','leadsKommune','leadsKategori','leadsSegment','leadsOkonomi','leadsEstOms'].forEach(id=>{
     document.querySelectorAll('#'+id+' input:checked').forEach(c=>{c.checked=false;});
+    document.querySelectorAll('#'+id+' .mf-sok').forEach(s=>{s.value='';});
+    mfSok(id,'');
     mfOppdaterBtn(id);
   });
-  leadsResetAndLoad();
+  // Fylke er nullstilt — kommunelista skal tilbake til alle kommuner.
+  leadsOppdaterKommuner().then(leadsResetAndLoad);
 }
 
 /* ── Multi-filter helpers ── */
@@ -4081,10 +4116,42 @@ function mfBygd(id, label, valg, onchange){
   var opts=valg.map(function(v){
     return '<label><input type="checkbox" value="'+esc(v)+'" onchange="mfOppdaterBtn(\''+id+'\');'+onchange+'"> '+esc(v)+'</label>';
   }).join('');
+  // Kommune har flere hundre verdier. En ren rullegardin er ubrukelig i den storrelsen,
+  // saa lange lister far et sokefelt som filtrerer etikettene mens man skriver. Grensen
+  // er satt der en liste slutter aa kunne leses i ett blikk.
+  var sok = valg.length>12
+    ? '<input type="search" class="mf-sok" placeholder="Søk '+esc(String(label).toLowerCase())+'…"'
+      +' oninput="mfSok(\''+id+'\',this.value)" onclick="event.stopPropagation()">'
+    : '';
   return '<div class="mf-wrap">'
     +'<button type="button" class="mf-btn" id="'+id+'_btn" data-label="'+esc(label)+'" onclick="mfToggle(\''+id+'\')">'+esc(label)+' ▾</button>'
-    +'<div class="mf-box" id="'+id+'">'+opts+'</div>'
+    +'<div class="mf-box" id="'+id+'">'+sok+opts+'<div class="mf-tom" style="display:none">Ingen treff</div></div>'
     +'</div>';
+}
+
+// Filtrerer valgene i ett nedtrekk. Skjuler bare etiketter — avkryssinger som faller
+// utenfor soket beholdes, slik at et sok aldri stille endrer utvalget.
+function mfSok(id,q){
+  var box=document.getElementById(id); if(!box)return;
+  var s=(q||'').trim().toLowerCase();
+  var treff=0;
+  box.querySelectorAll('label').forEach(function(l){
+    var vis=!s||l.textContent.toLowerCase().indexOf(s)>=0;
+    l.style.display=vis?'':'none';
+    if(vis)treff++;
+  });
+  var tom=box.querySelector('.mf-tom');
+  if(tom)tom.style.display=treff?'none':'';
+}
+
+// Kryss av verdier i et nedtrekk som nettopp ble bygget om (brukes naar kommunelista
+// hentes paa nytt for et nytt fylke-valg).
+function mfSettValgte(id,verdier){
+  var box=document.getElementById(id); if(!box)return;
+  var sett={};
+  (verdier||[]).forEach(function(v){ sett[v]=1; });
+  box.querySelectorAll('input[type=checkbox]').forEach(function(c){ if(sett[c.value])c.checked=true; });
+  mfOppdaterBtn(id);
 }
 
 // Sortering: '' = navn (standard). Klikk på samme kolonne slår av igjen.
