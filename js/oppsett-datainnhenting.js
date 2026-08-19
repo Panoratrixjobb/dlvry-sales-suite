@@ -791,7 +791,14 @@ async function kkSlaaSammen(bekreft){
   const el=document.getElementById('kkSamResultat');
   const knapper=['kkSamTorrBtn','kkSamBtn'].map(id=>document.getElementById(id));
   const orgnr=document.getElementById('kkSamOrgnr').value.trim();
-  if(bekreft&&!confirm(orgnr
+  const overstyr=document.getElementById('kkSamOverstyr').checked;
+  if(overstyr&&!orgnr){
+    el.innerHTML='<span style="color:var(--d-roed)">Overstyring krever et org.nr — den gjelder én kunde om gangen.</span>';
+    return;
+  }
+  if(bekreft&&!confirm(overstyr
+      ? 'OVERSTYRING: slå sammen kunderadene på org.nr '+orgnr+' selv om salgsdataene IKKE bekrefter at de er samme sted? Dette er din vurdering, ikke appens. Kjøringen merkes som overstyrt og kan angres i sin helhet.'
+      : orgnr
       ? 'Slå sammen kunderadene på org.nr '+orgnr+'? Kjøringen kan angres i sin helhet etterpå.'
       : 'Slå sammen ALLE bekreftede dublettsett? Kjøringen kan angres i sin helhet etterpå — men tørrkjør først hvis du ikke har gjort det.'))return;
   knapper.forEach(b=>b.disabled=true);
@@ -803,7 +810,7 @@ async function kkSlaaSammen(bekreft){
     let d=null,runder=0,sumKunder=0,sumRader=0,sumKonflikt=0;
     do{
       d=await api('/api/kundekonto/slaa-sammen?bekreft='+(bekreft?'true':'false'),
-                  {method:'POST',body:{orgnr:orgnr||null},retry:false});
+                  {method:'POST',body:{orgnr:orgnr||null,overstyr:overstyr},retry:false});
       if(!bekreft)break;
       runder++; sumKunder+=d.kunder_slettet||0; sumRader+=d.rader_flyttet||0;
       sumKonflikt+=d.rader_beholdt_pga_unik_nokkel||0;
@@ -833,6 +840,9 @@ async function kkSlaaSammen(bekreft){
           +Object.entries(s.ikke_bekreftet_per_grunn||{}).map(([k,v])=>
             `<li><b>${v.toLocaleString('nb-NO')}</b> — ${esc((d.grunner_forklart||{})[k]||k)}</li>`).join('')
           +'</ul>';
+        if(d.kan_overstyres){
+          html+='<div class="sub" style="margin-top:4px">Er du sikker på at dette ER samme kunde, kryss av for <b>Overstyr</b> og kjør igjen — den gjelder bare dette org.nr-et.</div>';
+        }
         if((d.lose_kontoer||[]).length){
           html+='<div class="sub" style="margin-top:4px">Kontoene som står utenfor gruppen: '
             +d.lose_kontoer.map(k=>'<code>'+esc(k)+'</code>').join(', ')+'</div>';
@@ -842,9 +852,12 @@ async function kkSlaaSammen(bekreft){
         html+='<div style="overflow-x:auto;margin-top:6px"><table class="d-tabell"><thead><tr>'
           +'<th>Org.nr</th><th>Beholdes</th><th>Slettes</th><th class="tall">Rader som flyttes</th>'
           +'</tr></thead><tbody>'
-          +d.sett.map(x=>`<tr><td>${esc(x.orgnr)}</td><td><b>${esc(x.beholdes||'')}</b></td>`
+          +d.sett.map(x=>`<tr${x.overstyrt?' style="background:var(--d-gul-bg)"':''}>`
+            +`<td>${esc(x.orgnr)}${x.overstyrt?' <span class="rap-new-concept" title="'+esc(x.grunn_tekst||'')+'">overstyrt</span>':''}</td>`
+            +`<td><b>${esc(x.beholdes||'')}</b></td>`
             +`<td class="sub">${esc((x.slettes||[]).join(', '))}</td>`
-            +`<td class="tall">${x.rader_som_flyttes}</td></tr>`).join('')
+            +`<td class="tall">${x.rader_som_flyttes}</td></tr>`
+            +(x.overstyrt?`<tr><td colspan="4" class="sub">Ikke bekreftet: ${esc(x.grunn_tekst||x.grunn||'')}</td></tr>`:'')).join('')
           +'</tbody></table></div>';
       }
       html+='<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
@@ -868,7 +881,7 @@ async function kkKjoringer(){
         +'<th class="tall">Kunder slått sammen</th><th></th></tr></thead><tbody>'
         +k.map(r=>`<tr><td>${esc((r.tid||'').slice(0,16).replace('T',' '))}</td>`
           +`<td class="sub">${esc(r.utfort_av||'–')}</td>`
-          +`<td class="tall">${r.kunder_slettet}</td>`
+          +`<td class="tall">${r.kunder_slettet}${r.overstyrt?' <span class="rap-new-concept">overstyrt</span>':''}</td>`
           +`<td>${r.angret==r.kunder_slettet
               ? '<span class="sub">angret</span>'
               : `<button class="d-knapp subtil sm" onclick="kkAngre('${esc(r.kjoring_id)}')">Angre</button>`}</td></tr>`).join('')

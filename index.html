@@ -1423,8 +1423,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp subtil sm" onclick="kkDuplikater()" id="kkDupBtn">Vis dublette kunderader</button>
         </div>
         <p class="sub" style="margin:10px 0 4px"><b>Slå sammen dublette kunderader.</b> Bare sett der <b>salgsdataene bekrefter</b> at radene er samme sted: enten hører alle kundekontoene på org.nr-et til samme kunde, eller så finnes det bare én kundekonto. Viser salgsdataene flere utsalgssteder på org.nr-et (kjede), røres settet aldri herfra. Raden som bærer mest innhold beholdes, resten slettes mykt med peker til den. Hele kjøringen kan angres.</p>
+        <p class="sub" style="margin:0 0 6px">Er du <b>sikker</b> på at to rader er samme kunde selv om salgsdataene ikke bekrefter det — typisk to kontoer hos samme grossist med ulike navn — skriv org.nr-et i feltet og kryss av for <b>Overstyr</b>. Den gjelder bare det ene org.nr-et, og blir merket som overstyrt i loggen.</p>
         <div class="d-verktoy">
           <input class="d-input sm" id="kkSamOrgnr" placeholder="Org.nr — kjør ett sett først" style="max-width:210px">
+          <label style="font-size:12.5px" title="Slår sammen selv om salgsdataene ikke bekrefter at radene er samme sted. Krever org.nr — én kunde om gangen."><input type="checkbox" id="kkSamOverstyr"> Overstyr (krever org.nr)</label>
           <button class="d-knapp subtil sm" onclick="kkSlaaSammen(false)" id="kkSamTorrBtn">Tørrkjør sammenslåing</button>
           <button class="d-knapp primar sm" onclick="kkSlaaSammen(true)" id="kkSamBtn">Slå sammen</button>
           <button class="d-knapp subtil sm" onclick="kkKjoringer()" id="kkKjoringerBtn">Tidligere kjøringer / angre</button>
