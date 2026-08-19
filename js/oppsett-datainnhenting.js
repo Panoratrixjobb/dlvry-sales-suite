@@ -759,3 +759,82 @@ async function kkDuplikater(){
     el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
   }finally{btn.disabled=false;}
 }
+
+async function kkSlaaSammen(bekreft){
+  const el=document.getElementById('kkSamResultat');
+  const knapper=['kkSamTorrBtn','kkSamBtn'].map(id=>document.getElementById(id));
+  const orgnr=document.getElementById('kkSamOrgnr').value.trim();
+  if(bekreft&&!confirm(orgnr
+      ? 'Slå sammen kunderadene på org.nr '+orgnr+'? Kjøringen kan angres i sin helhet etterpå.'
+      : 'Slå sammen ALLE bekreftede dublettsett? Kjøringen kan angres i sin helhet etterpå — men tørrkjør først hvis du ikke har gjort det.'))return;
+  knapper.forEach(b=>b.disabled=true);
+  el.innerHTML='<span class="sub">'+(bekreft?'Slår sammen…':'Regner ut hva som ville skjedd…')+'</span>';
+  try{
+    const d=await api('/api/kundekonto/slaa-sammen?bekreft='+(bekreft?'true':'false'),
+                      {method:'POST',body:{orgnr:orgnr||null}});
+    const s=d.sammendrag||{};
+    let html='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>';
+    if(bekreft){
+      html+=`<div>${(d.sett||0).toLocaleString('nb-NO')} sett · `
+        +`<b>${(d.kunder_slettet||0).toLocaleString('nb-NO')}</b> kunderader slått sammen · `
+        +`${(d.rader_flyttet||0).toLocaleString('nb-NO')} rader flyttet`
+        +(d.rader_beholdt_pga_unik_nokkel?` · ${d.rader_beholdt_pga_unik_nokkel} ble liggende (fantes allerede på den beholdte raden)`:'')+'</div>'
+        +`<p class="sub" style="margin:8px 0 0">Kjøring <code>${esc(d.kjoring_id||'')}</code> — angre under «Tidligere kjøringer».</p>`;
+    }else{
+      html+=`<div>${(s.sett||0).toLocaleString('nb-NO')} sett · `
+        +`<b>${(s.kunder_som_slettes||0).toLocaleString('nb-NO')}</b> kunderader ville blitt slått sammen · `
+        +`${(s.rader_som_flyttes||0).toLocaleString('nb-NO')} rader ville blitt flyttet</div>`;
+      if((d.sett||[]).length){
+        html+='<div style="overflow-x:auto;margin-top:6px"><table class="d-tabell"><thead><tr>'
+          +'<th>Org.nr</th><th>Beholdes</th><th>Slettes</th><th class="tall">Rader som flyttes</th>'
+          +'</tr></thead><tbody>'
+          +d.sett.map(x=>`<tr><td>${esc(x.orgnr)}</td><td><b>${esc(x.beholdes||'')}</b></td>`
+            +`<td class="sub">${esc((x.slettes||[]).join(', '))}</td>`
+            +`<td class="tall">${x.rader_som_flyttes}</td></tr>`).join('')
+          +'</tbody></table></div>';
+      }
+      html+='<p class="sub" style="margin:8px 0 0">'+esc(d.neste||'')+'</p>';
+    }
+    el.innerHTML=html;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{knapper.forEach(b=>b.disabled=false);}
+}
+
+async function kkKjoringer(){
+  const el=document.getElementById('kkSamResultat');
+  const btn=document.getElementById('kkKjoringerBtn');
+  btn.disabled=true;
+  el.innerHTML='<span class="sub">Henter kjøringer…</span>';
+  try{
+    const d=await api('/api/kundekonto/sammenslainger');
+    const k=d.kjoringer||[];
+    el.innerHTML=k.length
+      ? '<div style="overflow-x:auto"><table class="d-tabell"><thead><tr><th>Tidspunkt</th><th>Utført av</th>'
+        +'<th class="tall">Kunder slått sammen</th><th></th></tr></thead><tbody>'
+        +k.map(r=>`<tr><td>${esc((r.tid||'').slice(0,16).replace('T',' '))}</td>`
+          +`<td class="sub">${esc(r.utfort_av||'–')}</td>`
+          +`<td class="tall">${r.kunder_slettet}</td>`
+          +`<td>${r.angret==r.kunder_slettet
+              ? '<span class="sub">angret</span>'
+              : `<button class="d-knapp subtil sm" onclick="kkAngre('${esc(r.kjoring_id)}')">Angre</button>`}</td></tr>`).join('')
+        +'</tbody></table></div>'
+      : '<div class="sub">Ingen sammenslåinger er kjørt ennå.</div>';
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }finally{btn.disabled=false;}
+}
+
+async function kkAngre(kjoringId){
+  if(!confirm('Angre denne sammenslåingen? Kunderadene vekkes igjen og alt innhold flyttes tilbake dit det kom fra.'))return;
+  const el=document.getElementById('kkSamResultat');
+  el.innerHTML='<span class="sub">Angrer…</span>';
+  try{
+    const d=await api('/api/kundekonto/sammenslaing/'+encodeURIComponent(kjoringId)+'/angre',{method:'POST'});
+    el.innerHTML='<p style="margin:0"><b>'+esc(d.status)+'</b> — '
+      +`${(d.kunder_gjenopprettet||0).toLocaleString('nb-NO')} kunder gjenopprettet, `
+      +`${(d.rader_flyttet_tilbake||0).toLocaleString('nb-NO')} rader flyttet tilbake.</p>`;
+  }catch(e){
+    el.innerHTML='<span style="color:var(--d-roed)">Feil: '+esc(e.message)+'</span>';
+  }
+}

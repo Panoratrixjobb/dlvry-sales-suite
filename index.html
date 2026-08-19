@@ -1422,6 +1422,14 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp primar sm" onclick="kkKjor()" id="kkKjorBtn">Lagre gruppering</button>
           <button class="d-knapp subtil sm" onclick="kkDuplikater()" id="kkDupBtn">Vis dublette kunderader</button>
         </div>
+        <p class="sub" style="margin:10px 0 4px"><b>Slå sammen dublette kunderader.</b> Bare sett der alle radene peker inn i samme kundekontogruppe — sett som bare deler org.nr kan være en kjede med flere steder på ett selskap og røres aldri herfra. Raden som bærer mest innhold beholdes, resten slettes mykt med peker til den. Hele kjøringen kan angres.</p>
+        <div class="d-verktoy">
+          <input class="d-input sm" id="kkSamOrgnr" placeholder="Org.nr — kjør ett sett først" style="max-width:210px">
+          <button class="d-knapp subtil sm" onclick="kkSlaaSammen(false)" id="kkSamTorrBtn">Tørrkjør sammenslåing</button>
+          <button class="d-knapp primar sm" onclick="kkSlaaSammen(true)" id="kkSamBtn">Slå sammen</button>
+          <button class="d-knapp subtil sm" onclick="kkKjoringer()" id="kkKjoringerBtn">Tidligere kjøringer / angre</button>
+        </div>
+        <div id="kkSamResultat" style="font-size:13px;margin-top:8px"></div>
         <div class="d-verktoy" style="margin-top:6px">
           <label style="font-size:12.5px"><input type="checkbox" id="kkKunRenum"> Bare renummereringer (samme grossist)</label>
           <label style="font-size:12.5px"><input type="checkbox" id="kkKunFlereGr"> Bare kunder hos flere grossister</label>
