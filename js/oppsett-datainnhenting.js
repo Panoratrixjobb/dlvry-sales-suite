@@ -797,16 +797,29 @@ async function kkSlaaSammen(bekreft){
   knapper.forEach(b=>b.disabled=true);
   el.innerHTML='<span class="sub">'+(bekreft?'Slår sammen…':'Regner ut hva som ville skjedd…')+'</span>';
   try{
-    const d=await api('/api/kundekonto/slaa-sammen?bekreft='+(bekreft?'true':'false'),
-                      {method:'POST',body:{orgnr:orgnr||null}});
+    // Sammenslåingen kjøres i batcher (se MAKS_SETT_PER_KJORING i backend) og gjentas til
+    // «gjenstar» er null. retry:false: et automatisk nytt forsøk på en 502 ville startet en
+    // ANDRE kjøring mens serveren fortsatt jobbet med den første.
+    let d=null,runder=0,sumKunder=0,sumRader=0,sumKonflikt=0;
+    do{
+      d=await api('/api/kundekonto/slaa-sammen?bekreft='+(bekreft?'true':'false'),
+                  {method:'POST',body:{orgnr:orgnr||null},retry:false});
+      if(!bekreft)break;
+      runder++; sumKunder+=d.kunder_slettet||0; sumRader+=d.rader_flyttet||0;
+      sumKonflikt+=d.rader_beholdt_pga_unik_nokkel||0;
+      if(d.gjenstar)el.innerHTML='<span class="sub">Slår sammen… '
+        +sumKunder.toLocaleString('nb-NO')+' kunderader gjort, '
+        +d.gjenstar.toLocaleString('nb-NO')+' sett igjen (runde '+runder+')</span>';
+    }while(bekreft&&d.gjenstar>0&&runder<200);
     const s=d.sammendrag||{};
     let html='<p style="margin:0 0 6px"><b>'+esc(d.status)+'</b></p>';
     if(bekreft){
-      html+=`<div>${(d.sett||0).toLocaleString('nb-NO')} sett · `
-        +`<b>${(d.kunder_slettet||0).toLocaleString('nb-NO')}</b> kunderader slått sammen · `
-        +`${(d.rader_flyttet||0).toLocaleString('nb-NO')} rader flyttet`
-        +(d.rader_beholdt_pga_unik_nokkel?` · ${d.rader_beholdt_pga_unik_nokkel} ble liggende (fantes allerede på den beholdte raden)`:'')+'</div>'
-        +`<p class="sub" style="margin:8px 0 0">Kjøring <code>${esc(d.kjoring_id||'')}</code> — angre under «Tidligere kjøringer».</p>`;
+      html+=`<div>${runder} ${runder===1?'runde':'runder'} · `
+        +`<b>${sumKunder.toLocaleString('nb-NO')}</b> kunderader slått sammen · `
+        +`${sumRader.toLocaleString('nb-NO')} rader flyttet`
+        +(sumKonflikt?` · ${sumKonflikt} ble liggende (fantes allerede på den beholdte raden)`:'')+'</div>'
+        +(d.gjenstar?`<p class="sub" style="margin:6px 0 0">${d.gjenstar} sett gjenstår — trykk «Slå sammen» igjen.</p>`:'')
+        +`<p class="sub" style="margin:8px 0 0">Angre under «Tidligere kjøringer» — hver runde er sin egen kjøring.</p>`;
     }else{
       html+=`<div>${(s.sett||0).toLocaleString('nb-NO')} sett · `
         +`<b>${(s.kunder_som_slettes||0).toLocaleString('nb-NO')}</b> kunderader ville blitt slått sammen · `
