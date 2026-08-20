@@ -282,17 +282,21 @@ function _kgRad(v, i) {
    samme vare fikk kundepris når den ble klikket inn fra grunnlaget, men ikke når den ble
    søkt opp.
 
-   Fyller KUN konkurrentpris, og kun når prisen kommer fra en FAKTURA. Vår egen forrige
-   tilbudspris er ikke en konkurrentpris, og salgsdataprisen er hva kunden betalte OSS —
-   ingen av dem hører hjemme i konkurransekolonnen. Begge vises i stedet under endelig
-   salgspris via kundeprisCelle(), som slår opp på varenummer og derfor virker for alle
-   linjer uansett opphav.
+   TO ULIKE FELT, med vilje:
+     · kundepris     — hva kunden betalte for varen sist, uansett kilde. Settes ALLTID når
+                       vi vet den. Dette er referansen selgeren priser mot.
+     · konkurrentpris — hva kunden betaler en KONKURRENT. Settes bare fra en faktura, som
+                       er den eneste kilden som faktisk sier noe om konkurransen. Vår egen
+                       forrige tilbudspris og salgsdataprisen er hva kunden betalte OSS, og
+                       ville gjort konkurransekolonnen tvetydig for marginrapportene.
 
    Setter ALDRI spesialpris: det ville latt et historisk tall bestemme hva vi tilbyr nå. */
 function kgPaafoerKundepris(linje) {
   if (!linje || !linje.art) return linje;
   const p = KUNDEGRUNNLAG.priser[_kgNok(linje.art)];
-  if (p && p.kilde === 'faktura' && p.pris > 0 && linje.konkurrentpris == null) {
+  if (!p || !(p.pris > 0)) return linje;
+  if (linje.kundepris == null) linje.kundepris = p.pris;
+  if (p.kilde === 'faktura' && linje.konkurrentpris == null) {
     linje.konkurrentpris = p.pris;
   }
   return linje;
@@ -341,13 +345,29 @@ function kgBrukForrigeRabatt() {
    hvor vi ligger mot den. Samme idé som markedCelle() i kalkyle-margin.js — tallet selgeren
    trenger skal stå der prisen settes, ikke i en rapport ved siden av. */
 function kundeprisCelle(x) {
-  const p = KUNDEGRUNNLAG.priser[_kgNok(x.l.art)];
+  // Live-oppslaget vinner når kundegrunnlaget er lastet — da er kilde og dato med, og
+  // tallet er ferskt. Er det ikke lastet (kalkylen åpnet uten kunde, eller grunnlaget
+  // feilet), faller vi tilbake på verdien som ble FRYST på linja da tilbudet ble laget.
+  // Uten den reserven ville et lagret tilbud mistet referansen det faktisk ble priset mot.
+  const live = KUNDEGRUNNLAG.priser[_kgNok(x.l.art)];
+  const p = (live && live.pris > 0)
+    ? live
+    : (x.l.kundepris > 0 ? { pris: x.l.kundepris, detalj: 'Lagret med tilbudet', dato: null } : null);
   if (!p || !(p.pris > 0)) return '';
+  // Tallet står i inputfeltet over — her viser vi KILDEN og hvor vårt tilbud ligger mot
+  // den. Grønt = vi er under det kunden betaler i dag, rødt = vi er over.
   const diff = x.endelig - p.pris;
   const farge = Math.abs(diff) < 0.005 ? 'var(--muted)' : (diff <= 0 ? 'var(--ok)' : 'var(--advarsel)');
   const pil = Math.abs(diff) < 0.005 ? '=' : (diff < 0 ? '▼' : '▲');
-  const tittel = 'Kunden betaler ' + fmtKr2(p.pris) + ' i dag — ' + (p.detalj || '')
-    + (p.dato ? ' (' + new Date(p.dato).toLocaleDateString('nb-NO') + ')' : '');
+  const pct = p.pris > 0 ? Math.abs(diff / p.pris * 100) : 0;
+  const kort = p.kilde === 'faktura' ? 'faktura'
+    : p.kilde === 'tilbud' ? 'vårt forrige'
+    : p.kilde === 'salgsdata' ? 'siste kjøp'
+    : (p.detalj || '');
+  const tittel = 'Kunden betalte ' + fmtKr2(p.pris) + ' — ' + (p.detalj || '')
+    + (p.dato && p.kilde !== 'salgsdata'
+        ? ' (' + new Date(p.dato).toLocaleDateString('nb-NO') + ')' : '');
   return '<div style="font-size:10px;font-weight:500;color:' + farge + '" title="' + esc(tittel) + '">'
-    + 'i dag ' + fmtKr2(p.pris) + ' ' + pil + '</div>';
+    + esc(kort) + ' ' + pil + (pct >= 0.1 ? ' ' + pct.toLocaleString('nb-NO', { maximumFractionDigits: 0 }) + ' %' : '')
+    + '</div>';
 }
