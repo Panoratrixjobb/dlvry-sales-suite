@@ -781,6 +781,21 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Kundeinfo som havner på tilbudet (navn, org.nr, adresse, kontakt) -->
       <div id="tilbudKundeInfo" style="display:none;background:var(--panel,#f7f8fb);border:1px solid var(--d-ramme,#e5e7eb);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px"></div>
 
+      <!-- Kundens eget kjøpsbilde: hva de kjøper i dag og hva de betaler for det.
+           Lastes automatisk når kalkylen er tilknyttet en kunde (js/kunde-grunnlag.js →
+           GET /api/kalkyler/kundegrunnlag/{kunde_id}). Linjene legges IKKE inn av seg selv
+           — en kalkyle er et pristilbud, ikke en rapport. Se modulteksten i JS-fila. -->
+      <section class="d-panel" id="kundegrunnlagPanel" style="display:none;margin-bottom:12px">
+        <div class="cart-head">
+          <div>
+            <h3 style="display:flex;align-items:center;gap:8px">Kunden i dag <span id="kgPresisjon"></span></h3>
+            <div class="d-sub" id="kgUnder" style="font-size:11px;margin-top:3px"></div>
+          </div>
+          <div class="cart-actions" id="kgHandlinger"></div>
+        </div>
+        <div id="kundegrunnlagInnhold"></div>
+      </section>
+
       <div class="grid4">
         <section class="d-panel">
           <h3>Kundeinformasjon</h3>
@@ -1985,6 +2000,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
      moduler: appen har ingen byggeprosess, og alt deler samme globale scope som før.
      Må lastes FØR hovedskriptet, som kaller inn i dem. -->
 <script src="js/kalkyle-margin.js"></script>
+<script src="js/kunde-grunnlag.js"></script>
 <script src="js/fb-prisflyt.js"></script>
 <script src="js/fb-internokonomi-tilgang.js"></script>
 <script src="js/oppsett-datainnhenting.js"></script>
@@ -3021,7 +3037,7 @@ function render(){
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
       <td>${fmtKr2(x.prisEtter)}</td>
       <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
-      <td class="final">${fmtKr2(x.endelig)}</td>
+      <td class="final">${fmtKr2(x.endelig)}${kundeprisCelle(x)}</td>
       <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}${konfLinje}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${x.manglerKost?'':(marg>=0?'pos':'neg')}">${margCelle}${markedCelle(x)}</td>
@@ -3428,6 +3444,9 @@ async function openCalc(id){
   document.getElementById('crumb').innerHTML=(k.kunde_id?('Kunde: <b>'+esc(c?c.navn:'?')+'</b> · '):'')+'Kalkyle: <b>'+esc(k.navn)+'</b>';
   oppdaterVelgKundeBanner();
   visKundeInfoITilbud();
+  // Kundens kjøpsbilde (hva de kjøper i dag, hva de betaler) hentes for den kalkylen som
+  // nå er åpen — tving, siden både kunde og kalkyle kan ha byttet siden forrige henting.
+  lastKundegrunnlag(true);
   state.dirty=false;setSaved(true);setView('kalkulator');setKalkSub('editor');render();
 }
 
@@ -3563,6 +3582,7 @@ function oppdaterVelgKundeBanner(){
   banner.style.display=(!state.custId&&state.calcId)?'flex':'none';
   if(!state.custId){
     var box=document.getElementById('tilbudKundeInfo'); if(box){box.style.display='none';box.innerHTML='';}
+    if(typeof nullstillKundegrunnlag==='function')nullstillKundegrunnlag();
     var dl=document.getElementById('velgKundeListe');
     if(dl)dl.innerHTML=custCache.map(function(c){return'<option value="'+esc(c.navn)+'" data-id="'+c.id+'">';}).join('');
   }
@@ -3624,6 +3644,8 @@ async function tilknyttKunde(c){
     document.getElementById('crumb').innerHTML='Kunde: <b>'+esc(c.navn||'')+'</b>'+(c.orgnr?' · '+esc(c.orgnr):'')+' · Kalkyle: <b>'+esc(document.getElementById('kalkylenavn').value||'')+'</b>';
     oppdaterVelgKundeBanner();
     await visKundeInfoITilbud();
+    // Selve ønsket bak denne funksjonen: tilknytter man en kunde, skal kundens data lastes.
+    lastKundegrunnlag(true);
     toast('Kunde tilknyttet');
   }catch(e){toast('Feil: '+e.message);}
 }
@@ -5103,7 +5125,7 @@ let FEEDBACK=[];
 // koster mer enn hele resten av prompten.
 const FB_FILER={
   dashboard:'dlvry-sales-suite/index.html (view-dashboard, loadDash), konseptsuite-backend/app/routers/dashboard.py',
-  kalkulator:'dlvry-sales-suite/index.html (view-kalkulator, compute/render), dlvry-sales-suite/js/kalkyle-margin.js, konseptsuite-backend/app/routers/kalkyler.py',
+  kalkulator:'dlvry-sales-suite/index.html (view-kalkulator, compute/render), dlvry-sales-suite/js/kalkyle-margin.js, dlvry-sales-suite/js/kunde-grunnlag.js, konseptsuite-backend/app/routers/kalkyler.py, konseptsuite-backend/app/routers/kundegrunnlag.py',
   kunder:'dlvry-sales-suite/index.html (view-kunder), konseptsuite-backend/app/routers/kunder.py',
   brukere:'dlvry-sales-suite/index.html (view-brukere), dlvry-sales-suite/js/oppsett-faner.js, dlvry-sales-suite/js/oppsett-datainnhenting.js, konseptsuite-backend/app/routers/brukere.py',
   konkurrenter:'dlvry-sales-suite/index.html (view-konkurrenter), konseptsuite-backend/app/routers/konkurrenter.py',
@@ -8045,6 +8067,9 @@ async function bekreftPrisliste(){
     const res=await api('/api/konkurrenter/'+konkId+'/priser-fra-faktura',{method:'POST',body:{linjer,kunde_id:state.custId||null}});
     document.getElementById('kfPopup').remove();
     toast('Lagret '+(res.lagret||0)+' produktpriser på konkurrent');
+    // Prisene ble nettopp registrert PÅ kunden — kundegrunnlaget («Kunden i dag») skal
+    // vise dem med det samme, ikke først ved neste åpning av kalkylen.
+    if(state.custId&&typeof lastKundegrunnlag==='function')lastKundegrunnlag(true);
   }catch(e){errEl.textContent='Feil: '+e.message;}
 }
 
