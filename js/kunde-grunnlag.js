@@ -94,12 +94,13 @@ function kgVisSkjul() {
 
 function _kgKilde(p) {
   if (!p) return '';
-  // Snittprisen har måned, ikke dag — å kjøre den gjennom toLocaleDateString ville gitt
-  // «01.08.2026» og latt et 12-måneders snitt se ut som én bestemt handel.
+  // Salgsdataprisen har måned, ikke dag — å kjøre den gjennom toLocaleDateString ville
+  // gitt «01.08.2026» og latt en månedspris se ut som én bestemt dags handel.
   if (p.kilde === 'salgsdata') {
-    return '<span title="Kundens egen omsetning delt på antall solgte enheter siste 12 mnd. '
-      + 'Et snitt over perioden, ikke prisen på én bestemt handel.">'
-      + esc(p.detalj || 'Snittpris siste 12 mnd') + '</span>';
+    return '<span title="Prisen kunden betalte OSS i den siste måneden de kjøpte varen '
+      + '(omsetning delt på antall solgte enheter den måneden). Ikke et snitt over året. '
+      + 'Enheten er den varen selges i, som ikke alltid er den vår prisliste bruker.">'
+      + esc(p.detalj || 'Siste kjøp') + '</span>';
   }
   const dato = p.dato ? new Date(p.dato).toLocaleDateString('nb-NO') : '';
   return esc(p.detalj || (p.kilde === 'faktura' ? 'Faktura' : 'Vårt tilbud')) + (dato ? ' · ' + dato : '');
@@ -170,9 +171,9 @@ function tegnKundegrunnlag() {
            + ' · pris kjent på ' + d.antall_med_pris + ' av ' + varer.length + ' linjer under'
            // Splitt bare når det FINNES snittpriser å skille ut — ellers er den gamle,
            // korte setningen riktigere enn «… (0 fra snittpris)».
-           + (d.antall_med_snittpris
+           + (d.antall_med_salgspris
                ? ' (' + d.antall_med_punktpris + ' fra faktura/tilbud, '
-                 + d.antall_med_snittpris + ' fra snittpris)'
+                 + d.antall_med_salgspris + ' fra siste kjøp)'
                : ''))
         : 'Ingen produktrader på denne kunden i ' + periode + '.');
 
@@ -231,10 +232,10 @@ function tegnKundegrunnlag() {
     + '</tbody></table></div>'
     + forrigeLinje
     + '<p class="d-sub" style="margin:8px 0 0;font-size:11px">Omsetning og DG er realiserte tall fra Consolidated Model (samme kilde som kundekortet). '
-    + '«Betaler i dag» er enhetspris fra siste opplastede faktura på kunden, ellers prisen vi selv ga i forrige tilbud, '
-    + 'ellers kundens egen snittpris siste 12 mnd (omsetning delt på antall solgte enheter). '
-    + 'Snittprisen er nettopp et snitt over perioden og kan dekke flere prisnivåer — en fersk faktura går alltid foran. '
-    + 'Enheten er den varen selges i, som ikke alltid er den vår prisliste bruker; kontroller store avvik mot listepris. '
+    + '«Betaler i dag» er kundens SISTE registrerte pris på varen, uansett kilde: opplastet faktura, '
+    + 'prisen vi selv ga i forrige tilbud, eller prisen de betalte oss i den siste måneden de kjøpte varen. '
+    + 'Nyeste dato vinner; ved samme måned går fakturaen foran. Kilde-kolonnen viser hvilken det ble. '
+    + 'For salgsdata er enheten den varen selges i, som ikke alltid er den vår prisliste bruker — kontroller store avvik mot listepris. '
     + 'Varer legges inn med antall 1.</p>';
 }
 
@@ -275,19 +276,35 @@ function _kgRad(v, i) {
 
 // ---------- Handlinger ----------
 
+/* Påfør kundens siste kjente pris på en kalkylelinje. Kalles fra ALLE stedene et produkt
+   kan komme inn i kalkylen — søkefeltet, lim-inn-lista og kundegrunnlagspanelet — slik at
+   linja ser lik ut uansett hvordan den kom dit. Var tidligere bare i panelet, som gjorde at
+   samme vare fikk kundepris når den ble klikket inn fra grunnlaget, men ikke når den ble
+   søkt opp.
+
+   Fyller KUN konkurrentpris, og kun når prisen kommer fra en FAKTURA. Vår egen forrige
+   tilbudspris er ikke en konkurrentpris, og salgsdataprisen er hva kunden betalte OSS —
+   ingen av dem hører hjemme i konkurransekolonnen. Begge vises i stedet under endelig
+   salgspris via kundeprisCelle(), som slår opp på varenummer og derfor virker for alle
+   linjer uansett opphav.
+
+   Setter ALDRI spesialpris: det ville latt et historisk tall bestemme hva vi tilbyr nå. */
+function kgPaafoerKundepris(linje) {
+  if (!linje || !linje.art) return linje;
+  const p = KUNDEGRUNNLAG.priser[_kgNok(linje.art)];
+  if (p && p.kilde === 'faktura' && p.pris > 0 && linje.konkurrentpris == null) {
+    linje.konkurrentpris = p.pris;
+  }
+  return linje;
+}
+
 function _kgLeggTilVare(v, brukEstimat) {
   const prod = v.varenummer ? findProd(v.varenummer) : null;
   if (!prod) return false;
   if (state.cart.some((l) => _kgNok(l.art) === _kgNok(v.varenummer))) return false;
   const antall = (brukEstimat && _kgEstAntall(v)) || 1;
   const linje = lineFromProd(prod, antall);
-  // Prisen kunden betaler i dag er referansen selgeren priser mot. Den legges inn som
-  // konkurrentpris KUN når den faktisk kommer fra en faktura — vår egen forrige tilbudspris
-  // er ikke en konkurrentpris, og skal ikke farge konkurranse-kolonnen. Den vises i stedet
-  // under endelig salgspris via kundeprisCelle().
-  if (v.dagens_pris && v.dagens_pris.kilde === 'faktura') {
-    linje.konkurrentpris = v.dagens_pris.pris;
-  }
+  kgPaafoerKundepris(linje);
   state.cart.push(linje);
   return true;
 }

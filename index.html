@@ -3249,7 +3249,9 @@ function onSearch(q){
 function pickResult(i){
   const p=curResults[i];if(!p)return;
   const q=parseFloat(document.getElementById('searchQty').value)||1;
-  state.cart.push(lineFromProd(p,q));markDirty();
+  // Kundens siste kjente pris følger med linja uansett hvordan produktet kom inn — se
+  // kgPaafoerKundepris() i js/kunde-grunnlag.js.
+  state.cart.push(kgPaafoerKundepris(lineFromProd(p,q)));markDirty();
   document.getElementById('searchInput').value='';document.getElementById('suggest').classList.remove('open');
   render();document.getElementById('searchInput').focus();
 }
@@ -3924,7 +3926,7 @@ function importCSV(ev){
   const f=ev.target.files[0];if(!f)return;const rd=new FileReader();
   rd.onload=()=>{const lines=rd.result.split(/\r?\n/).filter(l=>l.trim());let added=0;
     lines.forEach(line=>{const cols=line.split(/[;,\t]/).map(c=>c.replace(/^"|"$/g,'').trim());const key=cols[0],qty=parseFloat(cols[1])||1;
-      const p=findProd(key);if(p){state.cart.push(lineFromProd(p,qty));added++;}});
+      const p=findProd(key);if(p){state.cart.push(kgPaafoerKundepris(lineFromProd(p,qty)));added++;}});
     markDirty();render();toast(added+' produkter importert');};
   rd.readAsText(f,'utf-8');ev.target.value='';
 }
