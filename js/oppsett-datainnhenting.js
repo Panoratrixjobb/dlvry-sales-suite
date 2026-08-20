@@ -521,7 +521,15 @@ async function hentKundeProduktMiks(bekreft){
     let html='<p style="margin:0 0 8px"><b>'+esc(d.status)+'</b> <span class="sub">('+Math.round((Date.now()-start)/1000)+' s)</span></p>';
     if(p.modus){
       html+=`<div class="sub" style="margin-bottom:8px">Modus: <b>${p.modus==='full'?'full — hele året':'ferskeste data'}</b>`
-        +(p.hoppet_over&&p.hoppet_over.length?`, hoppet over ${p.hoppet_over.length} måned(er) som allerede var hentet+låst: ${p.hoppet_over.join(', ')}`:'')
+        // Hoppede måneder har to helt ulike grunner, og å kalle begge «hentet+låst» var
+        // direkte misvisende: i full-modus er de hoppet over fordi de ikke har VÆRT ennå.
+        // siste_reelle_maaned kommer fra backend (_manedene_a_hente) og skiller dem.
+        +(p.hoppet_over&&p.hoppet_over.length
+            ? (p.siste_reelle_maaned
+                ? `, hoppet over ${p.hoppet_over.length} måned(er): ${p.hoppet_over.join(', ')} `
+                  + `(${p.modus==='full' ? 'ikke vært ennå' : 'allerede hentet+låst, eller ikke vært ennå'})`
+                : `, hoppet over ${p.hoppet_over.length} måned(er) som allerede var hentet+låst: ${p.hoppet_over.join(', ')}`)
+            : '')
         +(s.maneder_hentet_denne_kjoringen?`. Hentet nå: ${s.maneder_hentet_denne_kjoringen.join(', ')}.`:'.')+'</div>';
     }
     if(s.mnok_totalt_etter_kjoring!=null){

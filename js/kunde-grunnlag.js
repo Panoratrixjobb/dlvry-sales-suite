@@ -261,7 +261,15 @@ function _kgRad(v, i) {
 
   return '<tr' + (v.fra_salgsdata ? '' : ' title="Vi kjenner en pris på denne varen, men den ligger ikke i kundens salgshistorikk hos oss"') + '>'
     + '<td>' + esc(v.varenummer || '—') + '</td>'
-    + '<td>' + esc(v.navn || '—') + (v.fra_salgsdata ? '' : ' <span class="d-merke noytral" style="font-size:10px">kun pris</span>') + '</td>'
+    // 864 varenummer har INGEN navn noe sted i Consolidated Model (målt 2026-08-20 via
+    // /api/powerbi/produkt/navn). En tom celle ser ut som en feil i appen; varenummeret er
+    // det vi faktisk vet, og selgeren kan slå det opp. Tittelen sier hvorfor det er tomt.
+    + '<td>' + (v.navn
+        ? esc(v.navn)
+        : (v.varenummer
+            ? '<span class="d-sub" style="font-style:italic" title="Varen har ikke noe navn i Consolidated Model — bare varenummeret er kjent">Varenr ' + esc(v.varenummer) + '</span>'
+            : '—'))
+      + (v.fra_salgsdata ? '' : ' <span class="d-merke noytral" style="font-size:10px">kun pris</span>') + '</td>'
     + '<td class="d-sub">' + esc(v.konsept_navn || '—') + '</td>'
     + '<td style="text-align:right">' + (v.belop == null ? '—' : fmtKr(v.belop)) + '</td>'
     + '<td style="text-align:right">' + (v.andel_pct == null ? '—' : v.andel_pct.toLocaleString('nb-NO', { maximumFractionDigits: 1 }) + ' %') + '</td>'
