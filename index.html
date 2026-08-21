@@ -985,6 +985,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <div id="klKjedeWrap"></div>
             <select id="klGrossist" class="d-select" onchange="klResetLoad()" style="width:auto;min-width:150px"><option value="">Alle grossister</option></select>
             <span id="klRisikoChip" style="display:none"></span>
+            <span id="klAktivChip" style="display:none"></span>
           </div>
           <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
             <table class="d-tabell" style="min-width:760px">
@@ -3945,12 +3946,38 @@ function copyLines(){
 }
 
 // ============ Kundeliste (hoved-panel) ============
-let klPage=0, klQ='', klTotal=0, klSearchTimer=null, klMounted=false, klRisikoFiltr=false;
+let klPage=0, klQ='', klTotal=0, klSearchTimer=null, klMounted=false, klRisikoFiltr=false, klAktiveFiltr=false;
 const KL_LIMIT=100;
 
+// «Aktive kunder»-kortet på dashbordet teller ekte kunder med omsetning i år
+// (ER_KUNDE_SQL_K + AKTIV_KUNDE_SQL_K i backend). Uten samme avgrensning her landet
+// klikket på hele kundelista, og tallet på kortet stemte ikke med antall rader —
+// samme felle som risiko-kortet allerede har løst med sin chip.
+function setKunderAktiveFilter(){
+  klAktiveFiltr=true; klRisikoFiltr=false; klPage=0;
+  renderKlRisikoChip(); renderKlAktivChip();
+  klLastOgVis();
+}
+function klFjernAktiveFilter(){
+  klAktiveFiltr=false; klPage=0;
+  renderKlAktivChip();
+  klLastOgVis();
+}
+function renderKlAktivChip(){
+  const el=document.getElementById('klAktivChip');
+  if(!el)return;
+  if(klAktiveFiltr){
+    el.style.display='';
+    el.innerHTML='<span class="d-badge bla" style="cursor:pointer" onclick="klFjernAktiveFilter()" title="Vis alle kunder">👥 Aktive kunder (omsetning i år — ekskl. leads) ✕</span>';
+  }else{
+    el.style.display='none';
+    el.innerHTML='';
+  }
+}
+
 function setKunderRisikoFilter(){
-  klRisikoFiltr=true; klPage=0;
-  renderKlRisikoChip();
+  klRisikoFiltr=true; klAktiveFiltr=false; klPage=0;
+  renderKlRisikoChip(); renderKlAktivChip();
   klLastOgVis();
 }
 function klFjernRisikoFilter(){
@@ -4092,6 +4119,10 @@ function kunderParams(){
   const br=mfValgte('klBransje'); if(br) p.set('bransje',br);
   const km=mfValgte('klKommune'); if(km) p.set('kommune',km);
   const kj=mfValgte('klKjede'); if(kj) p.set('kjede',kj);
+  if(klAktiveFiltr&&!klRisikoFiltr){
+    p.set('kun_kunder','true');
+    p.set('kun_aktive','true');
+  }
   if(klRisikoFiltr){
     p.set('risiko','true');
     // Samme avgrensning som dashboard-kortet «Kunder i risiko»: ekte kunder

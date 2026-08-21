@@ -1872,9 +1872,9 @@ const Steg4 = (() => {
     const totVunnet = (app.per_status || []).reduce(function(s, r) { return r.status === "Vunnet" ? s + r.antall : s; }, 0);
     const konvRate = totLead > 0 ? Math.round(totVunnet / totLead * 1000) / 10 : null;
     const kpiKort = [
-      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Kunder med omsetning i år",           nav: "setView('kunder');setKunderSub('kunder')", color:"#3b82f6", icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' },
+      { label: "Aktive kunder",           tall: app.totalt_kunder || 0,  vs: "Kunder med omsetning i år",           nav: "klAktiveFiltr=true;klRisikoFiltr=false;setView('kunder');setKunderSub('kunder');renderKlAktivChip();renderKlRisikoChip()", color:"#3b82f6", icon:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>' },
       { label: "Leads",                   tall: totLead,                  vs: "Status: Lead i CRM",                  nav: "setView('kunder');setKunderSub('leads')",  color:"#8b5cf6", icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>' },
-      { label: "Kunder i risiko",         tall: app.totalt_risiko || 0,  vs: "Konkurs/avvikling — aktive kunder", nav: "klRisikoFiltr=true;setView('kunder');setKunderSub('kunder');renderKlRisikoChip()", color:"#dc2626", icon:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
+      { label: "Kunder i risiko",         tall: app.totalt_risiko || 0,  vs: "Konkurs/avvikling — aktive kunder", nav: "klRisikoFiltr=true;klAktiveFiltr=false;setView('kunder');setKunderSub('kunder');renderKlRisikoChip();renderKlAktivChip()", color:"#dc2626", icon:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' },
       { label: "Konverteringsrate",       tall: konvRate !== null ? konvRate.toLocaleString("nb-NO", {maximumFractionDigits:1}) + "%" : "—", vs: "Lead → Vunnet", nav: "", color:"#6366f1", icon:'<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>' },
       { label: "Leads til oppf\xF8lging", tall: oppfolging.length,        vs: "Tilbud/gjenbes\xF8k krever handling", nav: "", color:"#f59e0b", icon:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' },
       { label: "\xC5pne tilbud",          tall: statusMap["Sendt"] ? statusMap["Sendt"].antall : 0, vs: "Status: Sendt", nav: "", color:"#ef4444", icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>' },
@@ -2254,6 +2254,22 @@ const Steg4 = (() => {
       .map((x) => `<option value="${esc(x.id)}" ${b.leder_id === x.id ? "selected" : ""}>${esc(x.navn)} (${esc(x.rolle)})</option>`)
       .join("");
 
+    // Region MÅ matche kunde.region eksakt — den er nøkkelen i region-scopet som gir
+    // salgsjef/regionsalgsleder kundene sine (kunde_synlig_klausul i backend deps.py).
+    // Feltet var et fritekstfelt, så «Region Vest» eller «vest » ga en bruker som så
+    // null kunder, null leads og et tomt dashboard uten noen feilmelding. Samme fire
+    // verdier som regionvelgeren på kundekortet og filtrene i kundelista.
+    const REGIONER = ["Øst", "Vest", "Nord", "Sør"];
+    const regionValgt = b.region || "";
+    const regionOpt = REGIONER
+      .map((r) => `<option value="${esc(r)}" ${regionValgt === r ? "selected" : ""}>${esc(r)}</option>`)
+      .join("")
+      // Behold en avvikende verdi som allerede står i basen, slik at et lagringsklikk
+      // ikke stille nullstiller den — men vis at den ikke matcher noen kunderegion.
+      + (regionValgt && !REGIONER.includes(regionValgt)
+          ? `<option value="${esc(regionValgt)}" selected>${esc(regionValgt)} (matcher ingen kunderegion)</option>`
+          : "");
+
     el.innerHTML = [
       '<div style="display:flex;flex-wrap:wrap;gap:14px">',
       '<div class="d-felt" style="min-width:220px;flex:1"><label>Navn</label>',
@@ -2261,7 +2277,8 @@ const Steg4 = (() => {
       '<div class="d-felt" style="min-width:220px;flex:1"><label>Telefon</label>',
       `<input id="bi-telefon" class="d-input" value="${esc(b.telefon || "")}"></div>`,
       '<div class="d-felt" style="min-width:220px;flex:1"><label>Region</label>',
-      `<input id="bi-region" class="d-input" placeholder="f.eks. Øst (for region-nivå roller)" value="${esc(b.region || "")}"></div>`,
+      `<select id="bi-region" class="d-select"><option value="">— ingen —</option>${regionOpt}</select>`,
+      '<p class="sub" style="margin:4px 0 0;font-size:11px">Brukes av region-nivå roller (salgsjef/regionsalgsleder) til å se kundene i regionen sin. Må matche kundenes region.</p></div>',
       '<div class="d-felt" style="min-width:220px;flex:1"><label>Rolle</label>',
       erSuperadmin
         ? `<select id="bi-rolle" class="d-select">` +
