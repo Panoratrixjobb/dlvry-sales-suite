@@ -525,7 +525,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-trend-table tr:first-child td{color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.04em}
 
 .d-tabell.rap-tabell tbody td{font-variant-numeric:tabular-nums}
-.rap-trend-celle{display:flex;align-items:center;justify-content:flex-end;gap:8px;white-space:nowrap}
+.rap-trend-celle{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:245px;white-space:nowrap}
 .rap-trend-pp{font-weight:700;font-size:12px}
 .rap-trend-pp.opp{color:var(--d-gronn)}
 .rap-trend-pp.ned{color:var(--d-roed)}
@@ -538,7 +538,17 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-trend-bryter button:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
 .rap-card h3.rap-h3-rad{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rap-trend-tall{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
-.rap-trend-mot{font-size:10px;color:var(--muted);font-weight:600;white-space:nowrap}
+.rap-trend-status{display:inline-flex;align-items:center;min-height:20px;padding:2px 7px;border-radius:999px;
+  font-size:10.5px;font-weight:750;letter-spacing:.01em}
+.rap-trend-status.opp{color:var(--d-gronn);background:var(--d-gronn-bg)}
+.rap-trend-status.ned{color:var(--d-roed);background:var(--d-roed-bg)}
+.rap-trend-status.varsko{color:var(--d-gul);background:var(--d-gul-bg)}
+.rap-trend-status.flat,.rap-trend-status.ukjent{color:var(--muted);background:var(--bg)}
+.rap-trend-detalj{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);font-weight:600}
+.rap-trend-fart{font-weight:750}
+.rap-trend-fart.opp{color:var(--d-gronn)}
+.rap-trend-fart.ned{color:var(--d-roed)}
+.rap-trend-fart.flat,.rap-trend-fart.ukjent{color:var(--muted)}
 .d-tabell.rap-tabell tbody tr.total td{font-weight:750;background:var(--bg)}
 
 @media print{
@@ -7100,7 +7110,7 @@ function rapTrendBryter(){
   const knapp=(m,tekst,tittel)=>`<button class="${RAP_TREND_MODUS===m?'aktiv':''}" `
     +`onclick="settRapTrendModus('${m}')" title="${esc(tittel)}">${tekst}</button>`;
   return `<span class="rap-trend-bryter rap-noprint">`
-    +knapp('i_ar','I år','Ukesnitt siste 4 uker mot de 4 før, i år alene. Viser om farten holder seg — men sesongen er ikke justert bort.')
+    +knapp('i_ar','Fart','Ukesnitt siste 4 ferdige uker mot de 4 før. Viser om grossisten er på vei opp, står stille eller faller videre.')
     +knapp('fjoraar','Mot i fjor','Rullerende 4-ukers vekst mot samme uker i fjor. Fri for sesong, men følsom for at helligdager flytter seg mellom ukenumre.')
     +`</span>`;
 }
@@ -7160,10 +7170,10 @@ const RAP_IAR_TEKST={opp:'farten øker',ned:'farten har duppet',flat:'jevn fart'
 const RAP_TREND_PIL={opp:'↗',ned:'↘',flat:'→',ukjent:''};
 const RAP_TREND_FARGE={opp:'var(--d-gronn,#1f7a3d)',ned:'var(--d-roed,#c0392b)',flat:'var(--muted,#7b8794)',ukjent:'var(--muted,#7b8794)'};
 
-function rapTrendCelle(key,kode){
+function rapTrendCelle(key,kode,ytdVekst){
   const t=rapTrendFor(key,kode);
   if(!t)return '<span class="rap-trend-pp ukjent" title="Ingen ukesdata å regne trend av for denne raden.">–</span>';
-  if(RAP_TREND_MODUS==='i_ar')return rapIarCelle(t);
+  if(RAP_TREND_MODUS==='i_ar')return rapIarCelle(t,ytdVekst);
   const pp=t.endring_pp==null?'–':(t.endring_pp>=0?'+':'−')
     +Math.abs(t.endring_pp).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
   const pct=v=>v==null?'lav base':rapFmtPct(v);
@@ -7176,31 +7186,46 @@ function rapTrendCelle(key,kode){
     +`<span class="rap-trend-pp ${t.retning}">${RAP_TREND_PIL[t.retning]||''} ${pp}</span></span>`;
 }
 
-// «I år»-cellen: ukesnittet nå mot ukesnittet forrige måned, i år alene, med konseptets
-// egen endring ved siden av. Uten den referansen leser en fellesferie som et sammenbrudd
-// — i uke 30 er ALLE ned, og da er det bare avstanden til konseptet som betyr noe.
-function rapIarCelle(t){
+// Statusen kombinerer to forskjellige signaler: YTD mot fjoråret sier hvor grossisten
+// står, mens siste fire uker mot de fire før sier hvilken vei farten går akkurat nå.
+// Dermed kan en grossist som fortsatt er bak fjoråret få den operative statusen
+// «På vei ut av gropen» når den nylige farten faktisk har snudd opp.
+function rapFartStatus(i,ytdVekst){
+  if(!i||i.endring_pct==null)return {kode:'ukjent',tekst:'For lite grunnlag'};
+  if(ytdVekst==null){
+    if(i.retning==='opp')return {kode:'opp',tekst:'Farten øker'};
+    if(i.retning==='ned')return {kode:'ned',tekst:'Farten faller'};
+    return {kode:'flat',tekst:'Jevn fart'};
+  }
+  if(ytdVekst<0){
+    if(i.retning==='opp')return {kode:'opp',tekst:'På vei ut av gropen'};
+    if(i.retning==='ned')return {kode:'ned',tekst:'Under i fjor · faller videre'};
+    return {kode:'flat',tekst:'Under i fjor · stabil'};
+  }
+  if(i.retning==='opp')return {kode:'opp',tekst:'Vokser videre'};
+  if(i.retning==='ned')return {kode:'varsko',tekst:'Over i fjor · mister fart'};
+  return {kode:'flat',tekst:'Over i fjor · stabil'};
+}
+
+function rapIarCelle(t,ytdVekst){
   const i=t.i_ar;
   if(!i)return '<span class="rap-trend-pp ukjent" title="For tidlig i året — trenger åtte uker med data.">–</span>';
   const pct=v=>v==null?'–':(v>=0?'+':'−')+Math.abs(v*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
   const farge=RAP_TREND_FARGE[i.retning]||'var(--muted,#7b8794)';
-  let mot='';
-  if(i.endring_pct!=null&&i.konsept_endring_pct!=null){
-    const pp=(i.endring_pct-i.konsept_endring_pct)*100;
-    mot=`<span class="rap-trend-mot" title="Forskjellen mot konseptet samlet. Positiv = bedre enn resten, uansett hva sesongen gjør.">`
-      +(pp>=0?'+':'−')+Math.abs(pp).toLocaleString('nb-NO',{maximumFractionDigits:1})+' pp vs konsept</span>';
-  }
-  const tittel=`${RAP_IAR_TEKST[i.retning]||''}\n`
+  const status=rapFartStatus(i,ytdVekst);
+  const tittel=`${status.tekst}\n`
     +`Ukesnitt uke ${i.naa.fra_uke}–${i.naa.til_uke}: ${rapFmtM(i.snitt_naa)}\n`
     +`Ukesnitt uke ${i.forrige.fra_uke}–${i.forrige.til_uke}: ${rapFmtM(i.snitt_forrige)}\n`
-    +`Endring: ${pct(i.endring_pct)}`
+    +`Fart: ${pct(i.endring_pct)}\nYTD mot 2025: ${pct(ytdVekst)}`
     +(i.konsept_endring_pct!=null?`\nKonseptet samlet: ${pct(i.konsept_endring_pct)} — sesongen treffer alle likt.`:'')
     +`\nSesong er IKKE justert bort. Fellesferien drar ned hos alle i uke 28–31.`;
   return `<span class="rap-trend-celle" title="${esc(tittel)}">`
     +rapSparkBelop(i.serie,farge)
     +`<span class="rap-trend-tall">`
-    +`<span class="rap-trend-pp ${i.retning}">${RAP_TREND_PIL[i.retning]||''} ${pct(i.endring_pct)}</span>`
-    +mot+`</span></span>`;
+    +`<span class="rap-trend-status ${status.kode}">${esc(status.tekst)}</span>`
+    +`<span class="rap-trend-detalj"><span class="rap-trend-fart ${i.retning}">${RAP_TREND_PIL[i.retning]||''} ${pct(i.endring_pct)} fart</span>`
+    +`<span aria-hidden="true">·</span><span>${pct(ytdVekst)} YTD</span></span>`
+    +`</span></span>`;
 }
 
 // Fotnote under tabellene som har trendkolonnen. Står der fordi «pp» i en veksttakt
@@ -7213,12 +7238,11 @@ function rapTrendForklaring(){
   if(RAP_TREND_MODUS==='i_ar'){
     const i=ett.i_ar;
     if(!i)return '';
-    return `<div class="rap-card-note">I år: gjennomsnittlig omsetning per uke i uke ${i.naa.fra_uke}\u2013${i.naa.til_uke} `
-      +`mot uke ${i.forrige.fra_uke}\u2013${i.forrige.til_uke} \u2014 samme år, fjoråret er ikke med. `
-      +`Grafen viser faktisk omsetning uke for uke, grunnlinja er null. `
-      +`<b>Sesongen er ikke justert bort:</b> i fellesferien faller de fleste, og det er ikke tapt fart. `
-      +`Derfor står «vs konsept» ved siden av \u2014 den sier hvordan grossisten gjør det MOT resten av konseptet, `
-      +`og den forskjellen er sesongen renset ut av. Endring under 5 % regnes som jevn fart.</div>`;
+    return `<div class="rap-card-note"><b>Fart:</b> gjennomsnittlig omsetning per uke i uke ${i.naa.fra_uke}\u2013${i.naa.til_uke} `
+      +`mot uke ${i.forrige.fra_uke}\u2013${i.forrige.til_uke}. Linjen viser faktisk omsetning uke for uke. `
+      +`Statusen kombinerer YTD mot fjoråret med den nylige farten: «På vei ut av gropen» betyr at grossisten fortsatt er under fjoråret, `
+      +`men at de siste fire ukene er minst 5 % bedre enn de fire før. `
+      +`<b>Sesongen er ikke justert bort,</b> og endring under 5 % regnes som jevn fart.</div>`;
   }
   return `<div class="rap-card-note">Trend ${ett.vindu} uker: rullerende ${ett.vindu}-ukers vekst mot samme uker i fjor \u2014 `
     +`uke ${ett.naa.fra_uke}–${ett.naa.til_uke} mot uke ${ett.forrige.fra_uke}–${ett.forrige.til_uke}. `
@@ -7247,7 +7271,7 @@ function rapGrossistTrend(key){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
       <td class="tall">${statusHtml}</td>
-      <td class="tall">${rapTrendCelle(key,r.kode)}</td>
+      <td class="tall">${rapTrendCelle(key,r.kode,vekst)}</td>
     </tr>`;
   }).join('');
   const totalRow=`<tr class="total"><td>TOTAL ${navn.toUpperCase()}</td>
@@ -7255,14 +7279,14 @@ function rapGrossistTrend(key){
     <td class="tall">${rapFmtM((kons.y2026||0)-(kons.y2025||0))}</td>
     <td class="tall">${rapFmtPP(kons.vekst)}</td>
     <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
-    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL)}</td></tr>`;
+    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL,kons.vekst)}</td></tr>`;
 
   const card=`<div class="rap-card">
     <h3 class="rap-h3-rad"><span class="rap-dot" style="background:${kons.farge}"></span>${navn} \u2014 grossist-trend (YTD)${rapTrendBryter()}</h3>
     <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
       <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
       <th class="tall">Endring</th><th class="tall">Bidrag til vekst</th><th class="tall">Status</th>
-      <th class="tall" title="Holder farten seg, eller har den duppet?">${RAP_TREND_MODUS==='i_ar'?'Utvikling i år':'Trend mot i fjor'}</th>
+      <th class="tall" title="Er de siste fire ferdige ukene bedre enn de fire før?">${RAP_TREND_MODUS==='i_ar'?'Fart siste 4 uker':'Trend mot i fjor'}</th>
     </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
     ${rapTrendForklaring()}
   </div>`;
@@ -7678,7 +7702,7 @@ function renderRapKonsept(key){
       <td class="tall">${rapFmtM(delta)}</td>
       <td class="tall">${statusHtml}</td>
       <td class="tall">${rapFmtPP((r.bidrag_pp||0)/100)}</td>
-      <td class="tall">${rapTrendCelle(key,r.kode)}</td>
+      <td class="tall">${rapTrendCelle(key,r.kode,vekst)}</td>
     </tr>`;
   }).join('');
 
@@ -7689,7 +7713,7 @@ function renderRapKonsept(key){
     <td class="tall">${rapFmtM(totalDelta)}</td>
     <td class="tall">${rapStatus(kons.vekst>=0,rapFmtPct(kons.vekst))}</td>
     <td class="tall">${rapFmtPP(kons.vekst)}</td>
-    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL)}</td>
+    <td class="tall">${rapTrendCelle(key,RAP_TREND_TOTAL,kons.vekst)}</td>
   </tr>`;
 
   let best=null,worst=null;
@@ -7719,7 +7743,7 @@ function renderRapKonsept(key){
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til vekst</th>
-        <th class="tall" title="Holder farten seg, eller har den duppet?">${RAP_TREND_MODUS==='i_ar'?'Utvikling i år':'Trend mot i fjor'}</th>
+        <th class="tall" title="Er de siste fire ferdige ukene bedre enn de fire før?">${RAP_TREND_MODUS==='i_ar'?'Fart siste 4 uker':'Trend mot i fjor'}</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
       ${rapTrendForklaring()}
     </div>
@@ -7887,12 +7911,13 @@ function setView(v){
   oppdaterDashHvisGammelt(v);
 }
 
+// KUN på faktisk tilbakevending til fanen (ikke et periodisk intervall) — en løpende
+// setInterval her ga et sjenerende re-render omtrent hvert minutt selv når brukeren satt
+// og så på siden uten å gjøre noe. oppdaterDashHvisGammelt() sjekker selv ferskheten, så
+// dette er billig når det ikke er noe å hente.
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible')oppdaterDashHvisGammelt(AKTIV_VIEW);
 });
-setInterval(()=>{
-  if(document.visibilityState==='visible')oppdaterDashHvisGammelt(AKTIV_VIEW);
-},DASH_FERSKHET_MS);
 
 // ============ Init ============
 async function boot(){
