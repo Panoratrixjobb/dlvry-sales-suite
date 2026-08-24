@@ -7514,18 +7514,55 @@ function renderRapTapteKunderUke(){
   }).join('');
   return `<div class="rap-card rap-new-card">
     <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Tapte kunder per grossist</h3>
-      <p>Sesongjustert: kunder som gikk fra «venter» til «tapt» denne uka. Tallene under er hele oversikten — åpne en grossist når du vil ha navn og kundenummer.</p></div>
+      <p>Rullerende: kunder som krysset 4-ukers («nylig tapt») eller 16-ukers («tapt») terskelen uten kjøp denne uka. Tallene under er hele oversikten — åpne en grossist når du vil ha navn og kundenummer.</p></div>
       ${d.antall?`<div class="rap-new-btns rap-noprint">
         <button class="rap-new-export" onclick="rapKundelistePdf('tapte')">Hele lista (PDF)</button>
         <button class="rap-new-export" onclick="lastTapteKunderCsv()">Hele lista (CSV)</button>
         <button class="rap-new-export" onclick="rapToggleAlleGrossister(this)">Åpne alle</button>
       </div>`:''}</div>
     <div class="rap-new-stats">
-      <div class="rap-new-stat"><span class="k">Nye tapte</span><span class="v">${d.antall||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Nylig tapt (4 uker)</span><span class="v">${d.antall_nylig_tapt||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Tapt (16 uker)</span><span class="v">${d.antall_tapt||0}</span></div>
       <div class="rap-new-stat"><span class="k">Grossister berørt</span><span class="v">${d.antall_grossister||0}</span></div>
-      <div class="rap-new-stat"><span class="k">Omsetning i 2025</span><span class="v">${fmtKr(d.sum_2025_kr||0)}</span></div>
+      <div class="rap-new-stat"><span class="k">Omsetning siste 12 mnd</span><span class="v">${fmtKr(d.sum_2025_kr||0)}</span></div>
     </div>
-    ${grossister?`<div class="rap-new-list">${grossister}</div>`:'<div class="rap-empty" style="padding:18px">Ingen kunder gikk fra ventende til tapt i denne uken.</div>'}
+    ${grossister?`<div class="rap-new-list">${grossister}</div>`:'<div class="rap-empty" style="padding:18px">Ingen kunder krysset nylig-tapt/tapt-terskelen denne uken.</div>'}
+    <div class="rap-new-foot">${esc(d.definisjon||'')}</div>
+  </div>`;
+}
+
+function renderRapWinbackKunderUke(){
+  const d=RAP_NYE_KUNDER&&RAP_NYE_KUNDER.winback;
+  if(!d)return '';
+  const grossister=(d.per_grossist||[]).map((g,i)=>{
+    const kunder=(g.kunder||[]).map(k=>`<tr>
+      <td><b>${esc(k.navn&&k.navn!==k.kundenr?k.navn:'Navn mangler i kilden')}</b><div class="sub">Kundenr. ${esc(k.kundenr||'–')}${k.orgnr?' · org.nr. '+esc(k.orgnr):''}</div></td>
+      <td>${(k.konsepter||[]).map(n=>`<span class="rap-new-concept">${esc(rapKonseptNavn(n))}</span>`).join('')||'–'}</td>
+      <td class="tall">${k.uker_borte||0} uker</td>
+      <td class="tall">${fmtKr(k.omsetning_uke_kr||0)}</td>
+    </tr>`).join('');
+    return `<details class="rap-new-details">
+      <summary><span class="rap-new-name">${g.grossist_kode?`<span class="rap-new-code">${esc(g.grossist_kode)}</span>`:''}${esc(g.grossist_navn||'Ukjent grossist')}</span>
+        <span class="rap-new-count">${g.antall} ${g.antall===1?'kunde':'kunder'}</span>
+        <span class="rap-new-sum">${fmtKr(g.sum_uke_kr||0)}</span><span class="rap-new-chevron" aria-hidden="true">›</span></summary>
+      <div class="rap-new-kunder">
+        <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
+        <th>Kunde</th><th>Konsept</th><th class="tall">Uker borte</th><th class="tall">Omsetning denne uka</th>
+      </tr></thead><tbody>${kunder}</tbody></table></div></div>
+    </details>`;
+  }).join('');
+  return `<div class="rap-card rap-new-card">
+    <div class="rap-new-head"><div><div class="rap-new-week">Uke ${d.uke} · siden sist</div><h3>Winback per grossist</h3>
+      <p>Tidligere «tapt»-kunder (≥16 uker uten kjøp) som handlet igjen denne uka.</p></div>
+      ${d.antall?`<div class="rap-new-btns rap-noprint">
+        <button class="rap-new-export" onclick="rapToggleAlleGrossister(this)">Åpne alle</button>
+      </div>`:''}</div>
+    <div class="rap-new-stats">
+      <div class="rap-new-stat"><span class="k">Winback</span><span class="v">${d.antall||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Grossister berørt</span><span class="v">${d.antall_grossister||0}</span></div>
+      <div class="rap-new-stat"><span class="k">Omsetning denne uka</span><span class="v">${fmtKr(d.sum_uke_kr||0)}</span></div>
+    </div>
+    ${grossister?`<div class="rap-new-list">${grossister}</div>`:'<div class="rap-empty" style="padding:18px">Ingen winback-kunder denne uken.</div>'}
     <div class="rap-new-foot">${esc(d.definisjon||'')}</div>
   </div>`;
 }
@@ -7610,6 +7647,7 @@ function renderRapTotal(){
     ${grossistInnsikt}
     ${renderRapNyeKunderUke()}
     ${renderRapTapteKunderUke()}
+    ${renderRapWinbackKunderUke()}
     ${kbLinje}
     <div class="rap-note">Kilde: ${(DASH.meta&&DASH.meta.kilde)||'Konsept-totaler'} · ${(DASH.meta&&DASH.meta.oppdatert)||''}. Positivt årsestimat bruker det høyeste støttede scenarioet per konsept av flat YTD-referanse og forsiktig sesong-/grossistmodell. Den forsiktige modellen er fortsatt synlig under Prognose. Metode YTD: pære-mot-pære — 2025 kappet til samme ukedager som 2026 har data for.</div>
   `;
