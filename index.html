@@ -545,10 +545,10 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-trend-status.varsko{color:var(--d-gul);background:var(--d-gul-bg)}
 .rap-trend-status.flat,.rap-trend-status.ukjent{color:var(--muted);background:var(--bg)}
 .rap-trend-detalj{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);font-weight:600}
-.rap-trend-fart{font-weight:750}
-.rap-trend-fart.opp{color:var(--d-gronn)}
-.rap-trend-fart.ned{color:var(--d-roed)}
-.rap-trend-fart.flat,.rap-trend-fart.ukjent{color:var(--muted)}
+.rap-trend-kortsiktig{font-weight:750}
+.rap-trend-kortsiktig.opp{color:var(--d-gronn)}
+.rap-trend-kortsiktig.ned{color:var(--d-roed)}
+.rap-trend-kortsiktig.flat,.rap-trend-kortsiktig.ukjent{color:var(--muted)}
 .d-tabell.rap-tabell tbody tr.total td{font-weight:750;background:var(--bg)}
 
 @media print{
@@ -7088,18 +7088,18 @@ function renderRapFiks(){
 // ============ Trend over tid (ønsket av Manuele 19.08.2026) ============
 // Vekst opp/ned sier hvor vi STÅR. Trenden sier hvilken VEI det går: rullerende
 // 4-ukers vekst mot fjoråret, siste fire uker mot de fire før. En grossist kan ha
-// pen YTD-vekst og likevel være i fritt fall siden mai — det er nettopp den
+// positiv YTD-vekst og likevel ha negativ utvikling siden mai — det er nettopp den
 // forskjellen denne kolonnen finnes for.
 const RAP_TREND_TOTAL='__TOTAL__';
 
 // To ulike spørsmål, og de kan svare forskjellig på samme uke:
-//   i_ar     — «holder farten seg i år?» Ukesnitt siste 4 uker mot de 4 før, i år alene.
+//   i_ar     — kortsiktig utvikling: ukesnitt siste 4 uker mot de 4 før, i år alene.
 //              Fri for helligdagsforskyvning (påsken flytter seg mellom uke 12 og 17),
 //              men har SESONGEN i seg: fellesferien drar ned hos alle i uke 28–31.
 //   fjoraar  — «vokser vi mot i fjor, og går det raskere eller saktere?» Fri for sesong,
 //              men følsom for at kalenderen forskyver seg.
 // Manuele 19.08.2026 ba om den første; den andre beholdes ved siden av. Standard er i_ar,
-// fordi det er spørsmålet man stiller når man vil vite om noe har duppet NÅ.
+// fordi det er spørsmålet man stiller når man vil vurdere den nyeste utviklingen.
 let RAP_TREND_MODUS='i_ar';
 function settRapTrendModus(m){
   if(RAP_TREND_MODUS===m)return;
@@ -7110,7 +7110,7 @@ function rapTrendBryter(){
   const knapp=(m,tekst,tittel)=>`<button class="${RAP_TREND_MODUS===m?'aktiv':''}" `
     +`onclick="settRapTrendModus('${m}')" title="${esc(tittel)}">${tekst}</button>`;
   return `<span class="rap-trend-bryter rap-noprint">`
-    +knapp('i_ar','Fart','Ukesnitt siste 4 ferdige uker mot de 4 før. Viser om grossisten er på vei opp, står stille eller faller videre.')
+    +knapp('i_ar','Kortsiktig','Gjennomsnittlig ukesomsetning de siste 4 ferdige ukene mot de 4 foregående.')
     +knapp('fjoraar','Mot i fjor','Rullerende 4-ukers vekst mot samme uker i fjor. Fri for sesong, men følsom for at helligdager flytter seg mellom ukenumre.')
     +`</span>`;
 }
@@ -7165,8 +7165,8 @@ function rapSparkBelop(serie,farge){
     +`</svg>`;
 }
 
-const RAP_TREND_TEKST={opp:'styrker seg',ned:'svekkes',flat:'stabil',ukjent:'for tynt fjorårsgrunnlag'};
-const RAP_IAR_TEKST={opp:'farten øker',ned:'farten har duppet',flat:'jevn fart',ukjent:'ingen omsetning å måle fra'};
+const RAP_TREND_TEKST={opp:'positiv utvikling',ned:'negativ utvikling',flat:'stabil utvikling',ukjent:'utilstrekkelig fjorårsgrunnlag'};
+const RAP_IAR_TEKST={opp:'positiv kortsiktig utvikling',ned:'negativ kortsiktig utvikling',flat:'stabil kortsiktig utvikling',ukjent:'utilstrekkelig grunnlag'};
 const RAP_TREND_PIL={opp:'↗',ned:'↘',flat:'→',ukjent:''};
 const RAP_TREND_FARGE={opp:'var(--d-gronn,#1f7a3d)',ned:'var(--d-roed,#c0392b)',flat:'var(--muted,#7b8794)',ukjent:'var(--muted,#7b8794)'};
 
@@ -7187,24 +7187,23 @@ function rapTrendCelle(key,kode,ytdVekst){
 }
 
 // Statusen kombinerer to forskjellige signaler: YTD mot fjoråret sier hvor grossisten
-// står, mens siste fire uker mot de fire før sier hvilken vei farten går akkurat nå.
-// Dermed kan en grossist som fortsatt er bak fjoråret få den operative statusen
-// «På vei ut av gropen» når den nylige farten faktisk har snudd opp.
-function rapFartStatus(i,ytdVekst){
-  if(!i||i.endring_pct==null)return {kode:'ukjent',tekst:'For lite grunnlag'};
+// står, mens siste fire uker mot de fire før viser den kortsiktige utviklingen.
+// Statusen skiller dermed mellom samlet YTD-nivå og endringen i de siste periodene.
+function rapKortsiktigStatus(i,ytdVekst){
+  if(!i||i.endring_pct==null)return {kode:'ukjent',tekst:'Utilstrekkelig grunnlag'};
   if(ytdVekst==null){
-    if(i.retning==='opp')return {kode:'opp',tekst:'Farten øker'};
-    if(i.retning==='ned')return {kode:'ned',tekst:'Farten faller'};
-    return {kode:'flat',tekst:'Jevn fart'};
+    if(i.retning==='opp')return {kode:'opp',tekst:'Positiv kortsiktig utvikling'};
+    if(i.retning==='ned')return {kode:'ned',tekst:'Negativ kortsiktig utvikling'};
+    return {kode:'flat',tekst:'Stabil kortsiktig utvikling'};
   }
   if(ytdVekst<0){
-    if(i.retning==='opp')return {kode:'opp',tekst:'På vei ut av gropen'};
-    if(i.retning==='ned')return {kode:'ned',tekst:'Under i fjor · faller videre'};
-    return {kode:'flat',tekst:'Under i fjor · stabil'};
+    if(i.retning==='opp')return {kode:'opp',tekst:'Kortsiktig bedring'};
+    if(i.retning==='ned')return {kode:'ned',tekst:'Videre svekkelse'};
+    return {kode:'flat',tekst:'Stabilt under fjoråret'};
   }
-  if(i.retning==='opp')return {kode:'opp',tekst:'Vokser videre'};
-  if(i.retning==='ned')return {kode:'varsko',tekst:'Over i fjor · mister fart'};
-  return {kode:'flat',tekst:'Over i fjor · stabil'};
+  if(i.retning==='opp')return {kode:'opp',tekst:'Videre vekst'};
+  if(i.retning==='ned')return {kode:'varsko',tekst:'Avtakende utvikling'};
+  return {kode:'flat',tekst:'Stabilt over fjoråret'};
 }
 
 function rapIarCelle(t,ytdVekst){
@@ -7212,18 +7211,18 @@ function rapIarCelle(t,ytdVekst){
   if(!i)return '<span class="rap-trend-pp ukjent" title="For tidlig i året — trenger åtte uker med data.">–</span>';
   const pct=v=>v==null?'–':(v>=0?'+':'−')+Math.abs(v*100).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
   const farge=RAP_TREND_FARGE[i.retning]||'var(--muted,#7b8794)';
-  const status=rapFartStatus(i,ytdVekst);
+  const status=rapKortsiktigStatus(i,ytdVekst);
   const tittel=`${status.tekst}\n`
     +`Ukesnitt uke ${i.naa.fra_uke}–${i.naa.til_uke}: ${rapFmtM(i.snitt_naa)}\n`
     +`Ukesnitt uke ${i.forrige.fra_uke}–${i.forrige.til_uke}: ${rapFmtM(i.snitt_forrige)}\n`
-    +`Fart: ${pct(i.endring_pct)}\nYTD mot 2025: ${pct(ytdVekst)}`
-    +(i.konsept_endring_pct!=null?`\nKonseptet samlet: ${pct(i.konsept_endring_pct)} — sesongen treffer alle likt.`:'')
-    +`\nSesong er IKKE justert bort. Fellesferien drar ned hos alle i uke 28–31.`;
+    +`Kortsiktig utvikling: ${pct(i.endring_pct)}\nYTD mot 2025: ${pct(ytdVekst)}`
+    +(i.konsept_endring_pct!=null?`\nKonseptet samlet: ${pct(i.konsept_endring_pct)}.`:'')
+    +`\nSesongvariasjoner er ikke justert bort. Ferieperioder kan påvirke sammenligningen.`;
   return `<span class="rap-trend-celle" title="${esc(tittel)}">`
     +rapSparkBelop(i.serie,farge)
     +`<span class="rap-trend-tall">`
     +`<span class="rap-trend-status ${status.kode}">${esc(status.tekst)}</span>`
-    +`<span class="rap-trend-detalj"><span class="rap-trend-fart ${i.retning}">${RAP_TREND_PIL[i.retning]||''} ${pct(i.endring_pct)} fart</span>`
+    +`<span class="rap-trend-detalj"><span class="rap-trend-kortsiktig ${i.retning}">${RAP_TREND_PIL[i.retning]||''} ${pct(i.endring_pct)} siste 4 uker</span>`
     +`<span aria-hidden="true">·</span><span>${pct(ytdVekst)} YTD</span></span>`
     +`</span></span>`;
 }
@@ -7238,11 +7237,11 @@ function rapTrendForklaring(){
   if(RAP_TREND_MODUS==='i_ar'){
     const i=ett.i_ar;
     if(!i)return '';
-    return `<div class="rap-card-note"><b>Fart:</b> gjennomsnittlig omsetning per uke i uke ${i.naa.fra_uke}\u2013${i.naa.til_uke} `
-      +`mot uke ${i.forrige.fra_uke}\u2013${i.forrige.til_uke}. Linjen viser faktisk omsetning uke for uke. `
-      +`Statusen kombinerer YTD mot fjoråret med den nylige farten: «På vei ut av gropen» betyr at grossisten fortsatt er under fjoråret, `
-      +`men at de siste fire ukene er minst 5 % bedre enn de fire før. `
-      +`<b>Sesongen er ikke justert bort,</b> og endring under 5 % regnes som jevn fart.</div>`;
+    return `<div class="rap-card-note"><b>Kortsiktig utvikling:</b> gjennomsnittlig omsetning per uke i uke ${i.naa.fra_uke}\u2013${i.naa.til_uke} `
+      +`sammenlignet med uke ${i.forrige.fra_uke}\u2013${i.forrige.til_uke}. Linjen viser faktisk omsetning uke for uke. `
+      +`Statusen kombinerer YTD mot fjoråret med den kortsiktige utviklingen. «Kortsiktig bedring» betyr at grossisten fortsatt ligger under fjoråret YTD, `
+      +`men at gjennomsnittlig ukesomsetning de siste fire ferdige ukene er minst 5 % høyere enn i de fire foregående. `
+      +`<b>Sesongvariasjoner er ikke justert bort.</b> Endringer mellom −5 % og +5 % klassifiseres som stabile.</div>`;
   }
   return `<div class="rap-card-note">Trend ${ett.vindu} uker: rullerende ${ett.vindu}-ukers vekst mot samme uker i fjor \u2014 `
     +`uke ${ett.naa.fra_uke}–${ett.naa.til_uke} mot uke ${ett.forrige.fra_uke}–${ett.forrige.til_uke}. `
@@ -7286,7 +7285,7 @@ function rapGrossistTrend(key){
     <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
       <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
       <th class="tall">Endring</th><th class="tall">Bidrag til vekst</th><th class="tall">Status</th>
-      <th class="tall" title="Er de siste fire ferdige ukene bedre enn de fire før?">${RAP_TREND_MODUS==='i_ar'?'Fart siste 4 uker':'Trend mot i fjor'}</th>
+      <th class="tall" title="Sammenligner gjennomsnittlig ukesomsetning i de siste fire ferdige ukene med de fire foregående.">${RAP_TREND_MODUS==='i_ar'?'Kortsiktig utvikling':'Trend mot i fjor'}</th>
     </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
     ${rapTrendForklaring()}
   </div>`;
@@ -7743,7 +7742,7 @@ function renderRapKonsept(key){
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
         <th>Grossist</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til vekst</th>
-        <th class="tall" title="Er de siste fire ferdige ukene bedre enn de fire før?">${RAP_TREND_MODUS==='i_ar'?'Fart siste 4 uker':'Trend mot i fjor'}</th>
+        <th class="tall" title="Sammenligner gjennomsnittlig ukesomsetning i de siste fire ferdige ukene med de fire foregående.">${RAP_TREND_MODUS==='i_ar'?'Kortsiktig utvikling':'Trend mot i fjor'}</th>
       </tr></thead><tbody>${rows||'<tr><td colspan="7" class="rap-empty">Ingen grossistdata lastet ennå.</td></tr>'}${rader.length?totalRow:''}</tbody></table></div>
       ${rapTrendForklaring()}
     </div>

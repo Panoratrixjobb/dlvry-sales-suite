@@ -111,6 +111,29 @@ for (const ferskhetsvern of ['oppdaterDashHvisGammelt(v)', "document.addEventLis
   if (!html.includes(ferskhetsvern)) throw new Error(`Dashboardets automatisk oppdatering mangler ${ferskhetsvern}`);
 }
 
+// Grossisttrenden skal skille historisk YTD-nivå fra kortsiktig utvikling.
+// Under fjoråret kombinert med positiv 4-mot-4-utvikling klassifiseres som kortsiktig bedring.
+const statusStart = html.indexOf('function rapKortsiktigStatus(');
+const statusSlutt = html.indexOf('\n}\n\nfunction rapIarCelle', statusStart);
+if (statusStart < 0 || statusSlutt < 0) throw new Error('Grossisttrenden mangler rapKortsiktigStatus');
+const rapKortsiktigStatus = new Function(`${html.slice(statusStart, statusSlutt + 2)}; return rapKortsiktigStatus;`)();
+const statusCasus = [
+  [{retning:'opp',endring_pct:0.10}, -0.03, 'Kortsiktig bedring'],
+  [{retning:'ned',endring_pct:-0.10}, -0.03, 'Videre svekkelse'],
+  [{retning:'opp',endring_pct:0.10}, 0.03, 'Videre vekst'],
+  [{retning:'ned',endring_pct:-0.10}, 0.03, 'Avtakende utvikling'],
+  [{retning:'flat',endring_pct:0.01}, -0.03, 'Stabilt under fjoråret'],
+  [{retning:'opp',endring_pct:0.10}, null, 'Positiv kortsiktig utvikling'],
+  [{retning:'ned',endring_pct:null}, -0.03, 'Utilstrekkelig grunnlag'],
+];
+for (const [momentum,ytd,forventet] of statusCasus) {
+  const faktisk = rapKortsiktigStatus(momentum,ytd).tekst;
+  if (faktisk !== forventet) throw new Error(`Feil grossiststatus: ventet «${forventet}», fikk «${faktisk}»`);
+}
+for (const tekst of ['Kortsiktig utvikling', 'Kortsiktig bedring', 'YTD mot 2025']) {
+  if (!html.includes(tekst)) throw new Error(`Grossisttrendens forklaring mangler «${tekst}»`);
+}
+
 for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'lastNyeKunderCsv', '/api/dashboard-excel/nye-kunder-uke']) {
   if (!html.includes(rapportfunksjon)) throw new Error(`Ukerapporten mangler nye-kunder-funksjonen ${rapportfunksjon}`);
 }
