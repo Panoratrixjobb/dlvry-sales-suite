@@ -104,6 +104,13 @@ for (const dashFelt of ['siste_uke_med_data:d.siste_uke_med_data', 'importhus:d.
   if (!html.includes(dashFelt)) throw new Error(`normalizeDash slipper ikke gjennom ${dashFelt} — feltet blir stille kastet`);
 }
 
+// En nettleserfane kan stå åpen over et ukeskifte. Dashboard og Rapporter må da hente
+// nye vannmerker, og slideren må flytte seg hvis den fortsatt sto på forrige standarduke.
+for (const ferskhetsvern of ['oppdaterDashHvisGammelt(v)', "document.addEventListener('visibilitychange'",
+                             'analyseState.week===gammelCutoff']) {
+  if (!html.includes(ferskhetsvern)) throw new Error(`Dashboardets automatisk oppdatering mangler ${ferskhetsvern}`);
+}
+
 for (const rapportfunksjon of ['hentRapNyeKunder', 'renderRapNyeKunderUke', 'lastNyeKunderCsv', '/api/dashboard-excel/nye-kunder-uke']) {
   if (!html.includes(rapportfunksjon)) throw new Error(`Ukerapporten mangler nye-kunder-funksjonen ${rapportfunksjon}`);
 }
