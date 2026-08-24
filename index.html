@@ -648,11 +648,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <!-- Oversikt-fane: APP CRM-data -->
       <div id="dash-tab-oversikt" class="dash-innhold vis"></div>
 
-      <!-- Analyse-fane: EXCEL fakturert omsetning -->
+      <!-- Analyse-fane: fakturert omsetning — kilde vises dynamisk (fase 4-migreringen kan
+           bytte felt til appen ett og ett, se lastKilder()/settKilde() og D.kilder). -->
       <div id="dash-tab-analyse" class="dash-innhold">
         <div style="display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5)">
-          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--d-tekst-3)">EXCEL — fakturert omsetning</span>
-          <span style="font-size:11px;color:var(--d-roed);font-weight:700;background:var(--d-roed-bg);padding:2px 8px;border-radius:999px">⚠ Ikke summert med APP-tall</span>
+          <span id="anKildeLabel" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--d-tekst-3)">FAKTURERT OMSETNING</span>
+          <span id="anKildeWarn" style="display:none;font-size:11px;color:var(--d-roed);font-weight:700;background:var(--d-roed-bg);padding:2px 8px;border-radius:999px">⚠ Ikke summert med APP-tall</span>
         </div>
 
         <!-- Filterbar -->
@@ -2071,12 +2072,43 @@ const DASH_FALLBACK={
 
 // ============ Dashboard ============
 let DASH=null;
+let DASH_LASTET_TID=0;
 async function loadDash(){
+  const gammelCutoff=DASH&&DASH.cutoff_uke;
   try{
     const r=await fetch(API_BASE+'/api/dashboard-excel',{headers:TOKEN?{'Authorization':'Bearer '+TOKEN}:{}});
-    if(r.ok){DASH=normalizeDash(await r.json());return;}
+    if(r.ok){
+      const ny=normalizeDash(await r.json());
+      // Følg nyeste uke hvis slideren fortsatt sto på forrige standarduke. Et bevisst
+      // valg av en eldre uke bevares.
+      if(typeof analyseState!=='undefined' &&
+         (analyseState.week==null||analyseState.week===gammelCutoff))analyseState.week=ny.cutoff_uke;
+      DASH=ny;DASH_LASTET_TID=Date.now();return true;
+    }
   }catch(e){}
   DASH=DASH_FALLBACK;
+  DASH_LASTET_TID=Date.now();return false;
+}
+
+// Power BI oppdateres mens appen gjerne står åpen i dagevis. Hent på nytt når brukeren
+// går tilbake til Dashboard/Rapporter eller aktiverer nettleserfanen igjen.
+const DASH_FERSKHET_MS=60*1000;
+let DASH_REFRESH_PROMISE=null;
+async function oppdaterDashHvisGammelt(view){
+  if(!TOKEN||!['dashboard','rapporter'].includes(view)||Date.now()-DASH_LASTET_TID<DASH_FERSKHET_MS)return;
+  const forrige=DASH;
+  if(!DASH_REFRESH_PROMISE)DASH_REFRESH_PROMISE=loadDash().finally(()=>{DASH_REFRESH_PROMISE=null;});
+  const ok=await DASH_REFRESH_PROMISE;
+  if(!ok){DASH=forrige;return;}
+  if(AKTIV_VIEW!==view)return;
+  if(view==='dashboard'){
+    renderAnalyse();
+    Steg4.visDashboard(document.getElementById('dash-tab-oversikt'),DASH);
+  }else{
+    RAP_DASH=null;RAP_UKE_LASTET=null;RAP_NYE_KUNDER=null;RAP_NYE_NOKKEL=null;
+    Object.keys(RAP_NYE_CACHE).forEach(k=>delete RAP_NYE_CACHE[k]);
+    mountRapporter();
+  }
 }
 function normalizeDash(d){
   // Aksepter API-kontrakten; fyll manglende felt fra fallback. Må tåle en ELDRE
@@ -2153,7 +2185,11 @@ function normalizeDash(d){
     // EKSPLISITT objekt, så et felt backend sender, men som ikke står her, forsvinner
     // uten en feilmelding noe sted. Kolonnen «Trend 4 uker» sto tom av nøyaktig den
     // grunnen — dataene lå i svaret hele tiden.
-    grossist_trend:d.grossist_trend||null
+    grossist_trend:d.grossist_trend||null,
+    // Per-felt kilde (fase 4, 'excel'|'app') — styrer Analyse-fanens overskrift. Samme
+    // eksplisitt-objekt-felle som importhus/grossist_trend over: uten linja her forsvinner
+    // feltet stille selv om backend sender det.
+    kilder:d.kilder||f.kilder||null
   };
 }
 const mnok=n=>(isFinite(n)?n.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0')+' MNOK';
@@ -2288,6 +2324,17 @@ function renderAnalyse(){
   if(!DASH)return;const D=DASH;const s=analyseState;
   if(s.week==null)s.week=D.cutoff_uke;
   const isAll=s.concept==='all';
+
+  // ---- Kilde-header: reflekterer faktisk kilde per felt (fase 4), ikke en fastfrosset
+  // «EXCEL»-tekst fra før migreringen. Fanen viser total_konsepter+monthly+grossister —
+  // står ALLE tre på appen, er hele fanen appens tall og advarselen gir ingen mening.
+  const kildeFelt=['total_konsepter','monthly','grossister'];
+  const kilder=D.kilder||{};
+  const alleApp=kildeFelt.every(f=>kilder[f]==='app');
+  const kildeLbl=document.getElementById('anKildeLabel');
+  const kildeWarn=document.getElementById('anKildeWarn');
+  if(kildeLbl)kildeLbl.textContent=(D.kilder?(alleApp?'APP':'EXCEL'):'EXCEL')+' — fakturert omsetning';
+  if(kildeWarn)kildeWarn.style.display=(D.kilder&&alleApp)?'none':'';
 
   // ---- Filterbar: konsept-chips ----
   const chips=[{key:'all',label:'Alle konsepter',farge:'#1b2a4a'}].concat(D.konsepter.map(k=>({key:AN_KEY_FOR_NAVN[k.navn],label:k.navn,farge:k.farge})));
@@ -7767,12 +7814,14 @@ function renderRapRegion(regionNavn,filter){
 }
 
 // ============ Views ============
+let AKTIV_VIEW='dashboard';
 function setView(v){
   lukkMobilmeny();
   // Vakt mot å havne på en side brukeren ikke har modulen for (gammel bokmerket state,
   // et kall fra kode som ikke sjekket, eller en tilgang som ble fjernet mens økten sto
   // åpen). Menyvalget er allerede skjult — dette er beltet i tillegg til selen.
   if(MODUL_FOR_VIEW[v] && !harModul(MODUL_FOR_VIEW[v]))v='dashboard';
+  AKTIV_VIEW=v;
   document.getElementById('view-dashboard').style.display=v==='dashboard'?'':'none';
   document.getElementById('view-kalkulator').style.display=v==='kalkulator'?'':'none';
   document.getElementById('view-kunder').style.display=v==='kunder'?'':'none';
@@ -7797,7 +7846,15 @@ function setView(v){
   if(v==='foodbroker')mountFoodbroker();
   if(v==='besoksplan')mountBesoksplan();
   if(v==='rapporter')mountRapporter();
+  oppdaterDashHvisGammelt(v);
 }
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')oppdaterDashHvisGammelt(AKTIV_VIEW);
+});
+setInterval(()=>{
+  if(document.visibilityState==='visible')oppdaterDashHvisGammelt(AKTIV_VIEW);
+},DASH_FERSKHET_MS);
 
 // ============ Init ============
 async function boot(){
