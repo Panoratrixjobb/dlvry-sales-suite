@@ -204,8 +204,17 @@ async function kiSjekkBrreg(kundeId){
 
 async function kiKjorSynk(){
   const statusEl = document.getElementById('kiSynkStatus');
+  // Samme token-felt som resten av Oppsett > Datainnhenting (js/oppsett-datainnhenting.js)
+  // — service principal er ikke satt opp ennå, så et manuelt limt-inn token må sendes med.
+  const tokenEl = document.getElementById('pbToken');
+  const token = tokenEl ? tokenEl.value.trim() : '';
+  if(!token){
+    statusEl.innerHTML = '<span style="color:var(--d-roed)">Lim inn et token i feltet '
+      + '<b>Token</b> i Oppsett → Datainnhenting først.</span>';
+    return;
+  }
   try{
-    const res = await api('/api/kundeinfo/hent', {method:'POST', body:{}});
+    const res = await api('/api/kundeinfo/hent', {method:'POST', body:{token}});
     statusEl.textContent = 'Synk startet — kan ta flere minutter …';
     kiPollJobb(res.jobb_id);
   }catch(e){ statusEl.textContent = 'Feil: '+e.message; }
