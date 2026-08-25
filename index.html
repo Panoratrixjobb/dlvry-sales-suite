@@ -971,6 +971,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <div class="tabs d-faner" id="kunderSubTabs" style="border-bottom:2px solid var(--d-ramme)">
         <button class="active d-fane aktiv" data-sub="kunder" onclick="setKunderSub('kunder')">Kunder</button>
         <button class="d-fane" data-sub="leads" onclick="setKunderSub('leads')">Leads</button>
+        <button class="d-fane" data-sub="kundeinfo" onclick="setKunderSub('kundeinfo')">Kundeinfo-sjekk</button>
       </div>
 
       <!-- Kunder: liste-visning (standard) -->
@@ -1143,6 +1144,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button id="leadsNext" class="d-knapp sekundar sm" onclick="leadsGaaSide(1)">Neste ›</button>
         </div>
       </div>
+
+      <!-- Kundeinfo-sjekk (steg 21): datakvalitet på kontaktinfo, se js/kundeinfo-sjekk.js -->
+      <div id="sub-kundeinfo" style="display:none"></div>
     </div>
 
     <!-- ===== BRUKERE VIEW (steg 7) ===== -->
@@ -2021,6 +2025,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
 <script src="js/foodbroker.js"></script>
+<script src="js/kundeinfo-sjekk.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -4285,14 +4290,16 @@ function klTilbake(){
 
 // ============ Leads-underfane ============
 function setKunderSub(sub){
-  document.getElementById('sub-kunder').style.display = sub==='kunder' ? '' : 'none';
-  document.getElementById('sub-leads').style.display  = sub==='leads'  ? '' : 'none';
+  document.getElementById('sub-kunder').style.display    = sub==='kunder'    ? '' : 'none';
+  document.getElementById('sub-leads').style.display     = sub==='leads'     ? '' : 'none';
+  document.getElementById('sub-kundeinfo').style.display = sub==='kundeinfo' ? '' : 'none';
   document.querySelectorAll('#kunderSubTabs button').forEach(b=>{
     const on=b.dataset.sub===sub;
     b.classList.toggle('active',on);
     b.classList.toggle('aktiv',on);
   });
   if(sub==='leads') mountLeads();
+  if(sub==='kundeinfo' && window.mountKundeinfoSjekk) mountKundeinfoSjekk();
   if(sub==='kunder'){ klPage=0; klQ=''; const si=document.getElementById('klSearch'); if(si)si.value=''; klLastOgVis(); }
 }
 
