@@ -1968,7 +1968,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <div class="toast" id="toast"></div>
 <div id="wakeBar" style="display:none;position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:550;background:#3A2D2A;color:#fff;border-radius:10px;padding:9px 16px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.25);align-items:center;gap:9px">
   <span style="width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:var(--primaer);border-radius:50%;display:inline-block;animation:spin .8s linear infinite"></span>
-  Backend våkner – prøver igjen automatisk…
+  <span id="wakeTekst">Serveren bruker lengre tid enn vanlig…</span>
 </div>
 <style>
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -2886,9 +2886,15 @@ function harModul(id){
 
 function setToken(t){TOKEN=t; if(t)sessionStorage.setItem('ks_token',t); else sessionStorage.removeItem('ks_token'); Steg4.token=t||'';}
 
-// Sentral fetch-wrapper: legger på token, håndterer 401, viser oppvåkning ved treghet.
-const _COLD_DELAYS=[2000,5000,10000,20000]; // ~37s total → dekker cold start på serveren
+// Sentral fetch-wrapper: legger på token, håndterer 401, varsler ved treghet/kontakttap.
+const _COLD_DELAYS=[2000,5000,10000,20000]; // ~37s total → dekker restart under deploy
 const _RETRY_STATUS=new Set([502,503,504]);
+
+// Terskel for treg-varselet. Var 1200 ms fra tiden på Render, da kaldstart var normalen
+// og et varsel etter ett sekund ga mening. Etter at Always On ble skrudd på (2026-08-26)
+// svarer backend på ~0,12 s, og 1,2 s slo ut på helt normale kall — varselet ropte «ulv»
+// ved hvert klikk og ble dermed umulig å ta på alvor når noe FAKTISK var galt.
+const _TREG_MS=4000;
 
 // `retry:false` slår av 502/503/504-retryen. MÅ brukes på kall som ikke er idempotente:
 // en sammenslåing som tar for lang tid gir 502 fra Azures front-end mens serveren jobber
@@ -2897,29 +2903,37 @@ async function api(path,{method='GET',body=null,onResponse=null,retry=true}={}){
   const headers={'Content-Type':'application/json'};
   if(TOKEN)headers['Authorization']='Bearer '+TOKEN;
   const opts={method,headers,body:body!=null?JSON.stringify(body):null};
-  const wake=setTimeout(()=>showWake(true),1200);
+  // try/finally: tellerne MÅ nulles uansett hvordan kallet ender (svar, kast, retry
+  // gitt opp) — ellers blir varselet stående for alltid etter én feilet forespørsel.
+  let tregPaa=false, retryPaa=false;
+  const wake=setTimeout(()=>{tregPaa=true;wakeTreg(true);},_TREG_MS);
+  const merkRetry=()=>{ if(!retryPaa){retryPaa=true;wakeRetry(true);} };
   let r=null,lastErr=null;
-  for(let i=0;i<=_COLD_DELAYS.length;i++){
-    try{
-      r=await fetch(API_BASE+path,opts);
-      if(retry&&_RETRY_STATUS.has(r.status)&&i<_COLD_DELAYS.length){
-        showWake(true);
-        await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
-        r=null; continue;
+  try{
+    for(let i=0;i<=_COLD_DELAYS.length;i++){
+      try{
+        r=await fetch(API_BASE+path,opts);
+        if(retry&&_RETRY_STATUS.has(r.status)&&i<_COLD_DELAYS.length){
+          merkRetry();
+          await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
+          r=null; continue;
+        }
+        break; // OK eller ikke-retry-bar statuskode (4xx etc.)
+      }catch(e){
+        lastErr=e;
+        if(retry&&i<_COLD_DELAYS.length){
+          merkRetry();
+          await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
+          continue;
+        }
+        throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
       }
-      break; // OK eller ikke-retry-bar statuskode (4xx etc.)
-    }catch(e){
-      lastErr=e;
-      if(retry&&i<_COLD_DELAYS.length){
-        showWake(true);
-        await new Promise(res=>setTimeout(res,_COLD_DELAYS[i]));
-        continue;
-      }
-      clearTimeout(wake);showWake(false);
-      throw new Error('Får ikke kontakt med server. Sjekk nett / at backend er våken.');
     }
+  }finally{
+    clearTimeout(wake);
+    if(tregPaa)wakeTreg(false);
+    if(retryPaa)wakeRetry(false);
   }
-  clearTimeout(wake);showWake(false);
   if(!r) throw lastErr||new Error('Får ikke kontakt med server.');
   if(onResponse)try{onResponse(r);}catch(_){}
   if(r.status===401){setToken(null);CURRENT_USER=null;showLogin();throw new Error('Økt utløpt — logg inn på nytt.');}
@@ -2941,7 +2955,22 @@ async function api(path,{method='GET',body=null,onResponse=null,retry=true}={}){
   return data;
 }
 
-function showWake(on){const el=document.getElementById('wakeBar');if(el)el.style.display=on?'flex':'none';}
+// Varselet deles av alle samtidige kall. Uten telling ville ett raskt kall som ble
+// ferdig skjult varselet mens et tregt kall fortsatt ventet. Retry-tilstanden vinner
+// over treg-tilstanden: «mistet kontakt» er den viktigste beskjeden når begge gjelder.
+let _wakeTreg=0, _wakeRetry=0;
+function _wakeTegn(){
+  const el=document.getElementById('wakeBar'); if(!el)return;
+  const t=document.getElementById('wakeTekst');
+  if(_wakeRetry>0){
+    if(t)t.textContent='Mistet kontakt med serveren – prøver igjen automatisk…';
+  }else if(_wakeTreg>0){
+    if(t)t.textContent='Serveren bruker lengre tid enn vanlig…';
+  }
+  el.style.display=(_wakeRetry>0||_wakeTreg>0)?'flex':'none';
+}
+function wakeTreg(on){ _wakeTreg=Math.max(0,_wakeTreg+(on?1:-1)); _wakeTegn(); }
+function wakeRetry(on){ _wakeRetry=Math.max(0,_wakeRetry+(on?1:-1)); _wakeTegn(); }
 
 // ============ Produktbase ============
 let DB=[];               // Produktkatalog bygget fra Excel-arket «Produktmaster ny»
