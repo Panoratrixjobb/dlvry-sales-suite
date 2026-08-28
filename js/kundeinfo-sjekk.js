@@ -28,6 +28,21 @@ async function mountKundeinfoSjekk(){
           <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
           <input id="kiSearch" type="search" class="d-input" placeholder="Søk navn / orgnr…" oninput="kiOnSearch(this.value)">
         </div>
+        <select id="kiKrav" class="d-input sm" style="max-width:230px" onchange="kiOnFilter()"
+                title="Hvilken kontaktinfo som skal mangle">
+          <option value="alle">Alle kunder</option>
+          <option value="noe">Mangler e-post eller telefon</option>
+          <option value="epost">Mangler e-post</option>
+          <option value="telefon">Mangler telefon</option>
+          <option value="begge">Mangler begge deler</option>
+        </select>
+        <select id="kiUtvalg" class="d-input sm" style="max-width:230px" onchange="kiOnFilter()"
+                title="Hvem som regnes som kunde. «Alle rader» inkluderer leads og prospekter.">
+          <option value="alle">Alle rader</option>
+          <option value="kunder">Kun kunder</option>
+          <option value="aktive">Kun aktive kunder</option>
+        </select>
+        <button class="d-knapp sekundar sm" onclick="kiEksporter()">⤓ Last ned Excel</button>
         <span id="kiCount" class="d-t-label"></span>
       </div>
       <div class="table-wrap" style="border-radius:var(--d-radius-sm);border:1px solid var(--d-ramme)">
@@ -50,6 +65,29 @@ async function mountKundeinfoSjekk(){
   await kiLastOgVis();
 }
 
+// Filtervalgene bygges ETT sted og brukes av både tabellen og Excel-eksporten — ellers
+// kan nedlastingen vise et annet utvalg enn skjermen. Backend har samme WHERE for begge,
+// se _mangler_where i konseptsuite-backend/app/routers/kundeinfo.py.
+function kiFilterParams(){
+  const p = new URLSearchParams();
+  const krav = document.getElementById('kiKrav');
+  const utvalg = document.getElementById('kiUtvalg');
+  if(krav) p.set('krav', krav.value);
+  if(utvalg) p.set('utvalg', utvalg.value);
+  if(KI_Q) p.set('q', KI_Q);
+  return p;
+}
+
+function kiOnFilter(){
+  KI_OFFSET = 0;
+  kiLastOgVis();
+}
+
+function kiEksporter(){
+  eksporterFil('/api/kundeinfo/mangler.xlsx?' + kiFilterParams().toString(),
+               'kunder-uten-kontaktinfo.xlsx');
+}
+
 function kiOnSearch(v){
   KI_Q = v; KI_OFFSET = 0;
   clearTimeout(window._kiSearchT);
@@ -65,8 +103,9 @@ async function kiLastOgVis(){
   const body = document.getElementById('kiBody');
   body.innerHTML = '<tr><td colspan="6" class="sub">Laster…</td></tr>';
   try{
-    const qs = new URLSearchParams({limit:KI_LIMIT, offset:KI_OFFSET});
-    if(KI_Q) qs.set('q', KI_Q);
+    const qs = kiFilterParams();
+    qs.set('limit', KI_LIMIT);
+    qs.set('offset', KI_OFFSET);
     const res = await api('/api/kundeinfo/mangler?' + qs.toString());
     KI_RADER = res.rader || [];
     document.getElementById('kiCount').textContent = res.total.toLocaleString('nb-NO') + ' kunder';
