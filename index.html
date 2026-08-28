@@ -1567,6 +1567,11 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="d-knapp primar" id="nyKonkBtn" onclick="openNyKonkModal()" style="margin-left:auto">+ Legg til konkurrent</button>
       </div>
       <div class="crumb" id="konkCrumb">Vis og sammenlign prislister fra konkurrenter.</div>
+      <div class="d-faner" style="margin-bottom:16px">
+        <button class="d-fane aktiv" data-konksub="prisliste" onclick="setKonkSub('prisliste')">Prislister</button>
+        <button class="d-fane" data-konksub="salg" onclick="setKonkSub('salg')">Konkurrentsalg</button>
+      </div>
+      <div id="sub-konkPrisliste">
       <div id="konkListe" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px"></div>
       <div id="konkPrisPanel" style="display:none">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
@@ -1590,6 +1595,11 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp subtil sm" id="konkNext" onclick="konkGaaSide(1)">Neste →</button>
         </div>
       </div>
+      </div><!-- /sub-konkPrisliste -->
+
+      <!-- Konkurrentsalg: hvilke produkter kundene kjøper fra konkurrerende
+           leverandører. Se js/konkurrent-salg.js. -->
+      <div id="sub-konkSalg" style="display:none"></div>
     </div>
 
     <!-- ===== FOODBROKER VIEW (steg 2026-08-11) ===== -->
@@ -2026,6 +2036,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/rapport-produkt.js"></script>
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
+<script src="js/konkurrent-salg.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -4828,6 +4839,21 @@ async function bekreftBesoksplanFjern(){
     toast('Oppdatert');
     mountBesoksplan();
   }catch(e){errEl.textContent='Feil: '+e.message;}
+}
+
+// Konkurrenter-siden har to faner: prislistene (fakturaimport) og konkurrentsalget
+// (hva kundene faktisk kjøper fra konkurrentene, fra Power BI). Se
+// konseptsuite-backend/app/routers/konkurrent_salg.py.
+function setKonkSub(sub){
+  document.querySelectorAll('[data-konksub]').forEach(b =>
+    b.classList.toggle('aktiv', b.dataset.konksub === sub));
+  document.getElementById('sub-konkPrisliste').style.display = sub === 'prisliste' ? '' : 'none';
+  document.getElementById('sub-konkSalg').style.display = sub === 'salg' ? '' : 'none';
+  document.getElementById('konkCrumb').textContent = sub === 'salg'
+    ? 'Produkter kundene kjøper fra konkurrerende leverandører, per grossist.'
+    : 'Vis og sammenlign prislister fra konkurrenter.';
+  document.getElementById('nyKonkBtn').style.display = sub === 'salg' ? 'none' : '';
+  if(sub === 'salg') mountKonkurrentSalg();
 }
 
 async function mountKonkurrenter(){
