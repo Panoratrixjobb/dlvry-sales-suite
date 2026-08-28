@@ -20,6 +20,7 @@ async function mountKundeinfoSjekk(){
       <div class="crumb">Kunder med manglende eller uverifisert kontaktinfo — e-post, telefon, org.nr og match mot Power BI KUNDEINFO.</div>
       <div id="kiAdminRad" style="display:none;margin-bottom:14px">
         <button class="d-knapp subtil sm" onclick="kiKjorSynk()">⟳ Kjør KUNDEINFO-synk nå</button>
+        <button class="d-knapp subtil sm" onclick="kiMatchLagrede()" title="Kobler det som allerede er hentet fra Power BI mot kundene — ingen ny henting, trenger ikke token">↔ Match lagrede mot kunder</button>
         <span id="kiSynkStatus" class="d-t-hint" style="margin-left:10px"></span>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
@@ -217,6 +218,22 @@ async function kiKjorSynk(){
     const res = await api('/api/kundeinfo/hent', {method:'POST', body:{token}});
     statusEl.textContent = 'Synk startet — kan ta flere minutter …';
     kiPollJobb(res.jobb_id);
+  }catch(e){ statusEl.textContent = 'Feil: '+e.message; }
+}
+
+// Matcher BARE det som allerede ligger i kunde_konsolidert mot kundene — hentingen fra
+// Power BI er den dyre delen (dag for dag bakover i tid), så et matchesteg som feiler skal
+// ikke tvinge fram en ny full henting. Se konseptsuite-backend/app/kundeinfo_jobb.py.
+async function kiMatchLagrede(){
+  const statusEl = document.getElementById('kiSynkStatus');
+  statusEl.textContent = 'Matcher …';
+  try{
+    const r = await api('/api/kundeinfo/match-lagrede', {method:'POST'});
+    const ubrukelig = r.kunder_med_ubrukelig_postnr_sted
+      ? `, ${r.kunder_med_ubrukelig_postnr_sted} hoppet over (ubrukelig postnr/sted)` : '';
+    statusEl.textContent = `Ferdig: ${r.kunder_matchet||0} koblet, `
+      + `${r.kunder_med_utfylt_postnr_sted||0} fikk postnr/sted${ubrukelig}.`;
+    kiLastOgVis();
   }catch(e){ statusEl.textContent = 'Feil: '+e.message; }
 }
 
