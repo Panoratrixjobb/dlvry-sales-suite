@@ -225,6 +225,8 @@ tbody tr:hover{background:#fafbff}
 .search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(214,87,66,.15)}
 .suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 12px 32px rgba(20,30,60,.14);max-height:300px;overflow-y:auto;z-index:40;display:none}
 .suggest.open{display:block}
+.enhet-velger{font-size:10px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface,#fff);color:var(--ink);max-width:96px}
+[data-dark] .enhet-velger{background:#161b22;border-color:#30363d;color:#e6edf3}
 .suggest .opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px}
 .suggest .opt:last-child{border-bottom:none}
 .suggest .opt:hover,.suggest .opt.hl{background:#FBEAE6}
@@ -870,6 +872,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div class="cart-head">
           <div><h3>Produkter og prislinjer</h3><div class="d-sub" style="font-size:11px;margin-top:3px">Sett kundepris og fordel eventuell Foodbroker-støtte i samme prisflyt.</div></div>
           <div class="cart-actions">
+            <select class="enhet-velger" style="margin-right:6px" onchange="settAlleEnheter(this.value);this.selectedIndex=0" title="Sett samme enhet på alle linjer som kan regnes om">
+              <option value="">Enhet: sett alle…</option>
+              <option value="D-Pak">Kartong</option>
+              <option value="F-Pak">F-pak</option>
+              <option value="kg">Kilo</option>
+            </select>
             <button class="d-knapp subtil" onclick="saveCalc()">💾 Lagre</button>
             <button class="d-knapp sekundar" onclick="skrivUtTilbud()">📄 Skriv ut tilbud (PDF)</button>
           </div>
@@ -3030,6 +3038,83 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 function findProd(key){key=String(key??'').trim().toLowerCase();return DBbyArt.get(key)||DBbyName.get(key);}
 function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',leverandor:p.leverandor||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,kundepris:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
+// ============ Enhetsvalg per linje ============
+// Foodbroker fakturerer per kartong, kunden vil ofte ha kilopris, og fakturaen kunden
+// laster opp er i sin egen enhet. Katalogen har ÉN enhet per vare (prislistas Prisenhet);
+// her kan hver linje vises i en annen, med pris OG kost regnet om samtidig.
+//
+// Fordi begge sider av brøken skaleres likt, er marginprosenten uforandret av et
+// enhetsbytte — bare kronene per enhet endrer seg. Det er den egenskapen som gjør dette
+// til en visningsfunksjon og ikke en ny fasit. Antallet regnes motsatt vei, så
+// linjeomsetningen står stille: 138 kartonger blir 552 F-pak til samme 226 941 kr.
+const ENHET_KANON={'d-pak':'D-Pak','dpak':'D-Pak','d pak':'D-Pak','krt':'D-Pak','kartong':'D-Pak',
+                   'f-pak':'F-Pak','fpak':'F-Pak','f pak':'F-Pak','kg':'kg','stk':'STK'};
+const ENHET_NAVN={'D-Pak':'Kartong','F-Pak':'F-pak','kg':'Kilo'};
+// Prisfeltene skaleres med enheten. faktura_pris gjør det IKKE: den er hva som faktisk
+// sto på kundens faktura, i fakturaens egen enhet, og skal ikke skrives om av oss.
+const ENHET_PRISFELT=['listepris','kostbase','fbkostpris','grossistkost','grossistprisFB',
+                      'spesialpris','kundepris','konkurrentpris','fbStotteSpesialpris'];
+
+function kanonEnhet(e){
+  const s=String(e==null?'':e).trim().toLowerCase();
+  return ENHET_KANON[s]||String(e==null?'':e).trim();
+}
+
+// Alternativene for én vare, som faktor mot varens EGEN prisenhet. Alt uttrykkes først i
+// F-pak-ekvivalenter, så faktorene kan settes opp mot hverandre uansett hva basen er.
+// Kilo krever nettovekt, som bare finnes på 240 av 708 Foodbroker-varer og ikke i det
+// hele tatt for TPL/Godt Lokalt/Wulff — da er valget rett og slett ikke der.
+function enhetsalternativer(p){
+  if(!p)return[];
+  const base=kanonEnhet(p.prisenhet||p.enhet);
+  if(base!=='D-Pak'&&base!=='F-Pak'&&base!=='kg')return[];
+  const fpak=Number(p.fpakPerDpak)>1?Number(p.fpakPerDpak):1;
+  let vD=Number(p.nettovektDpak)||0, vF=Number(p.nettovektFpak)||0;
+  if(!vF&&vD)vF=vD/fpak;
+  const eF={};
+  if(fpak>1){eF['D-Pak']=fpak;eF['F-Pak']=1;}
+  else if(base==='D-Pak')eF['D-Pak']=1;   // kartong uten kjent stykktall er sin egen enhet
+  else eF['F-Pak']=1;
+  if(vF>0)eF['kg']=1/vF;
+  const b=eF[base];
+  if(!b)return[];
+  const ut=Object.keys(eF).map(u=>({enhet:u,faktor:eF[u]/b}))
+    .filter(a=>isFinite(a.faktor)&&a.faktor>0);
+  return ut.length>1?ut:[];
+}
+
+function konverterLinje(i,ny){
+  const l=state.cart[i];
+  const alt=enhetsalternativer(findProd(l.art));
+  if(!alt.length)return false;
+  const tilNy=alt.find(a=>a.enhet===ny);
+  // Ukjent nåværende enhet (eldre lagret linje) tolkes som varens base — faktor 1.
+  const tilNaa=alt.find(a=>a.enhet===kanonEnhet(l.enhet))||{enhet:null,faktor:1};
+  if(!tilNy||tilNy.enhet===tilNaa.enhet)return false;
+  const r=tilNy.faktor/tilNaa.faktor;
+  ENHET_PRISFELT.forEach(f=>{
+    if(l[f]!=null&&l[f]!=='')l[f]=Math.round(Number(l[f])*r*10000)/10000;
+  });
+  l.antall=Math.round((l.antall/r)*1e6)/1e6;
+  l.enhet=ny;
+  return true;
+}
+
+function settLinjeEnhet(i,ny){ if(konverterLinje(i,ny)){markDirty();render();} }
+
+function settAlleEnheter(ny){
+  if(!ny)return;
+  let endret=0,uten=0;
+  state.cart.forEach((l,i)=>{
+    const alt=enhetsalternativer(findProd(l.art));
+    if(!alt.some(a=>a.enhet===ny)){uten++;return;}
+    if(konverterLinje(i,ny))endret++;
+  });
+  markDirty();render();
+  toast(endret+' linje'+(endret===1?'':'r')+' satt til '+(ENHET_NAVN[ny]||ny)
+    +(uten?' — '+uten+' kunne ikke regnes om (mangler omregningsfaktor)':''));
+}
+
 // ============ Motor ============
 function compute(){
   const gen=(parseFloat(document.getElementById('genrabatt').value)||0)/100;
@@ -3117,6 +3202,18 @@ function velgBytteProd(i,q){
 }
 
 // ============ Render ============
+// Enheten står i produktcella, ikke i en egen kolonne: den hører til varen, og tabellen
+// har allerede femten kolonner. Varer uten omregningsfaktor viser enheten som ren tekst —
+// da er det ingenting å velge mellom.
+function enhetVelger(x,i){
+  const alt=enhetsalternativer(findProd(x.l.art));
+  const naa=kanonEnhet(x.l.enhet);
+  if(alt.length<2)return x.l.enhet?`<span class="d-sub" style="font-size:10px">${esc(String(x.l.enhet))}</span>`:'';
+  return `<select class="enhet-velger" onchange="settLinjeEnhet(${i},this.value)" title="Enhet for pris, kost og antall. Bytte regner om alt samtidig, så linjeomsetningen og marginprosenten står stille.">`
+    +alt.map(a=>`<option value="${a.enhet}"${naa===a.enhet?' selected':''}>${ENHET_NAVN[a.enhet]||a.enhet}</option>`).join('')
+    +`</select>`;
+}
+
 function render(){
   const r=compute();
   const visFbIntern=kanSeFbInternokonomi();
@@ -3148,8 +3245,8 @@ function render(){
       : `<div style="font-size:13px;font-weight:700" title="Totalmargin på linja etter rabatt og kjedebonus, målt mot DLVRYs kostbase${x.isFB?' (Foodbrokers importkost — Foodbroker-leddet er inkludert)':''}">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`
         +`<div style="font-size:11px;opacity:.75">${fmtKr(marg)}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
-      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
-      <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
+      <td><input class="cell-input" type="number" min="0" step="any" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
       <td>${fmtKr2(x.prisEtter)}</td>
@@ -4061,9 +4158,9 @@ function exportCSV(){
   if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   const visFbIntern=kanSeFbInternokonomi();
   let rows=[visFbIntern
-    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
-    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const sm=sammenlignbarMarginPct(x);const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),sm==null?'':sm.toFixed(1),md?md.dg_pct.toFixed(1):'',md&&sm!=null?(sm-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
+    ?['Art.nr','Produkt','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
+    :['Art.nr','Produkt','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.enhet||'',x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const sm=sammenlignbarMarginPct(x);const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),sm==null?'':sm.toFixed(1),md?md.dg_pct.toFixed(1):'',md&&sm!=null?(sm-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
   rows.push([]);
   rows.push(['Total omsetning',r.sumOms.toFixed(0)]);
   if(visFbIntern)rows.push(['Foodbroker-støtte',r.sumFbStotte.toFixed(0)]);
