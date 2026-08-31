@@ -3121,10 +3121,17 @@ function compute(){
   const bonusPct=(parseFloat(document.getElementById('kjedebonus').value)||0)/100;
   let sumListe=0,sumOms=0,sumKost=0,sumBonus=0,sumEnh=0,sumMargin=0,sumEgenVerdikjede=0,sumGrossistMargin=0,sumFbStotte=0;
   const manglerKostArt=[];
+  // Varer Foodbroker importerer, men som ennå ikke har salgspris hos oss, ligger i
+  // katalogen med listepris 0 og kjent kostbase (se oppdater_foodbroker_katalog.py).
+  // Uten dette ville en slik linje gitt omsetning 0 og en margin på minus hele kosten —
+  // et tall som ser ut som en katastrofe, men bare betyr at prisen ikke er satt ennå.
+  const manglerPrisArt=[];
   const lines=state.cart.map(l=>{
     const rab=(l.linjerabatt!=null?l.linjerabatt:gen);
     const prisEtter=l.listepris*(1-rab);
     const endelig=(l.spesialpris!=null&&l.spesialpris!=='')?l.spesialpris:prisEtter;
+    const manglerPris=!(endelig>0);
+    if(manglerPris)manglerPrisArt.push(l.art);
     const oms=endelig*l.antall;
     // Excel-masteren styrer trafikklyset på TOTAL DLVRY-margin: positiv kostbase først.
     // Internprisen til grossist brukes bare til å splitte verdikjedemarginen.
@@ -3134,23 +3141,25 @@ function compute(){
     else if(l.grossistkost!=null)kost=l.grossistkost;
     else{manglerKost=true;manglerKostArt.push(l.art);}
     const bonusKr=oms*bonusPct;
-    const dlvryMargin=manglerKost?0:(endelig-kost)*l.antall;
+    const dlvryMargin=(manglerKost||manglerPris)?0:(endelig-kost)*l.antall;
     const fbFlyt=beregnFbPrisflyt(l,kost,manglerKost);
     const {isFB,internpris,fbStottePct,fbStotteSpesial,justertGrossistkost,underFbKost}=fbFlyt;
     const fbStotteKr=fbFlyt.fbStottePerEnhet*l.antall;
     const egenVerdikjedeMargin=internpris==null?0:(justertGrossistkost-kost)*l.antall;
-    const grossistMargin=manglerKost?0:((endelig-(justertGrossistkost==null?kost:justertGrossistkost))*l.antall-bonusKr);
+    const grossistMargin=(manglerKost||manglerPris)?0:((endelig-(justertGrossistkost==null?kost:justertGrossistkost))*l.antall-bonusKr);
     const totKunderabatt=l.listepris>0?(l.listepris-endelig)/l.listepris:0;
     sumListe+=l.listepris*l.antall;sumOms+=oms;sumKost+=(manglerKost?0:kost)*l.antall;sumBonus+=bonusKr;sumEnh+=l.antall;sumMargin+=dlvryMargin;sumEgenVerdikjede+=egenVerdikjedeMargin;sumGrossistMargin+=grossistMargin;sumFbStotte+=fbStotteKr;
-    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,bonusKr,dlvryMargin,egenVerdikjedeMargin,grossistMargin,totKunderabatt,isFB,internpris,fbStottePct,fbStotteSpesial,justertGrossistkost,fbStotteKr,underFbKost,overRabatt:rab>MAKS_LINJERABATT};
+    return{l,rab,prisEtter,endelig,oms,kost,manglerKost,manglerPris,bonusKr,dlvryMargin,egenVerdikjedeMargin,grossistMargin,totKunderabatt,isFB,internpris,fbStottePct,fbStotteSpesial,justertGrossistkost,fbStotteKr,underFbKost,overRabatt:rab>MAKS_LINJERABATT};
   });
-  const komplett=manglerKostArt.length===0;
+  // En linje uten pris gjør kalkylen like ufullstendig som en linje uten kost: begge
+  // gjør totalmarginen til et tall man ikke kan sende til en kunde.
+  const komplett=manglerKostArt.length===0&&manglerPrisArt.length===0;
   const totMarginNok=sumMargin-sumBonus;
   const totMarginPct=(komplett&&sumOms>0)?totMarginNok/sumOms:0;
   let status='Ingen';
   // Ufullstendig (manglende kost) gir aldri RØD/ORANSJE/GRØNN — kun 'Ingen' + varsel.
   if(komplett&&sumOms>0){if(totMarginPct<MIN_ROD_MARGIN)status='RØD';else if(totMarginPct>=MIN_GRONN_MARGIN&&sumOms>=MIN_GRONN_OMS)status='GRØNN';else status='ORANSJE';}
-  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,sumEgenVerdikjede,sumGrossistMargin,sumFbStotte,totMarginNok,totMarginPct,status,komplett,manglerKostArt};
+  return{lines,gen,sumListe,sumOms,sumKost,sumBonus,sumEnh,sumEgenVerdikjede,sumGrossistMargin,sumFbStotte,totMarginNok,totMarginPct,status,komplett,manglerKostArt,manglerPrisArt};
 }
 const statusColor={'GRØNN':'var(--green)','ORANSJE':'var(--orange)','RØD':'var(--red)','Ingen':'#cbd2df'};
 
@@ -3240,12 +3249,14 @@ function render(){
     // Foodbrokers importkostbase, så Foodbrokers eget ledd ligger inne i tallet og
     // splittes bevisst ikke ut her (Manuele 2026-08-31). Splitten finnes fortsatt i
     // «Margin per verdikjede» for dem som har tilgang til internøkonomien.
-    const margCelle = x.manglerKost
+    const margCelle = x.manglerPris
+      ? '<span title="Varen har ingen salgspris hos oss ennå — sett spesialpris">— sett pris</span>'
+      : x.manglerKost
       ? '<span title="Mangler kostpris">—</span>'
       : `<div style="font-size:13px;font-weight:700" title="Totalmargin på linja etter rabatt og kjedebonus, målt mot DLVRYs kostbase${x.isFB?' (Foodbrokers importkost — Foodbroker-leddet er inkludert)':''}">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`
         +`<div style="font-size:11px;opacity:.75">${fmtKr(marg)}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
-      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}${x.manglerPris?'<span class="d-merke advarsel" title="Foodbroker importerer varen, men den har ingen salgspris i prislista v\u00e5r. Kosten er kjent \u2014 sett en spesialpris, s\u00e5 regnes marginen.">uten listepris</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" step="any" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
@@ -3255,7 +3266,7 @@ function render(){
       <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${x.l.kundepris!=null?x.l.kundepris:''}" onchange="upd(${i},'kundepris',this.value)">${kundeprisCelle(x)}</td>
       <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}${konfLinje}</td>
       <td>${fmtKr(x.oms)}</td>
-      <td class="${x.manglerKost?'':(marg>=0?'pos':'neg')}">${margCelle}${markedCelle(x)}</td>
+      <td class="${(x.manglerKost||x.manglerPris)?'':(marg>=0?'pos':'neg')}">${margCelle}${markedCelle(x)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
       <td>${fmtKr(x.bonusKr)}</td>
       <td><button class="row-del" onclick="delLine(${i})" title="Fjern">✕</button></td>`;
@@ -3343,7 +3354,11 @@ function render(){
   document.getElementById('stripMargin').textContent=r.komplett?fmtPct(r.totMarginPct):'—';
   document.getElementById('stripFbStotte').textContent=fmtKr(r.sumFbStotte);
   const stripStatus=document.getElementById('stripStatus');
-  stripStatus.textContent=r.lines.length?(r.komplett?note:'Mangler kostpris'):'Legg til produkter';
+  // Si HVA som mangler. En Foodbroker-nyhet uten salgspris er noe helt annet enn en
+  // vare uten kostgrunnlag, og «Mangler kostpris» sendte selgeren feil vei.
+  const uferdig=r.manglerKostArt.length&&r.manglerPrisArt.length?'Mangler pris og kostpris'
+    :r.manglerPrisArt.length?'Mangler salgspris':'Mangler kostpris';
+  stripStatus.textContent=r.lines.length?(r.komplett?note:uferdig):'Legg til produkter';
   stripStatus.style.color=r.komplett?col:'var(--advarsel)';
 
   const bidrag=r.sumOms>0?(r.sumOms-r.sumKost)/r.sumOms:0;
@@ -3451,7 +3466,8 @@ function renderBeslutningsstotte(r){
   const underKost=r.lines.filter(x=>x.underFbKost).length;
   const overRabatt=r.lines.filter(x=>x.overRabatt).length;
   const fbLinjer=r.lines.filter(x=>x.isFB).length;
-  if(!r.komplett)innsikt.push(['error','⚠','Margin mangler',r.manglerKostArt.length+(r.manglerKostArt.length===1?' produktlinje mangler':' produktlinjer mangler')+' gyldig kostpris.']);
+  if(r.manglerKostArt.length)innsikt.push(['error','⚠','Margin mangler',r.manglerKostArt.length+(r.manglerKostArt.length===1?' produktlinje mangler':' produktlinjer mangler')+' gyldig kostpris.']);
+  if(r.manglerPrisArt.length)innsikt.push(['error','⚠','Pris mangler',r.manglerPrisArt.length+(r.manglerPrisArt.length===1?' produktlinje har':' produktlinjer har')+' ingen salgspris. Varen er ny hos Foodbroker og kosten er kjent — sett en spesialpris.']);
   if(kanSeFbInternokonomi()&&underKost)innsikt.push(['error','↓','FB-støtte under kost',underKost+(underKost===1?' Foodbroker-linje har':' Foodbroker-linjer har')+' justert grossistkost under FB-kost.']);
   if(overRabatt)innsikt.push(['warn','%','Høy kunderabatt',overRabatt+(overRabatt===1?' linje ligger':' linjer ligger')+' over tillatt linjerabatt.']);
   if(kanSeFbInternokonomi()&&fbLinjer&&r.sumFbStotte!==0)innsikt.push(['','↔','Foodbroker-støtte fordelt',fmtKr(r.sumFbStotte)+' flyttes fra Foodbrokers verdikjedemargin til grossisten.']);
@@ -3489,7 +3505,7 @@ function onSearch(q){
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
     <div class="nm">${esc(p.navn)}</div>
-    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}${p.leverandor?'<span title="Leverandør">'+esc(String(p.leverandor))+'</span>':''}</div></div>`).join('');
+    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}${p.leverandor?'<span title="Leverandør">'+esc(String(p.leverandor))+'</span>':''}${!p.listepris?'<span style="color:var(--advarsel)" title="Ingen salgspris i prislista — kosten er kjent, sett pris i kalkylen">uten listepris</span>':''}</div></div>`).join('');
   box.classList.add('open');
 }
 function pickResult(i){
@@ -4155,7 +4171,9 @@ window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.
 function exportCSV(){
   const r=compute();
   // Ikke eksporter fabrikkerte margintall når en linje mangler kostpris. Se funn #2.
-  if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
+  if(!r.komplett){toast('Kan ikke eksportere: '
+    +(r.manglerKostArt.length?r.manglerKostArt.length+' produkt(er) mangler kostpris. ':'')
+    +(r.manglerPrisArt.length?r.manglerPrisArt.length+' produkt(er) mangler salgspris.':''));return;}
   const visFbIntern=kanSeFbInternokonomi();
   let rows=[visFbIntern
     ?['Art.nr','Produkt','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
