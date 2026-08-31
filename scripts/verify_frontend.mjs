@@ -59,17 +59,47 @@ for (const [index, row] of katalog.rows.entries()) {
   if (Number(row[kostIndex] ?? 0) < 0) throw new Error(`Produktlinje ${index + 1} har negativ kostbase`);
 }
 
-// Korrigerte FB-kostbaser fra Excel 14.08.2026. Disse var feil i forrige eksport.
+// Tre varenumre finnes DOBBELT i kostprisarket, med ulik kost på hver rad. Testen låser
+// at katalogen henter fra riktig rad — 12866 fra Wulff Import og ikke fra den korrupte
+// HONG KONG FUNG YU-raden (som har «cheport» i F-pak-feltet og #VALUE! i kostkolonnen),
+// 11158 fra MAISKORN-raden og ikke fra Canned Sweet Corn, og 80088 fra GRECI TOMATER og
+// ikke fra ACQUA PANNA (status UT — to helt ulike varer på samme varenummer).
+//
+// Verdiene ble oppdatert 2026-08-31. De sto tidligere i kostprisarkets D-pak-enhet
+// (146,48 og 127,28) mens listepris og internpris på samme rad var delt ned til F-pak.
+// Testen låste da fast en kostbase som lå 5–11 ganger OVER listeprisen. Enheten er nå
+// den samme i alle tre feltene; se kommentaren i bygg_produktkatalog.py. Kilderaden er
+// uendret — det er bare enheten som er rettet.
 const korrigerteFbKostbaser = new Map([
-  ['3519511', 141.37],
-  ['3512701', 146.48],
-  ['6926265', 127.28],
+  ['3519511', 141.37],      // GRECI TOMATER POLPA 10 KG — F-pak per D-pak = 1, ingen deling
+  ['3512701', 12.2067],     // BAMBUSSUDD 12x340G — 146,48 / 12
+  ['6926265', 5.3033],      // MAISKORN DELI-SPHERE 24x340G — 127,28 / 24
 ]);
 for (const [art, forventetKost] of korrigerteFbKostbaser) {
   const produkt = katalog.rows.find(row => String(row[artIndex]) === art);
   if (!produkt || Number(produkt[kostIndex]) !== forventetKost || Number(produkt[fbKostIndex]) !== forventetKost) {
     throw new Error(`Foodbroker-kost for ${art} avviker fra korrigert Excel-fil`);
   }
+}
+
+// Invarianten testen over IKKE fanget: kost og pris målt i ulike enheter. En kostbase over
+// listeprisen er ikke en dyr vare, det er en enhetsfeil — og i tilbudsverktøyet ga den svart
+// negativ margin på varer som i virkeligheten går i 30 %. Var 140 før 2026-08-31, er 11 nå.
+// Skralle, ikke fast tall: tallet skal ned mot null etter hvert som Vegard rydder i
+// kildedataen, men det skal ALDRI opp igjen.
+const MAKS_KOST_OVER_LISTEPRIS = 11;
+const listeprisIndex = katalog.k.indexOf('listepris');
+const kildeIndex = katalog.k.indexOf('kilde');
+const enhetsavvik = katalog.rows.filter(row =>
+  row[kildeIndex] === 'Foodbroker'
+  && Number(row[kostIndex]) > 0
+  && Number(row[listeprisIndex]) > 0
+  && Number(row[kostIndex]) > Number(row[listeprisIndex]));
+if (enhetsavvik.length > MAKS_KOST_OVER_LISTEPRIS) {
+  throw new Error(
+    `${enhetsavvik.length} Foodbroker-varer har kostbase over listepris (maks ${MAKS_KOST_OVER_LISTEPRIS}). `
+    + `Ser ut som enhetsfeil — sjekk F-pak-delingen i bygg_produktkatalog.py. `
+    + `Første: ${enhetsavvik.slice(0, 3).map(r => `${r[artIndex]} ${r[kostIndex]}>${r[listeprisIndex]}`).join(', ')}`);
 }
 
 if (katalog.meta?.eksporterte_produkter !== katalog.rows.length) {
