@@ -3000,7 +3000,10 @@ async function loadProducts(){
     const mangler=obligatoriske.filter(f=>!k.includes(f));
     if(mangler.length)throw new Error('Produktkatalogen mangler: '+mangler.join(', '));
     DB=p.rows.map(row=>{const o={};k.forEach((key,i)=>o[key]=row[i]);return o;});
-    DBindex=DB.map(p=>({p,art:String(p.art??'').trim().toLowerCase(),navn:String(p.navn??'').trim().toLowerCase()}));
+    // Leverandøren er med i indeksen fordi selgerne søker på den: «stroppa» er ikke et
+    // produktnavn, det er hvem pastaen kommer fra. Feltet er tomt for varer vi ikke har
+    // leverandør på (bl.a. hele TPL-katalogen), og koster da ingenting i søket.
+    DBindex=DB.map(p=>({p,art:String(p.art??'').trim().toLowerCase(),navn:String(p.navn??'').trim().toLowerCase(),lev:String(p.leverandor??'').trim().toLowerCase()}));
     DBbyArt=new Map();DBbyName=new Map();
     DBindex.forEach(x=>{if(x.art&&!DBbyArt.has(x.art))DBbyArt.set(x.art,x.p);if(x.navn&&!DBbyName.has(x.navn))DBbyName.set(x.navn,x.p);});
     const s=document.getElementById('searchInput');
@@ -3025,7 +3028,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 // linje: {art,navn,enhet,kilde,listepris,kostbase,fbkostpris,grossistprisFB,
 //         grossistkost,antall,linjerabatt,spesialpris,fbStottePct,fbStotteSpesialpris}
 function findProd(key){key=String(key??'').trim().toLowerCase();return DBbyArt.get(key)||DBbyName.get(key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,kundepris:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',leverandor:p.leverandor||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,kundepris:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
 // ============ Motor ============
 function compute(){
@@ -3086,7 +3089,7 @@ function byttRad(i){
     var q=(this.value||'').trim();
     if(q.length<2)return;
     var ql=q.toLowerCase();
-    var hits=DB.filter(p=>p.navn.toLowerCase().includes(ql)||String(p.art)===q)
+    var hits=DB.filter(p=>p.navn.toLowerCase().includes(ql)||String(p.art)===q||String(p.leverandor||'').toLowerCase().includes(ql))
       .sort((a,b)=>kilderang(a.kilde)-kilderang(b.kilde)||(a.navn<b.navn?-1:a.navn>b.navn?1:0)).slice(0,20);
     document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+' · '+esc(String(p.kilde||''))+'</option>').join('');
   });
@@ -3145,7 +3148,7 @@ function render(){
       : `<div style="font-size:13px;font-weight:700" title="Totalmargin på linja etter rabatt og kjedebonus, målt mot DLVRYs kostbase${x.isFB?' (Foodbrokers importkost — Foodbroker-leddet er inkludert)':''}">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`
         +`<div style="font-size:11px;opacity:.75">${fmtKr(marg)}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
-      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
@@ -3373,10 +3376,14 @@ function onSearch(q){
   for(let i=0;i<DBindex.length;i++){
     const x=DBindex[i];
     const iNavn=x.navn.indexOf(q);
-    if(iNavn<0&&!x.art.includes(q))continue;
+    const iArt=x.art.includes(q);
+    // Leverandørtreff teller, men rangeres BAK navne- og artikkeltreff: søker du «arla»
+    // vil du se Arla-produktene med navnet først, ikke en tilfeldig vare fra Arla.
+    const iLev=(iNavn<0&&!iArt)?x.lev.indexOf(q):-1;
+    if(iNavn<0&&!iArt&&iLev<0)continue;
     // Treff i starten av navnet er mer relevant enn et treff midt inni, men kilden
     // veier tyngst — det er den selgeren har bedt om å bli styrt av.
-    traff.push({p:x.p,rang:kilderang(x.p.kilde),start:iNavn===0?0:1,navn:x.navn});
+    traff.push({p:x.p,rang:kilderang(x.p.kilde),start:iLev>=0?2:(iNavn===0?0:1),navn:x.navn});
     if(traff.length>=4000)break;
   }
   traff.sort((a,b)=>a.rang-b.rang||a.start-b.start||(a.navn<b.navn?-1:a.navn>b.navn?1:0));
@@ -3385,7 +3392,7 @@ function onSearch(q){
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
     <div class="nm">${esc(p.navn)}</div>
-    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}</div></div>`).join('');
+    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}${p.leverandor?'<span title="Leverandør">'+esc(String(p.leverandor))+'</span>':''}</div></div>`).join('');
   box.classList.add('open');
 }
 function pickResult(i){

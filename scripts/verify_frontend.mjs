@@ -65,15 +65,14 @@ for (const [index, row] of katalog.rows.entries()) {
 // 11158 fra MAISKORN-raden og ikke fra Canned Sweet Corn, og 80088 fra GRECI TOMATER og
 // ikke fra ACQUA PANNA (status UT — to helt ulike varer på samme varenummer).
 //
-// Verdiene ble oppdatert 2026-08-31. De sto tidligere i kostprisarkets D-pak-enhet
-// (146,48 og 127,28) mens listepris og internpris på samme rad var delt ned til F-pak.
-// Testen låste da fast en kostbase som lå 5–11 ganger OVER listeprisen. Enheten er nå
-// den samme i alle tre feltene; se kommentaren i bygg_produktkatalog.py. Kilderaden er
-// uendret — det er bare enheten som er rettet.
+// Verdiene sto en kort periode 2026-08-31 som 12,2067 og 5,3033. Det var feil vei ut av
+// problemet: kostbasen ble delt ned til F-pak fordi listepris og internpris var det. Nå er
+// nedregningen fjernet helt, alt står i prislistas egen D-Pak-enhet, og korrigeringen fra
+// 14.08 stemmer igjen slik den opprinnelig ble skrevet.
 const korrigerteFbKostbaser = new Map([
-  ['3519511', 141.37],      // GRECI TOMATER POLPA 10 KG — F-pak per D-pak = 1, ingen deling
-  ['3512701', 12.2067],     // BAMBUSSUDD 12x340G — 146,48 / 12
-  ['6926265', 5.3033],      // MAISKORN DELI-SPHERE 24x340G — 127,28 / 24
+  ['3519511', 141.37],      // GRECI TOMATER POLPA 10 KG BIB
+  ['3512701', 146.48],      // BAMBUSSUDD I CHILI OLJE 12x340G
+  ['6926265', 127.28],      // MAISKORN DELI-SPHERE 24x340G
 ]);
 for (const [art, forventetKost] of korrigerteFbKostbaser) {
   const produkt = katalog.rows.find(row => String(row[artIndex]) === art);
@@ -87,7 +86,7 @@ for (const [art, forventetKost] of korrigerteFbKostbaser) {
 // negativ margin på varer som i virkeligheten går i 30 %. Var 140 før 2026-08-31, er 11 nå.
 // Skralle, ikke fast tall: tallet skal ned mot null etter hvert som Vegard rydder i
 // kildedataen, men det skal ALDRI opp igjen.
-const MAKS_KOST_OVER_LISTEPRIS = 11;
+const MAKS_KOST_OVER_LISTEPRIS = 0;
 const listeprisIndex = katalog.k.indexOf('listepris');
 const kildeIndex = katalog.k.indexOf('kilde');
 const enhetsavvik = katalog.rows.filter(row =>
