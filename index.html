@@ -225,6 +225,11 @@ tbody tr:hover{background:#fafbff}
 .search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(214,87,66,.15)}
 .suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 12px 32px rgba(20,30,60,.14);max-height:300px;overflow-y:auto;z-index:40;display:none}
 .suggest.open{display:block}
+.seg-merke{display:inline-block;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:3px;margin-left:5px;letter-spacing:.02em}
+.seg-merke.shh{background:#e6f4ea;color:#137333}
+.seg-merke.dv{background:#eef1f6;color:#5f6674}
+[data-dark] .seg-merke.shh{background:#0f2e1a;color:#7ee2a8}
+[data-dark] .seg-merke.dv{background:#21262d;color:#9aa4b2}
 .enhet-velger{font-size:10px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface,#fff);color:var(--ink);max-width:96px}
 [data-dark] .enhet-velger{background:#161b22;border-color:#30363d;color:#e6edf3}
 .suggest .opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px}
@@ -3036,7 +3041,7 @@ const SEGMENTER=["Sit-down (uklart)","Asiatisk","Kafe/bakeri","Italiensk","Hurti
 // linje: {art,navn,enhet,kilde,listepris,kostbase,fbkostpris,grossistprisFB,
 //         grossistkost,antall,linjerabatt,spesialpris,fbStottePct,fbStotteSpesialpris}
 function findProd(key){key=String(key??'').trim().toLowerCase();return DBbyArt.get(key)||DBbyName.get(key);}
-function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',leverandor:p.leverandor||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,kundepris:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
+function lineFromProd(p,q){return{art:p.art,navn:p.navn,enhet:p.enhet,kilde:p.kilde||'',leverandor:p.leverandor||'',segment:p.segment||'',listepris:p.listepris,kostbase:p.kostbase,fbkostpris:p.fbkostpris,grossistprisFB:p.grossistprisFB,grossistkost:p.grossistkost,antall:q||1,linjerabatt:null,spesialpris:null,fbStottePct:null,fbStotteSpesialpris:null,konkurrentpris:null,konfidens:null,matchkonfidens:null,kundepris:null,faktura_original_navn:null,faktura_mengde:null,faktura_pris:null,faktura_rabatt:null};}
 
 // ============ Enhetsvalg per linje ============
 // Foodbroker fakturerer per kartong, kunden vil ofte ha kilopris, og fakturaen kunden
@@ -3184,8 +3189,8 @@ function byttRad(i){
     if(q.length<2)return;
     var ql=q.toLowerCase();
     var hits=DB.filter(p=>p.navn.toLowerCase().includes(ql)||String(p.art)===q||String(p.leverandor||'').toLowerCase().includes(ql))
-      .sort((a,b)=>kilderang(a.kilde)-kilderang(b.kilde)||(a.navn<b.navn?-1:a.navn>b.navn?1:0)).slice(0,20);
-    document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+' · '+esc(String(p.kilde||''))+'</option>').join('');
+      .sort((a,b)=>sorteringsrang(a)-sorteringsrang(b)||(a.navn<b.navn?-1:a.navn>b.navn?1:0)).slice(0,20);
+    document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+' · '+esc(String(p.kilde||''))+(p.segment?' · '+esc(String(p.segment)):'')+'</option>').join('');
   });
 }
 
@@ -3256,7 +3261,7 @@ function render(){
       : `<div style="font-size:13px;font-weight:700" title="Totalmargin på linja etter rabatt og kjedebonus, målt mot DLVRYs kostbase${x.isFB?' (Foodbrokers importkost — Foodbroker-leddet er inkludert)':''}">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`
         +`<div style="font-size:11px;opacity:.75">${fmtKr(marg)}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
-      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}${x.manglerPris?'<span class="d-merke advarsel" title="Foodbroker importerer varen, men den har ingen salgspris i prislista v\u00e5r. Kosten er kjent \u2014 sett en spesialpris, s\u00e5 regnes marginen.">uten listepris</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
+      <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}${segmentMerke(x.l.segment)}${x.manglerPris?'<span class="d-merke advarsel" title="Foodbroker importerer varen, men den har ingen salgspris i prislista v\u00e5r. Kosten er kjent \u2014 sett en spesialpris, s\u00e5 regnes marginen.">uten listepris</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" step="any" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
       <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
@@ -3481,6 +3486,22 @@ function renderBeslutningsstotte(r){
 // i alfabetet aldri nådd lista. Ønsket av Manuele 2026-08-31.
 const KILDERANG={'Foodbroker':0,'Godt Lokalt':1,'Wulff':2,'TPL':4};
 function kilderang(kilde){const r=KILDERANG[kilde];return r==null?3:r;}
+// Kalkylene er nesten utelukkende storhusholdning, så innen Foodbroker skal SHH-varene
+// ligge øverst og dagligvarevarene nederst. Segmentet kommer fra kolonne C i
+// kostprisarket. Ukjent segment havner i midten — det er ikke det samme som å vite at
+// varen er dagligvare. Rangen ganges inn i kilderangen så kilden fortsatt veier tyngst.
+const SEGMENTRANG={'SHH':0,'SHH+DV':0,'DV':2};
+function segmentrang(seg){const r=SEGMENTRANG[seg];return r==null?1:r;}
+function sorteringsrang(p){return kilderang(p.kilde)*10+segmentrang(p.segment);}
+// «SHH+DV» vises som SHH: varen KAN brukes i storhusholdning, og det er spørsmålet
+// selgeren stiller. At den også går i dagligvare står i tittelen.
+function segmentMerke(seg,liten){
+  if(!seg)return '';
+  const shh=seg==='SHH'||seg==='SHH+DV';
+  const tittel=seg==='SHH+DV'?'Føres både til storhusholdning og dagligvare'
+    :shh?'Storhusholdning':'Dagligvare';
+  return `<span class="seg-merke ${shh?'shh':'dv'}" title="${tittel}"${liten?' style="font-size:9px"':''}>${shh?'SHH':'DV'}${seg==='SHH+DV'?'+DV':''}</span>`;
+}
 let hlIdx=-1,curResults=[];
 function onSearch(q){
   q=(q||'').trim().toLowerCase();const box=document.getElementById('suggest');
@@ -3496,7 +3517,7 @@ function onSearch(q){
     if(iNavn<0&&!iArt&&iLev<0)continue;
     // Treff i starten av navnet er mer relevant enn et treff midt inni, men kilden
     // veier tyngst — det er den selgeren har bedt om å bli styrt av.
-    traff.push({p:x.p,rang:kilderang(x.p.kilde),start:iLev>=0?2:(iNavn===0?0:1),navn:x.navn});
+    traff.push({p:x.p,rang:sorteringsrang(x.p),start:iLev>=0?2:(iNavn===0?0:1),navn:x.navn});
     if(traff.length>=4000)break;
   }
   traff.sort((a,b)=>a.rang-b.rang||a.start-b.start||(a.navn<b.navn?-1:a.navn>b.navn?1:0));
@@ -3505,7 +3526,7 @@ function onSearch(q){
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
     <div class="nm">${esc(p.navn)}</div>
-    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}${p.leverandor?'<span title="Leverandør">'+esc(String(p.leverandor))+'</span>':''}${!p.listepris?'<span style="color:var(--advarsel)" title="Ingen salgspris i prislista — kosten er kjent, sett pris i kalkylen">uten listepris</span>':''}</div></div>`).join('');
+    <div class="meta"><span>Art ${esc(String(p.art??''))}</span><span>${esc(String(p.enhet??''))}</span><span>${fmtKr2(p.listepris)}</span>${p.kilde?'<span style="color:var(--brand)">'+esc(p.kilde)+'</span>':''}${segmentMerke(p.segment,true)}${p.leverandor?'<span title="Leverandør">'+esc(String(p.leverandor))+'</span>':''}${!p.listepris?'<span style="color:var(--advarsel)" title="Ingen salgspris i prislista — kosten er kjent, sett pris i kalkylen">uten listepris</span>':''}</div></div>`).join('');
   box.classList.add('open');
 }
 function pickResult(i){
@@ -4176,9 +4197,9 @@ function exportCSV(){
     +(r.manglerPrisArt.length?r.manglerPrisArt.length+' produkt(er) mangler salgspris.':''));return;}
   const visFbIntern=kanSeFbInternokonomi();
   let rows=[visFbIntern
-    ?['Art.nr','Produkt','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
-    :['Art.nr','Produkt','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.enhet||'',x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const sm=sammenlignbarMarginPct(x);const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),sm==null?'':sm.toFixed(1),md?md.dg_pct.toFixed(1):'',md&&sm!=null?(sm-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
+    ?['Art.nr','Produkt','Segment','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
+    :['Art.nr','Produkt','Segment','Enhet','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.segment||'',x.l.enhet||'',x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const sm=sammenlignbarMarginPct(x);const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),sm==null?'':sm.toFixed(1),md?md.dg_pct.toFixed(1):'',md&&sm!=null?(sm-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
   rows.push([]);
   rows.push(['Total omsetning',r.sumOms.toFixed(0)]);
   if(visFbIntern)rows.push(['Foodbroker-støtte',r.sumFbStotte.toFixed(0)]);
