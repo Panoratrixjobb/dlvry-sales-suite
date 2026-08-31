@@ -225,6 +225,8 @@ tbody tr:hover{background:#fafbff}
 .search-box input:focus{outline:none;border-color:var(--brand2);box-shadow:0 0 0 3px rgba(214,87,66,.15)}
 .suggest{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 12px 32px rgba(20,30,60,.14);max-height:300px;overflow-y:auto;z-index:40;display:none}
 .suggest.open{display:block}
+.celle-nullstill{border:none;background:none;color:var(--muted);cursor:pointer;font-size:11px;line-height:1;padding:0 2px;margin-left:2px;opacity:.55}
+.celle-nullstill:hover{opacity:1;color:var(--feil,#c0392b)}
 .seg-merke{display:inline-block;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:3px;margin-left:5px;letter-spacing:.02em}
 .seg-merke.shh{background:#e6f4ea;color:#137333}
 .seg-merke.dv{background:#eef1f6;color:#5f6674}
@@ -3235,7 +3237,13 @@ function render(){
   r.lines.forEach((x,i)=>{
     const tr=document.createElement('tr');
     tr.setAttribute('data-cart-idx',i);
-    const spVal=x.l.spesialpris!=null&&x.l.spesialpris!==''?fmtKr2(x.l.spesialpris):'';
+    // RÅTALL, ikke fmtKr2. Et <input type="number"> forkaster «150,00» som ugyldig og
+    // viser tomt felt — spesialprisen var satt i state og styrte kalkylen, men sto
+    // usynlig i skjemaet. Da kunne den byttes (ny verdi utløser change), men aldri
+    // FJERNES: man kan ikke slette noe som allerede ser tomt ut, og et tomt felt som
+    // blir tomt igjen fyrer ingen change. Meldt av Manuele 2026-08-31.
+    const harSpesial=x.l.spesialpris!=null&&x.l.spesialpris!=='';
+    const spVal=harSpesial?String(x.l.spesialpris):'';
     const kp=x.l.konkurrentpris;
     const konkDiff=(kp!=null&&kp!=='')?`<div style="font-size:10px;margin-top:2px;color:${x.endelig<=kp?'var(--ok)':'var(--feil)'}">${x.endelig<=kp?'▼':'▲'} ${fmtKr(Math.abs(x.endelig-kp))}</div>`:'';
     // Konfidens hører til konkurrentprisen (den sto rett etter den i den gamle tabellen),
@@ -3264,12 +3272,12 @@ function render(){
       <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}${segmentMerke(x.l.segment)}${x.manglerPris?'<span class="d-merke advarsel" title="Foodbroker importerer varen, men den har ingen salgspris i prislista v\u00e5r. Kosten er kjent \u2014 sett en spesialpris, s\u00e5 regnes marginen.">uten listepris</span>':''}</div>${x.l.leverandor?`<div class="d-sub" style="font-size:10px;color:var(--muted)" title="Leverandør">${esc(String(x.l.leverandor))}</div>`:''}<div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}${enhetVelger(x,i)}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" step="any" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
       <td>${fmtKr2(x.l.listepris)}</td>
-      <td><input class="cell-input" type="number" step="0.5" value="${(x.rab*100).toLocaleString('nb-NO',{maximumFractionDigits:1})}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
+      <td><input class="cell-input" type="number" step="0.5" value="${Math.round(x.rab*1000)/10}" onchange="upd(${i},'linjerabatt',this.value)"> ${x.overRabatt?'<span class="flag-warn" title="Over maks linjerabatt 50%">⚠</span>':''}</td>
       <td>${fmtKr2(x.prisEtter)}</td>
-      <td><input class="cell-input" type="number" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)"></td>
+      <td style="white-space:nowrap"><input class="cell-input" type="number" step="any" placeholder="–" value="${spVal}" onchange="upd(${i},'spesialpris',this.value)">${harSpesial?`<button class="celle-nullstill" onclick="upd(${i},'spesialpris','')" title="Fjern spesialprisen — linja går tilbake til pris etter rabatt">✕</button>`:''}</td>
       <td class="final">${fmtKr2(x.endelig)}</td>
-      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${x.l.kundepris!=null?x.l.kundepris:''}" onchange="upd(${i},'kundepris',this.value)">${kundeprisCelle(x)}</td>
-      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${konkDiff}${konfLinje}</td>
+      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" step="any" placeholder="–" value="${x.l.kundepris!=null?x.l.kundepris:''}" onchange="upd(${i},'kundepris',this.value)">${x.l.kundepris!=null?`<button class="celle-nullstill" onclick="upd(${i},'kundepris','')" title="Fjern">✕</button>`:''}${kundeprisCelle(x)}</td>
+      <td style="white-space:nowrap;min-width:90px"><input class="cell-input" type="number" step="any" placeholder="–" value="${kp!=null?kp:''}" onchange="upd(${i},'konkurrentpris',this.value)">${kp!=null?`<button class="celle-nullstill" onclick="upd(${i},'konkurrentpris','')" title="Fjern">✕</button>`:''}${konkDiff}${konfLinje}</td>
       <td>${fmtKr(x.oms)}</td>
       <td class="${(x.manglerKost||x.manglerPris)?'':(marg>=0?'pos':'neg')}">${margCelle}${markedCelle(x)}</td>
       <td class="${x.totKunderabatt>0.15?'neg':''}">${fmtPct(x.totKunderabatt)}</td>
