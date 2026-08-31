@@ -822,6 +822,16 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div class="field"><label>Kundenavn</label><input id="kundenavn" oninput="markDirty()"></div>
           <div class="field"><label>Kunde-ID</label><input id="kundeid" oninput="markDirty()"></div>
           <div class="field"><label>Kalkylenavn</label><input id="kalkylenavn" oninput="markDirty()"></div>
+          <!-- Grossisten som leverer tilbudet = AVSENDEREN på PDF-en (brevhode med navn,
+               adresse, org.nr. og logo). Foodbroker er importhuset og ligger derfor ikke
+               i lista — se konseptsuite-backend/app/grossist_avsender.py. -->
+          <div class="field">
+            <label>Grossist som leverer tilbudet</label>
+            <select id="tilbudGrossist" class="d-select" onchange="markDirty();visAvsenderStatus()">
+              <option value="">— velg grossist —</option>
+            </select>
+            <div class="d-sub" id="tilbudGrossistInfo" style="font-size:11px;margin-top:4px"></div>
+          </div>
           <div class="field"><label>Generell rabatt %</label><input id="genrabatt" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
           <div class="field"><label>Kjedebonus / kickback %</label><input id="kjedebonus" type="number" step="0.5" value="0" oninput="render();markDirty()"></div>
         </section>
@@ -1178,6 +1188,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-oppsettfane="data" onclick="settOppsettFane('data')">Datainnhenting</button>
         <button class="rap-pill" data-oppsettfane="beregning" onclick="settOppsettFane('beregning')">Beregning</button>
         <button class="rap-pill" data-oppsettfane="import" onclick="settOppsettFane('import')">Import</button>
+        <button class="rap-pill" data-oppsettfane="grossister" onclick="settOppsettFane('grossister')">Grossister</button>
       </div>
 
       <!-- Inviter bruker-form -->
@@ -1261,6 +1272,19 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp subtil sm" onclick="lastFeedback()">↻ Oppdater</button>
         </div>
         <div id="feedbackListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
+      </div>
+
+      <!-- Grossister som avsender på tilbud (2026-08-31).
+           Brevhodet i tilbuds-PDF-en er grossistens: logo, navn, adresse og org.nr.
+           Org.nr./logo seedes fra navn ved oppstart (backend app/grossist_avsender.py);
+           resten fylles ut her. Foodbroker er importhuset og er slått av som avsender. -->
+      <div class="d-panel" style="margin-top:18px" id="grossistAvsenderPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>Grossister — avsender på tilbud</h3>
+          <button class="d-knapp primar sm" onclick="lastGrossistAvsendere()">↻ Last grossister</button>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Navn, adresse, org.nr. og logo som står på brevhodet i tilbuds-PDF-en. Selgeren velger grossist i kalkylen; det som mangler her, mangler også i tilbudet kunden får. «Hent fra BRreg» fyller juridisk navn og forretningsadresse fra organisasjonsnummeret (hovedkontoret — avdelinger støttes ikke ennå).</p>
+        <div id="gaInnhold"></div>
       </div>
 
       <!-- BRREG-oppdatering -->
@@ -2053,6 +2077,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
 <script src="js/konkurrent-salg.js"></script>
+<script src="js/oppsett-grossist-avsender.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -3710,9 +3735,11 @@ async function createCalc(){
   const navn=document.getElementById('mCalcNavn').value.trim();
   if(!navn){toast('Kalkylenavn er påkrevd');return;}
   let k;
+  const forhandsvalgtGrossist=await standardAvsender(state.custId);
   try{
     k=await api('/api/kalkyler',{method:'POST',body:{
-      kunde_id:state.custId||null, navn, status:'Utkast',
+      kunde_id:state.custId||null, grossist_id:forhandsvalgtGrossist||null,
+      navn, status:'Utkast',
       genrabatt:0, kjedebonus:0, kommentar:'',
       scen_navn:'Standard scenario', scen_besk:'Hovedscenario for standard pris og rabattstruktur',
       snap_oms:0, snap_pct:0, snap_status:'Ingen', linjer:[]
@@ -3736,6 +3763,15 @@ async function openCalc(id){
   document.getElementById('kommentar').value=k.kommentar||'';
   document.getElementById('scenNavn').value=k.scen_navn||'Standard scenario';
   document.getElementById('scenBesk').value=k.scen_besk||'';
+  // Avsender: lagret valg vinner alltid, så et gjenåpnet tilbud beholder brevhodet
+  // det ble sendt med. Standarden gjelder bare kalkyler som aldri har fått et valg.
+  if(!AVSENDERE.length)await lastAvsendere();
+  const _gsel=document.getElementById('tilbudGrossist');
+  if(_gsel){
+    _gsel.value=(k.grossist_id&&AVSENDERE.some(g=>g.id===k.grossist_id))?k.grossist_id
+                 :await standardAvsender(k.kunde_id);
+    visAvsenderStatus();
+  }
   document.getElementById('crumb').innerHTML=(k.kunde_id?('Kunde: <b>'+esc(c?c.navn:'?')+'</b> · '):'')+'Kalkyle: <b>'+esc(k.navn)+'</b>';
   oppdaterVelgKundeBanner();
   visKundeInfoITilbud();
@@ -3757,6 +3793,7 @@ async function saveCalc(){
     genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,
     kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
     kommentar:document.getElementById('kommentar').value,
+    grossist_id:document.getElementById('tilbudGrossist').value||null,
     scen_navn:document.getElementById('scenNavn').value,
     scen_besk:document.getElementById('scenBesk').value,
     snap_oms:r.sumOms, snap_pct:r.totMarginPct, snap_status:r.status,
@@ -4161,6 +4198,7 @@ async function duplicateCalc(){
       genrabatt:parseFloat(document.getElementById('genrabatt').value)||0,
       kjedebonus:parseFloat(document.getElementById('kjedebonus').value)||0,
       kommentar:document.getElementById('kommentar').value,
+      grossist_id:document.getElementById('tilbudGrossist').value||null,
       scen_navn:document.getElementById('scenNavn').value,
       scen_besk:document.getElementById('scenBesk').value,
       snap_oms:r.sumOms, snap_pct:r.totMarginPct, snap_status:r.status,
@@ -8267,6 +8305,8 @@ async function showApp(){
     document.getElementById('userRolle').textContent=rolle;
   }
   await refreshCusts();
+  // Avsenderlista i kalkylens nedtrekk — hentes én gang per økt.
+  await lastAvsendere();
   // Vis Brukere-fane for alle som kan invitere (leder/admin/superadmin)
   _brukerRolle = CURRENT_USER ? (CURRENT_USER.rolle || '') : '';
   const erAdmin = ['admin','superadmin'].includes(_brukerRolle);
@@ -8479,9 +8519,98 @@ async function bekreftPrisliste(){
   }catch(e){errEl.textContent='Feil: '+e.message;}
 }
 
-// ===== Tilbud: PDF-utskrift + registrering =====
-// TODO (senere): hent grossist-logo + -adresse fra backend pr. selgers grossist.
-const GROSSIST_PLACEHOLDER = { logoTekst:'DLVRY', adresse:'[Grossistadresse — settes i senere utvikling]' };
+// ===== Tilbudets AVSENDER: hvilken grossist som leverer tilbudet =====
+// Brevhodet i tilbuds-PDF-en (logo, navn, adresse, org.nr.) er grossistens, ikke
+// DLVRYs — kunden handler hos en bestemt grossist i konsernet. Valget lagres på
+// kalkylen (kalkyle.grossist_id), så et gjenåpnet tilbud skrives ut med samme
+// avsender som da det ble sendt. Data og designvalg: backend
+// app/grossist_avsender.py + routers/grossist_avsender.py.
+let AVSENDERE=[];                 // lista i nedtrekket (uten logo — den er tung)
+const _avsenderFull={};           // id -> full avsender inkl. logo, hentet ved behov
+const _logoCache={};              // logo-nøkkel -> nedskalert data-URL for jsPDF
+
+async function lastAvsendere(){
+  try{ AVSENDERE=await api('/api/grossister/avsendere')||[]; }
+  catch(e){ AVSENDERE=[]; }
+  const sel=document.getElementById('tilbudGrossist');
+  if(!sel)return;
+  const valgt=sel.value;
+  sel.innerHTML='<option value="">— velg grossist —</option>'
+    +AVSENDERE.map(g=>'<option value="'+g.id+'">'+esc(g.navn)+(g.komplett?'':' (mangler adresse)')+'</option>').join('');
+  if(valgt)sel.value=valgt;
+}
+
+// Standardvalg når kalkylen ikke har et lagret valg: selgerens egen grossist,
+// ellers grossisten kunden faktisk handler mest hos (kunde_grossist er sortert på
+// andel). Aldri en tilfeldig første — feil avsender på et tilbud er verre enn tomt.
+async function standardAvsender(kundeId){
+  const finnes=id=>id&&AVSENDERE.some(g=>g.id===id)?id:'';
+  const egen=finnes(CURRENT_USER&&CURRENT_USER.grossist_id);
+  if(egen)return egen;
+  if(kundeId){
+    try{
+      const kg=await api('/api/kunder/'+kundeId+'/grossister')||[];
+      for(const k of kg){ const t=finnes(k.grossist_id); if(t)return t; }
+    }catch(e){/* ingen kobling — la selgeren velge selv */}
+  }
+  return '';
+}
+
+function visAvsenderStatus(){
+  const el=document.getElementById('tilbudGrossistInfo');
+  if(!el)return;
+  const id=document.getElementById('tilbudGrossist').value;
+  const g=AVSENDERE.find(x=>x.id===id);
+  if(!g){ el.textContent='Må velges før tilbudet kan skrives ut.'; el.style.color='var(--muted)'; return; }
+  if(!g.komplett){
+    el.textContent='Mangler adresse/org.nr. — fylles ut i Innstillinger > Grossister.';
+    el.style.color='var(--d-roed)'; return;
+  }
+  el.textContent=[g.juridisk_navn||g.navn,g.postadresse,((g.postnr||'')+' '+(g.poststed||'')).trim(),g.orgnr?('Org.nr. '+g.orgnr):'']
+    .filter(Boolean).join(' · ');
+  el.style.color='var(--muted)';
+}
+
+async function hentAvsender(id){
+  if(!id)return null;
+  if(_avsenderFull[id])return _avsenderFull[id];
+  try{ _avsenderFull[id]=await api('/api/grossister/'+id+'/avsender'); }
+  catch(e){ return null; }
+  return _avsenderFull[id];
+}
+
+// jsPDF vil ha en data-URL. Originalfilene er opptil 800 kB, og en ubehandlet logo
+// ville lagt hele fila inn i hvert tilbud — så bildet tegnes ned på et canvas først.
+// Returnerer {data,bredde,hoyde} i piksler, eller null hvis logoen ikke lot seg laste.
+function lastLogo(kilde){
+  if(!kilde)return Promise.resolve(null);
+  if(_logoCache[kilde]!==undefined)return Promise.resolve(_logoCache[kilde]);
+  return new Promise(res=>{
+    const img=new Image();
+    img.onload=function(){
+      const maks=400, skala=Math.min(1, maks/Math.max(img.width,img.height));
+      const b=Math.max(1,Math.round(img.width*skala)), h=Math.max(1,Math.round(img.height*skala));
+      const c=document.createElement('canvas'); c.width=b; c.height=h;
+      const ctx=c.getContext('2d');
+      // PNG-ene har gjennomsiktig bakgrunn; uten hvit bunn blir de svarte i PDF-en.
+      ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,b,h);
+      ctx.drawImage(img,0,0,b,h);
+      let ut=null;
+      try{ ut={data:c.toDataURL('image/jpeg',0.9),bredde:b,hoyde:h}; }catch(e){ ut=null; }
+      _logoCache[kilde]=ut; res(ut);
+    };
+    img.onerror=function(){ _logoCache[kilde]=null; res(null); };
+    if(!/^data:/.test(kilde))img.crossOrigin='anonymous';
+    img.src=kilde;
+  });
+}
+
+function logoKilde(a){
+  if(!a)return null;
+  if(a.logo_data)return a.logo_data;            // opplastet logo overstyrer fila
+  if(a.logo_fil)return 'logoer/'+a.logo_fil;
+  return null;
+}
 
 async function skrivUtTilbud(){
   var _vfi=document.getElementById('visFakturaInfo');
@@ -8493,6 +8622,12 @@ async function skrivUtTilbud(){
   if(!r.komplett){toast('Kan ikke lage tilbud: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   if(!state.calcId){toast('Lagre kalkylen først.');return;}
   if(!state.custId){toast('Tilknytt en kunde før tilbudet kan skrives ut.');return;}
+  // Avsenderen står på brevhodet — et tilbud uten den er ikke sendbart til kunde.
+  const avsenderId=(document.getElementById('tilbudGrossist')||{}).value||'';
+  if(!avsenderId){toast('Velg hvilken grossist som leverer tilbudet.');return;}
+  const avsender=await hentAvsender(avsenderId);
+  if(!avsender){toast('Kunne ikke hente grossistens avsenderdata.');return;}
+  if(!avsender.komplett&&!confirm('Grossisten mangler adresse eller org.nr. Skriv ut likevel?'))return;
   let kunde={navn:(document.getElementById('kundenavn')?document.getElementById('kundenavn').value:'')+'Kunde', orgnr:'', adresse:'', poststed:'', kontakt:''};
   kunde.navn=kunde.navn.replace('Kunde','').trim()||'Kunde';
   if(state.custId){
@@ -8507,7 +8642,7 @@ async function skrivUtTilbud(){
       if(pri)kunde.kontakt=pri.navn+(pri.telefon?(' · '+pri.telefon):'')+(pri.epost?(' · '+pri.epost):'');
     }catch(e){/* faller tilbake på kalkyle-feltet */}
   }
-  byggTilbudPdf(r, kunde);
+  await byggTilbudPdf(r, kunde, avsender);
   if(state.calcId){
     try{await api('/api/tilbud',{method:'POST',body:{kalkyle_id:state.calcId,kunde_id:state.custId,kanal:'utskrift'}});}
     catch(e){/* loggfeil er ikke blokkerende */}
@@ -8515,17 +8650,43 @@ async function skrivUtTilbud(){
   visTilbudOppfolging();
 }
 
-function byggTilbudPdf(r, kunde){
+async function byggTilbudPdf(r, kunde, avsender){
   var _vfi=document.getElementById('visFakturaInfo');
   if(_vfi&&_vfi.checked){toast('Skru av «Vis originalprodukter fra faktura» før tilbudet kan skrives ut.');return;}
   const { jsPDF }=window.jspdf; const doc=new jsPDF();
   const idag=new Date().toLocaleDateString('nb-NO');
-  doc.setFontSize(18); doc.text(GROSSIST_PLACEHOLDER.logoTekst, 14, 18);
-  doc.setFontSize(9); doc.setTextColor(120); doc.text(GROSSIST_PLACEHOLDER.adresse, 14, 24);
+
+  // ── Brevhode: grossisten som leverer tilbudet ──
+  // Logoen får en fast høyde og beholder proporsjonene; avsenderlinjene starter
+  // under det høyeste av logo og tekstblokk, så et kvadratisk og et bredt logo
+  // ikke gir to ulike sideoppsett.
+  const a=avsender||{};
+  const logo=await lastLogo(logoKilde(a));
+  let hy=18;
+  if(logo){
+    // Skalér inn i en boks på 45 x 20 mm med bevarte proporsjoner — logoene er
+    // både brede (Wulff) og kvadratiske (HSHH), og skal se like store ut.
+    const k=Math.min(45/logo.bredde, 20/logo.hoyde);
+    const b=logo.bredde*k, h=logo.hoyde*k;
+    doc.addImage(logo.data, 'JPEG', 14, 12, b, h);
+    hy=12+h+5;
+  }else{
+    doc.setFontSize(16); doc.text(String(a.juridisk_navn||a.navn||'DLVRY'), 14, 18); hy=24;
+  }
+  doc.setFontSize(9); doc.setTextColor(120);
+  for(const linje of [
+    logo?(a.juridisk_navn||a.navn||''):'',
+    a.postadresse||'',
+    ((a.postnr||'')+' '+(a.poststed||'')).trim(),
+    a.orgnr?('Org.nr. '+a.orgnr):'',
+    [a.telefon,a.epost].filter(Boolean).join(' · ')
+  ].filter(Boolean)){ doc.text(String(linje), 14, hy); hy+=4.5; }
+
   doc.setTextColor(0); doc.setFontSize(15); doc.text('Tilbud', 196, 18, {align:'right'});
   doc.setFontSize(9); doc.text('Dato: '+idag, 196, 24, {align:'right'});
-  doc.setFontSize(11); doc.text('Til:', 14, 38);
-  doc.setFontSize(10); let y=44; doc.text(String(kunde.navn), 14, y);
+  const toppY=Math.max(hy+8, 38);
+  doc.setFontSize(11); doc.text('Til:', 14, toppY);
+  doc.setFontSize(10); let y=toppY+6; doc.text(String(kunde.navn), 14, y);
   if(kunde.orgnr){y+=5; doc.text('Org.nr: '+String(kunde.orgnr),14,y);}
   if(kunde.adresse){y+=5; doc.text(String(kunde.adresse),14,y);}
   if(kunde.poststed){y+=5; doc.text(String(kunde.poststed),14,y);}

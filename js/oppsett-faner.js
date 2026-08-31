@@ -8,12 +8,16 @@ const OPPSETT_GRUPPER={
   data:['tokenPanel','powerbiPanel','produktPanel','prislistePanel','dashUploadPanel'],
   beregning:['kildePanel','paritetPanel','formelkonfigPanel'],
   import:['brregPanel','leadsImportPanel'],
+  // Avsenderdata for tilbuds-PDF-en (oppsett-grossist-avsender.js). Egen fane fordi
+  // det er stamdata om konsernets selskaper, ikke datainnhenting eller import.
+  grossister:['grossistAvsenderPanel'],
 };
 const OPPSETT_TEKST={
   brukere:'Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.',
   data:'Hent salgs- og margindata fra Power BI. Kjør panelene i rekkefølge — tørrkjør alltid før du lagrer.',
   beregning:'Hvilken kilde dashbordet leser fra, og om appens egne tall stemmer med regnearket.',
   import:'Engangs- og periodiske importer: firmadata fra Brønnøysund og den nasjonale leads-databasen.',
+  grossister:'Navn, adresse, org.nr. og logo som står som avsender på tilbud til kunde.',
 };
 // Bare superadmin når Innstillinger i det hele tatt, men de tre siste fanene er
 // datateknisk arbeid — leder-/admin-roller skal ikke kunne skrive til dashbordet.
@@ -44,6 +48,11 @@ function settOppsettFane(fane){
   if(fane==='beregning'&&OPPSETT_ER_ADMIN&&typeof lastFormelkonfig==='function'){
     const el=document.getElementById('fkInnhold');
     if(el&&!el.innerHTML.trim())lastFormelkonfig();
+  }
+  // Samme grunn som over: et tomt grossistpanel ser ut som «ingen grossister».
+  if(fane==='grossister'&&OPPSETT_ER_ADMIN&&typeof lastGrossistAvsendere==='function'){
+    const el=document.getElementById('gaInnhold');
+    if(el&&!el.innerHTML.trim())lastGrossistAvsendere();
   }
 }
 
