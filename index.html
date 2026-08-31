@@ -904,7 +904,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
               <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th>
               <th title="Hva kunden betalte for varen sist — fra opplastet faktura, vårt forrige tilbud, eller siste måned de kjøpte den av oss. Fylles automatisk når kalkylen er knyttet til en kunde.">Kunden betalte</th>
               <th>Konkurrent pris</th>
-              <th>Linjeomsetning</th><th>Margin</th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
+              <th>Linjeomsetning</th><th title="Totalmargin per produkt i prosent av linjeomsetningen, etter rabatt og kjedebonus. For Foodbroker-varer regnes den mot Foodbrokers importkost, slik at hele verdikjeden er med — Foodbroker-leddet flagges ikke ut. Under står markedets faktiske dekningsgrad for samme vare og avviket i prosentpoeng.">Margin % <span style="font-weight:400;opacity:.7">(total)</span></th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
           </table>
@@ -3084,8 +3084,10 @@ function byttRad(i){
   inp.addEventListener('input',function(){
     var q=(this.value||'').trim();
     if(q.length<2)return;
-    var hits=DB.filter(p=>p.navn.toLowerCase().includes(q.toLowerCase())||String(p.art)===q).slice(0,20);
-    document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+'</option>').join('');
+    var ql=q.toLowerCase();
+    var hits=DB.filter(p=>p.navn.toLowerCase().includes(ql)||String(p.art)===q)
+      .sort((a,b)=>kilderang(a.kilde)-kilderang(b.kilde)||(a.navn<b.navn?-1:a.navn>b.navn?1:0)).slice(0,20);
+    document.getElementById('bytte-list-'+i).innerHTML=hits.map(p=>'<option value="'+esc(p.navn)+'">Art '+p.art+' · '+esc(String(p.kilde||''))+'</option>').join('');
   });
 }
 
@@ -3132,9 +3134,15 @@ function render(){
       : `<span class="d-merke ${mk<60?'advarsel':'noytral'}" title="Treffsikkerhet i produktmatchen fra faktura">${mk} %${mk<60?' ⚠':''}</span>`;
     const marg=x.dlvryMargin-x.bonusKr;
     // Mangler kost → vis '—', aldri en fabrikkert (bonus-trukket) margin. Se funn #2.
+    // Marginprosenten står øverst og størst: det er tallet selgeren styrer etter, og
+    // kronene er konsekvensen av den. Prosenten er TOTALmarginen for DLVRY — kosten er
+    // Foodbrokers importkostbase, så Foodbrokers eget ledd ligger inne i tallet og
+    // splittes bevisst ikke ut her (Manuele 2026-08-31). Splitten finnes fortsatt i
+    // «Margin per verdikjede» for dem som har tilgang til internøkonomien.
     const margCelle = x.manglerKost
       ? '<span title="Mangler kostpris">—</span>'
-      : `${fmtKr(marg)}<div style="font-size:11px;font-weight:600;opacity:.85">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`;
+      : `<div style="font-size:13px;font-weight:700" title="Totalmargin på linja etter rabatt og kjedebonus, målt mot DLVRYs kostbase${x.isFB?' (Foodbrokers importkost — Foodbroker-leddet er inkludert)':''}">${x.oms>0?fmtPct(marg/x.oms):'—'}</div>`
+        +`<div style="font-size:11px;opacity:.75">${fmtKr(marg)}</div>`;
     tr.innerHTML=`<td class="art frys frys-1">${esc(x.l.art||'')}</td>
       <td class="frys frys-2"><div class="pname">${esc(x.l.navn)}${x.isFB?'<span class="kilde-merke">Foodbroker</span>':''}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px">${matchMerke}<button class="btn-mini" onclick="byttRad(${i})" title="Bytt produkt" style="font-size:10px;opacity:0.6">⇄ Bytt</button></div></td>
       <td><input class="cell-input" type="number" min="0" value="${x.l.antall}" onchange="upd(${i},'antall',this.value)"></td>
@@ -3342,12 +3350,28 @@ function renderBeslutningsstotte(r){
   el.innerHTML=innsikt.map(([cls,ikon,tittel,tekst])=>`<div class="calc-insight ${cls}"><span class="ikon">${ikon}</span><div><strong>${tittel}</strong>${tekst}</div></div>`).join('');
 }
 // ============ Søk ============
+// Rekkefølgen i trefflista er en anbefaling, ikke bare et alfabet: Foodbroker er DLVRYs
+// egen vare og skal foreslås først, TPL (ren grossistvare) sist. Derfor scannes hele
+// katalogen før vi kutter til 40 — kuttet vi først, ville et Foodbroker-treff langt nede
+// i alfabetet aldri nådd lista. Ønsket av Manuele 2026-08-31.
+const KILDERANG={'Foodbroker':0,'Godt Lokalt':1,'Wulff':2,'TPL':4};
+function kilderang(kilde){const r=KILDERANG[kilde];return r==null?3:r;}
 let hlIdx=-1,curResults=[];
 function onSearch(q){
   q=(q||'').trim().toLowerCase();const box=document.getElementById('suggest');
   if(q.length<2){box.classList.remove('open');return;}
-  const res=[];
-  for(let i=0;i<DBindex.length&&res.length<40;i++){const x=DBindex[i];if(x.navn.includes(q)||x.art.includes(q))res.push(x.p);}
+  const traff=[];
+  for(let i=0;i<DBindex.length;i++){
+    const x=DBindex[i];
+    const iNavn=x.navn.indexOf(q);
+    if(iNavn<0&&!x.art.includes(q))continue;
+    // Treff i starten av navnet er mer relevant enn et treff midt inni, men kilden
+    // veier tyngst — det er den selgeren har bedt om å bli styrt av.
+    traff.push({p:x.p,rang:kilderang(x.p.kilde),start:iNavn===0?0:1,navn:x.navn});
+    if(traff.length>=4000)break;
+  }
+  traff.sort((a,b)=>a.rang-b.rang||a.start-b.start||(a.navn<b.navn?-1:a.navn>b.navn?1:0));
+  const res=traff.slice(0,40).map(t=>t.p);
   curResults=res;hlIdx=-1;
   if(!res.length){box.innerHTML='<div class="empty">Ingen treff</div>';box.classList.add('open');return;}
   box.innerHTML=res.map((p,i)=>`<div class="opt" data-i="${i}" onclick="pickResult(${i})">
@@ -4021,9 +4045,9 @@ function exportCSV(){
   if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   const visFbIntern=kanSeFbInternokonomi();
   let rows=[visFbIntern
-    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']
-    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin %','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
+    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Marked DG %','Avvik pp','Total kunderabatt %','Kjedebonus kr']
+    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin %','Marked DG %','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),md?md.dg_pct.toFixed(1):'',md?(mp*100-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
   rows.push([]);
   rows.push(['Total omsetning',r.sumOms.toFixed(0)]);
   if(visFbIntern)rows.push(['Foodbroker-støtte',r.sumFbStotte.toFixed(0)]);

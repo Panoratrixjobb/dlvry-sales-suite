@@ -6,6 +6,10 @@
 // slik at avviket er synlig mens prisen settes og ikke først i et kvartalsmøte.
 const MARKED={data:{},nokkel:null,henter:false,ar:null};
 
+// Avviket — ikke markedstallet alene — er det selgeren skal reagere på. Totalen har hatt
+// «Avvik mot marked» som KPI en stund; her står det samme regnestykket per produktlinje,
+// slik at man ser HVILKEN vare som drar kalkylen under markedet. Ønsket av Manuele
+// 2026-08-31. Avviket er i PROSENTPOENG (pp): differansen mellom to prosenttall.
 function markedCelle(x){
   const m=MARKED.data[String(x.l.art||'')];
   if(!m)return '';
@@ -17,8 +21,13 @@ function markedCelle(x){
   const farge=kalk==null?'var(--muted)':(kalk>=m.dg_pct?'var(--ok)':'var(--advarsel)');
   const trend=(m.dg_pct_ifjor!=null&&Math.abs(m.dg_pct-m.dg_pct_ifjor)>=0.5)
     ? ` <span title="I fjor ${m.dg_pct_ifjor.toLocaleString('nb-NO')} %">${m.dg_pct>m.dg_pct_ifjor?'↑':'↓'}</span>` : '';
+  const pp=kalk==null?'':(()=>{
+    const a=kalk-m.dg_pct;
+    return ` · <strong title="Kalkylens margin minus faktisk dekningsgrad i markedet">`
+      +`${a>0?'+':''}${a.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} pp</strong>`;
+  })();
   return `<div style="font-size:10px;font-weight:500;color:${farge}" title="Faktisk dekningsgrad i markedet ${MARKED.ar}${m.margin_usikker?' — én av grossistene rapporterer ikke varekost, tallet er for høyt':''}">`
-    +`marked ${m.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %${trend}${m.margin_usikker?' ⚠':''}</div>`;
+    +`marked ${m.dg_pct.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})} %${trend}${m.margin_usikker?' ⚠':''}${pp}</div>`;
 }
 
 async function sikreMarkedsmargin(){
