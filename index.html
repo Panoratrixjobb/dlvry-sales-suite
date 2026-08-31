@@ -824,12 +824,13 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
               <div class="kpi-line"><span class="lbl">Total omsetning</span><span class="val" id="kpiOms">0 kr</span></div>
               <div class="kpi-line"><span class="lbl">Total margin (NOK)</span><span class="val" id="kpiMargNok">0 kr</span></div>
               <div class="kpi-line"><span class="lbl">Kalkulert margin (%)</span><span class="val" id="kpiMargPct">0,0 %</span></div>
-              <!-- Realisert DG fra Consolidated Model: hva de samme varene FAKTISK har
-                   gitt i markedet i år. Avviket mellom de to er tallet selgeren skal
-                   reagere på, så det står størst — ikke marginen alene. -->
-              <div class="kpi-line"><span class="lbl">Faktisk DG i markedet <span class="d-sub" id="kpiMarkedDekning"></span></span><span class="val" id="kpiMarked">–</span></div>
+              <!-- Realisert DG fra Consolidated Model: dekningsgraden vi FAKTISK har
+                   oppnådd på de samme varene i år, over alle kunder og grossister. Ikke
+                   markedspriser — våre egne fakturerte salg. Avviket mellom de to er
+                   tallet selgeren skal reagere på, så det står størst. -->
+              <div class="kpi-line"><span class="lbl" title="Dekningsgraden DLVRY faktisk har oppnådd på disse varene hittil i år, hos alle kunder. Ikke konkurrent- eller markedspriser.">Oppnådd DG i år <span class="d-sub" id="kpiMarkedDekning"></span></span><span class="val" id="kpiMarked">–</span></div>
               <div class="kpi-line" id="kpiAvvikLinje" style="display:none;border-top:1px solid var(--line);margin-top:6px;padding-top:6px">
-                <span class="lbl">Avvik mot marked</span><span class="val big" id="kpiAvvik">–</span></div>
+                <span class="lbl" title="Kalkylens sammenlignbare margin minus oppnådd DG, i prosentpoeng. Begge sider måles mot grossistens varekost, så Foodbroker-leddet er holdt utenfor sammenligningen.">Avvik mot oppnådd DG</span><span class="val big" id="kpiAvvik">–</span></div>
             </div>
             <div class="status-wrap">
               <div class="donut">
@@ -889,7 +890,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
                grupper, og de to første fryses ved vannrett rulling så man alltid ser
                hvilket produkt raden gjelder. «Match» hører til produktet og er flyttet
                inn i produktcella; «Konfidens» hører til konkurrentprisen og er flyttet
-               dit. Margin kr og % er nå én celle, med markedsmarginen under. -->
+               dit. Margin kr og % er nå én celle, med oppnådd DG under. -->
           <table class="kalk-tabell">
             <thead>
               <tr class="gruppe">
@@ -904,7 +905,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
               <th>Pris etter rabatt</th><th>Spesialpris</th><th>Endelig salgspris</th>
               <th title="Hva kunden betalte for varen sist — fra opplastet faktura, vårt forrige tilbud, eller siste måned de kjøpte den av oss. Fylles automatisk når kalkylen er knyttet til en kunde.">Kunden betalte</th>
               <th>Konkurrent pris</th>
-              <th>Linjeomsetning</th><th title="Totalmargin per produkt i prosent av linjeomsetningen, etter rabatt og kjedebonus. For Foodbroker-varer regnes den mot Foodbrokers importkost, slik at hele verdikjeden er med — Foodbroker-leddet flagges ikke ut. Under står markedets faktiske dekningsgrad for samme vare og avviket i prosentpoeng.">Margin % <span style="font-weight:400;opacity:.7">(total)</span></th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
+              <th>Linjeomsetning</th><th title="Totalmargin per produkt i prosent av linjeomsetningen, etter rabatt og kjedebonus. For Foodbroker-varer regnes den mot Foodbrokers importkost, slik at hele verdikjeden er med — Foodbroker-leddet flagges ikke ut. Under står dekningsgraden vi faktisk har oppnådd på varen i år, og avviket i prosentpoeng. Avviket måles mot grossistens varekost på begge sider, så det er sammenlignbart.">Margin % <span style="font-weight:400;opacity:.7">(total)</span></th><th>Total kunderabatt %</th><th>Kjedebonus kr</th><th></th>
             </tr></thead>
             <tbody id="cartBody"></tbody>
           </table>
@@ -3263,11 +3264,17 @@ function render(){
 
   // Vektet med VÅR linjeomsetning, ikke et snitt av prosenter: en stor linje skal telle
   // mer enn en liten, ellers gir tre bagatellvarer samme utslag som hovedproduktet.
-  let mOms=0,mVektet=0,mTreff=0;
+  // Begge sider regnes over de SAMME linjene — bare de som finnes i salgsdataene. Ellers
+  // ville kalkylesiden inkludert varer markedssiden ikke har tall for, og avviket blitt
+  // et avvik mellom to ulike varekurver. Kalkylesiden bruker den sammenlignbare marginen
+  // (mot grossistens varekost), se sammenlignbarMarginPct() i js/kalkyle-margin.js.
+  let mOms=0,mVektet=0,mTreff=0,mKalkNok=0,mAlleKjent=true;
   r.lines.forEach(x=>{
     const m=MARKED.data[String(x.l.art||'')];
     if(!m||!(x.oms>0))return;
-    mOms+=x.oms;mVektet+=x.oms*m.dg_pct;mTreff++;
+    const kalk=sammenlignbarMarginPct(x);
+    if(kalk==null){mAlleKjent=false;return;}
+    mOms+=x.oms;mVektet+=x.oms*m.dg_pct;mKalkNok+=x.oms*kalk;mTreff++;
   });
   const kpiM=document.getElementById('kpiMarked'),kpiD=document.getElementById('kpiMarkedDekning');
   const kpiA=document.getElementById('kpiAvvik'),kpiAL=document.getElementById('kpiAvvikLinje');
@@ -3277,18 +3284,20 @@ function render(){
       kpiM.textContent=snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %';
       kpiM.style.color='';
       kpiD.textContent='('+mTreff+' av '+r.lines.length+' linjer)';
-      if(r.komplett){
+      if(r.komplett&&mAlleKjent){
         // Prosentpoeng, ikke prosent: differansen mellom to prosenttall er pp. Blandes de,
         // ser et fall fra 22 til 18 ut som «−18 %» i stedet for −4 pp.
-        const avvik=r.totMarginPct*100-snitt;
+        const avvik=mKalkNok/mOms-snitt;
         kpiA.textContent=(avvik>0?'+':'')+avvik.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' pp';
         kpiA.style.color=avvik>=0?'var(--ok)':'var(--advarsel)';
-        kpiA.title=avvik>=0?'Kalkylen ligger over det varene faktisk gir i markedet'
-                           :'Kalkylen ligger under det varene faktisk gir i markedet';
+        kpiA.title=(avvik>=0?'Kalkylen ligger over det varene faktisk har gitt oss i år'
+                            :'Kalkylen ligger under det varene faktisk har gitt oss i år')
+                  +'. Sammenlignbar margin '+(mKalkNok/mOms).toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})
+                  +' % mot oppnådd '+snitt.toLocaleString('nb-NO',{minimumFractionDigits:1,maximumFractionDigits:1})+' %.';
         kpiAL.style.display='';
       }else{
         // Ufullstendig kalkyle (mangler kost) → kalkylemarginen er ukjent, så et
-        // avvik mot marked ville vært fabrikkert. Vis markedstallet, skjul avviket.
+        // avvik ville vært fabrikkert. Vis oppnådd DG, skjul avviket.
         kpiAL.style.display='none';
       }
     }else{
@@ -4045,9 +4054,9 @@ function exportCSV(){
   if(!r.komplett){toast('Kan ikke eksportere: '+r.manglerKostArt.length+' produkt(er) mangler kostpris.');return;}
   const visFbIntern=kanSeFbInternokonomi();
   let rows=[visFbIntern
-    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin %','Marked DG %','Avvik pp','Total kunderabatt %','Kjedebonus kr']
-    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin %','Marked DG %','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
-  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),md?md.dg_pct.toFixed(1):'',md?(mp*100-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
+    ?['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','FB-støtte %','Støttet internpris','Justert grossistkost','FB-støtte kr','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']
+    :['Art.nr','Produkt','Antall','Listepris','Linjerabatt %','Pris etter rabatt','Spesialpris kunde','Endelig salgspris','Kunden betalte','Linjeomsetning','Margin kr','Margin % (total)','Sammenlignbar margin %','Oppnådd DG % i år','Avvik pp','Total kunderabatt %','Kjedebonus kr']];
+  r.lines.forEach(x=>{const mk=x.dlvryMargin-x.bonusKr;const mp=x.oms>0?mk/x.oms:0;const vanlig=[x.l.art,x.l.navn,x.l.antall,x.l.listepris,(x.rab*100).toFixed(1),x.prisEtter.toFixed(2),x.l.spesialpris??'',x.endelig.toFixed(2),x.l.kundepris??''];const md=MARKED.data[String(x.l.art||'')];const sm=sammenlignbarMarginPct(x);const resultat=[x.oms.toFixed(0),mk.toFixed(0),(mp*100).toFixed(1),sm==null?'':sm.toFixed(1),md?md.dg_pct.toFixed(1):'',md&&sm!=null?(sm-md.dg_pct).toFixed(1):'',(x.totKunderabatt*100).toFixed(1),x.bonusKr.toFixed(0)];rows.push(visFbIntern?vanlig.concat([x.isFB?(x.fbStottePct*100).toFixed(1):'',x.l.fbStotteSpesialpris??'',x.isFB&&x.justertGrossistkost!=null?x.justertGrossistkost.toFixed(2):'',x.isFB?x.fbStotteKr.toFixed(0):''],resultat):vanlig.concat(resultat));});
   rows.push([]);
   rows.push(['Total omsetning',r.sumOms.toFixed(0)]);
   if(visFbIntern)rows.push(['Foodbroker-støtte',r.sumFbStotte.toFixed(0)]);
