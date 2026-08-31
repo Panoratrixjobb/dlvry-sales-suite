@@ -9,7 +9,8 @@
 let KSALG_MOUNTED = false;
 let KSALG_LIMIT = 200;
 let KSALG_OFFSET = 0;
-let KSALG_VARIANTER = null;   // svaret fra «Finn skrivemåter», null før det er kjørt
+let KSALG_LEV = null;         // hele leverandørlista fra Power BI, null før den er hentet
+let KSALG_VALG = {};          // {leverandørnavn: gruppenavn} — lever i minnet til du lagrer
 
 async function mountKonkurrentSalg(){
   const el = document.getElementById('sub-konkSalg');
@@ -20,16 +21,35 @@ async function mountKonkurrentSalg(){
       <div id="ksAdmin" style="display:none;margin-bottom:16px">
         <div class="d-panel" style="padding:14px">
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button class="d-knapp subtil sm" onclick="ksFinnVarianter()">🔍 Finn skrivemåter</button>
+            <select id="ksLevGrossist" class="d-select" style="width:auto"></select>
+            <button class="d-knapp subtil sm" onclick="ksHentLeverandorer()">📋 Hent leverandører</button>
             <button class="d-knapp subtil sm" onclick="ksHent()">⟳ Hent salg</button>
             <span id="ksStatus" class="d-t-hint"></span>
           </div>
           <div class="d-t-hint" style="margin-top:8px">
-            Leverandørnavnene i salgsdataene er rå — samme konkurrent har flere skrivemåter.
-            Finn dem, huk av hvilke som hører til hver konkurrent, og hent så salget.
+            Hent hele leverandørlista — eventuelt for én grossist — og kryss av hvem det skal
+            hentes salg for. Flere skrivemåter av samme firma kan grupperes under ett navn.
             Krever token i Oppsett → Datainnhenting.
           </div>
-          <div id="ksVarianter" style="margin-top:14px"></div>
+
+          <div id="ksLevPanel" style="display:none;margin-top:14px">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+              <div class="d-sok" style="flex:1;min-width:200px">
+                <svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></svg>
+                <input id="ksLevSok" type="search" class="d-input" placeholder="Søk leverandør…" oninput="ksTegnLeverandorer()">
+              </div>
+              <select id="ksLevVis" class="d-select" style="width:auto" onchange="ksTegnLeverandorer()">
+                <option value="alle">Alle leverandører</option>
+                <option value="kjente">Kjente konkurrenter</option>
+                <option value="valgt">Bare valgte</option>
+              </select>
+              <button class="d-knapp subtil sm" onclick="ksVelgAlleSynlige(true)">Velg synlige</button>
+              <button class="d-knapp subtil sm" onclick="ksVelgAlleSynlige(false)">Fjern synlige</button>
+              <button class="d-knapp primar sm" onclick="ksLagreValg()">Lagre valg</button>
+            </div>
+            <div id="ksLevTeller" class="d-t-label" style="margin-bottom:6px"></div>
+            <div id="ksLevListe" style="max-height:340px;overflow:auto;border:1px solid var(--d-ramme);border-radius:var(--d-radius-sm)"></div>
+          </div>
         </div>
       </div>
 
@@ -103,6 +123,10 @@ async function ksLastFiltre(){
       el.value = valgt;   // behold valget når lista lastes på nytt
     };
     fyll('ksGrossist', f.grossister || [], 'Alle grossister');
+    // Samme grossistliste i adminpanelet. Den kommer fra ALLEREDE hentede data, så før
+    // første henting er den tom — da henter «Hent leverandører» for alle grossister.
+    if(document.getElementById('ksLevGrossist'))
+      fyll('ksLevGrossist', f.grossister || [], 'Alle grossister');
     fyll('ksLeverandor', f.leverandorer || [], 'Alle konkurrenter');
     fyll('ksVaregruppe', f.varegrupper || [], 'Alle varegrupper');
   }catch(e){ /* filtrene er en bekvemmelighet — lista virker uten dem */ }
@@ -145,9 +169,15 @@ async function ksLastOgVis(){
   }
 }
 
-// ---- Aliaslista ----
+// ---- Velg leverandører ----
+//
+// ENDRET 2026-08-31: panelet viste før bare skrivemåter som liknet fem forhåndsdefinerte
+// konkurrenter. Det gjorde ukjente konkurrenter usynlige — Manuele: «SGV selger tomat
+// polpa fra en konkurrent som ikke er på lista». Nå hentes HELE leverandørlista for året,
+// og man krysser av selv. Søkeordene til de kjente konkurrentene er beholdt som en
+// snarvei («Kjente konkurrenter»-filteret), ikke som en grense.
 
-async function ksFinnVarianter(){
+async function ksHentLeverandorer(){
   const status = document.getElementById('ksStatus');
   const tokenEl = document.getElementById('pbToken');
   const token = tokenEl ? tokenEl.value.trim() : '';
@@ -155,68 +185,102 @@ async function ksFinnVarianter(){
     status.innerHTML = '<span style="color:var(--d-roed)">Lim inn et token i <b>Oppsett → Datainnhenting</b> først.</span>';
     return;
   }
-  status.textContent = 'Leser leverandørnavn fra Power BI …';
+  const grossist = document.getElementById('ksLevGrossist').value;
+  status.textContent = 'Leser leverandørlista fra Power BI …';
   try{
-    KSALG_VARIANTER = await api('/api/konkurrent-salg/finn-varianter', {method:'POST', body:{token}});
-    status.textContent = `Fant ${KSALG_VARIANTER.varianter.length} skrivemåter i ${KSALG_VARIANTER.ar}.`;
-    ksTegnVarianter();
+    const sti = '/api/konkurrent-salg/alle-leverandorer'
+      + (grossist ? '?grossist=' + encodeURIComponent(grossist) : '');
+    KSALG_LEV = await api(sti, {method:'POST', body:{token}});
+    status.textContent = `${KSALG_LEV.antall_leverandorer.toLocaleString('nb-NO')} leverandører i ${KSALG_LEV.ar}`
+      + (grossist ? ` hos ${grossist}` : '')
+      + `. ${KSALG_LEV.antall_valgt} er valgt fra før.`;
+    // Valgene lever i minnet mens du jobber, og skrives først når du trykker Lagre.
+    KSALG_VALG = {};
+    KSALG_LEV.leverandorer.forEach(l => {
+      if(l.valgt_som) KSALG_VALG[l.navn] = l.valgt_som;
+    });
+    document.getElementById('ksLevPanel').style.display = '';
+    ksTegnLeverandorer();
   }catch(e){ status.textContent = 'Feil: '+e.message; }
 }
 
-function ksTegnVarianter(){
-  const el = document.getElementById('ksVarianter');
-  if(!KSALG_VARIANTER){ el.innerHTML = ''; return; }
-  const {leverandorer, varianter} = KSALG_VARIANTER;
-  el.innerHTML = leverandorer.map(lev => {
-    // Bare skrivemåter søkeordet peker på, pluss dem som allerede er bekreftet for denne
-    // konkurrenten — ellers ville lista blitt uleselig.
-    const aktuelle = varianter.filter(v =>
-      (v.foreslatt_for || []).includes(lev.navn) || v.bekreftet_for === lev.navn);
-    if(!aktuelle.length){
-      return `<div style="margin-bottom:14px"><b>${esc(lev.navn)}</b>
-        <span class="d-t-hint">— ingen treff på «${esc(lev.sokeord)}» i ${KSALG_VARIANTER.ar}</span></div>`;
-    }
-    return `<div style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <b>${esc(lev.navn)}</b>
-        <span class="d-t-hint">søkeord: ${esc(lev.sokeord)}</span>
-        <button class="d-knapp subtil sm" onclick="ksLagreVarianter('${lev.id}')">Lagre</button>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;padding-left:4px">
-        ${aktuelle.map(v => `
-          <label style="display:flex;gap:8px;align-items:center;font-size:13px">
-            <input type="checkbox" data-lev="${lev.id}" value="${esc(v.navn)}"
-                   ${v.bekreftet_for === lev.navn ? 'checked' : ''}>
-            <span>${esc(v.navn)}</span>
-            <span class="d-t-hint">${v.rader.toLocaleString('nb-NO')} rader</span>
-            ${v.bekreftet_for && v.bekreftet_for !== lev.navn
-              ? `<span class="d-badge gul flat">tatt av ${esc(v.bekreftet_for)}</span>` : ''}
-          </label>`).join('')}
-      </div>
-    </div>`;
+function ksLevFiltrert(){
+  if(!KSALG_LEV) return [];
+  const sok = (document.getElementById('ksLevSok').value || '').trim().toLowerCase();
+  const vis = document.getElementById('ksLevVis').value;
+  return KSALG_LEV.leverandorer.filter(l => {
+    if(sok && !l.navn.toLowerCase().includes(sok)) return false;
+    if(vis === 'valgt') return !!KSALG_VALG[l.navn];
+    if(vis === 'kjente') return (l.foreslatt_for || []).length > 0;
+    return true;
+  });
+}
+
+// Lista kan være flere tusen navn. Vi tegner et tak av gangen — søkefeltet er måten å
+// komme til resten, og antallet som ikke vises sies eksplisitt fra om, slik at en kuttet
+// liste aldri ser komplett ut.
+const KSALG_VIS_MAKS = 300;
+
+function ksTegnLeverandorer(){
+  const el = document.getElementById('ksLevListe');
+  const alle = ksLevFiltrert();
+  const vises = alle.slice(0, KSALG_VIS_MAKS);
+  const antallValgt = Object.keys(KSALG_VALG).length;
+  document.getElementById('ksLevTeller').textContent =
+    `${antallValgt} valgt · viser ${vises.length} av ${alle.length}`
+    + (alle.length > vises.length ? ' — søk for å finne resten' : '');
+
+  if(!vises.length){
+    el.innerHTML = '<div class="d-t-hint" style="padding:8px">Ingen leverandører i dette utvalget.</div>';
+    return;
+  }
+  el.innerHTML = vises.map(l => {
+    const valgt = !!KSALG_VALG[l.navn];
+    const gruppe = KSALG_VALG[l.navn] || '';
+    const forslag = (l.foreslatt_for || [])[0];
+    return `
+      <div style="display:flex;gap:10px;align-items:center;padding:5px 4px;border-bottom:1px solid var(--d-ramme)">
+        <input type="checkbox" ${valgt ? 'checked' : ''}
+               onchange="ksToggleLev(this, '${escJsAttr(l.navn)}', '${escJsAttr(forslag || l.navn)}')">
+        <span style="flex:1;min-width:0;font-size:13px">${esc(l.navn)}</span>
+        ${forslag ? `<span class="d-badge graa flat" title="Ligner en forhåndsdefinert konkurrent">${esc(forslag)}</span>` : ''}
+        <span class="d-t-hint" style="white-space:nowrap">${l.rader.toLocaleString('nb-NO')} rader</span>
+        <input class="d-input sm" style="width:180px" placeholder="grupper som…"
+               value="${esc(gruppe)}" ${valgt ? '' : 'disabled'}
+               onchange="ksSettGruppe('${escJsAttr(l.navn)}', this.value)"
+               title="Flere skrivemåter av samme firma får samme navn her og blir én linje i rapporten">
+      </div>`;
   }).join('');
 }
 
-async function ksLagreVarianter(levId){
-  const status = document.getElementById('ksStatus');
-  const valgte = [...document.querySelectorAll(`input[data-lev="${levId}"]:checked`)]
-    .map(i => i.value);
-  try{
-    await api(`/api/konkurrent-salg/leverandorer/${levId}/varianter`,
-              {method:'PUT', body:{varianter: valgte}});
-    status.textContent = `Lagret ${valgte.length} skrivemåter.`;
-    // Hent på nytt så «tatt av»-merkingen stemmer for de andre konkurrentene.
-    await ksFinnVarianterStille();
-  }catch(e){ status.textContent = 'Feil ved lagring: '+e.message; }
+function ksToggleLev(input, navn, standardGruppe){
+  if(input.checked) KSALG_VALG[navn] = KSALG_VALG[navn] || standardGruppe || navn;
+  else delete KSALG_VALG[navn];
+  ksTegnLeverandorer();
 }
 
-async function ksFinnVarianterStille(){
-  const bekreftet = await api('/api/konkurrent-salg/leverandorer');
-  if(!KSALG_VARIANTER) return;
-  const kart = {};
-  bekreftet.forEach(l => (l.varianter || []).forEach(v => { kart[v] = l.navn; }));
-  KSALG_VARIANTER.varianter.forEach(v => { v.bekreftet_for = kart[v.navn] || null; });
-  ksTegnVarianter();
+function ksSettGruppe(navn, verdi){
+  // Tom gruppe = leverandøren er sin egen gruppe. Det er det man vil ha for et navn
+  // plukket ad hoc, og backend gjør det samme hvis feltet står tomt.
+  KSALG_VALG[navn] = (verdi || '').trim() || navn;
+}
+
+function ksVelgAlleSynlige(pa){
+  ksLevFiltrert().slice(0, KSALG_VIS_MAKS).forEach(l => {
+    if(pa) KSALG_VALG[l.navn] = KSALG_VALG[l.navn] || (l.foreslatt_for || [])[0] || l.navn;
+    else delete KSALG_VALG[l.navn];
+  });
+  ksTegnLeverandorer();
+}
+
+async function ksLagreValg(){
+  const status = document.getElementById('ksStatus');
+  const valg = Object.entries(KSALG_VALG).map(([variant, konkurrent]) => ({variant, konkurrent}));
+  try{
+    const r = await api('/api/konkurrent-salg/valg', {method:'PUT', body:{valg}});
+    status.textContent = `Lagret ${r.antall_valgt} leverandører i ${r.konkurrenter.length} grupper. `
+      + 'Trykk «Hent salg» for å hente tallene.';
+  }catch(e){ status.textContent = 'Feil ved lagring: '+e.message; }
 }
 
 async function ksHent(){
