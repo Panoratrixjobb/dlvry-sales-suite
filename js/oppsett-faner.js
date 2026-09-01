@@ -11,6 +11,9 @@ const OPPSETT_GRUPPER={
   // Avsenderdata for tilbuds-PDF-en (oppsett-grossist-avsender.js). Egen fane fordi
   // det er stamdata om konsernets selskaper, ikke datainnhenting eller import.
   grossister:['grossistAvsenderPanel'],
+  // Aktivitetsloggen (2026-09-01) er verken brukeradmin eller datainnhenting — den er
+  // innsyn i BRUKEN av appen, og fikk derfor egen fane.
+  aktivitet:['aktivitetLoggPanel'],
 };
 const OPPSETT_TEKST={
   brukere:'Administrer brukertilgang. Inviter ett nivå ned i hierarkiet.',
@@ -18,6 +21,7 @@ const OPPSETT_TEKST={
   beregning:'Hvilken kilde dashbordet leser fra, og om appens egne tall stemmer med regnearket.',
   import:'Engangs- og periodiske importer: firmadata fra Brønnøysund og den nasjonale leads-databasen.',
   grossister:'Navn, adresse, org.nr. og logo som står som avsender på tilbud til kunde.',
+  aktivitet:'Hvem som logger inn, hvor ofte, og hva de jobber med. Registreres fra 01.09.2026.',
 };
 // Bare superadmin når Innstillinger i det hele tatt, men de tre siste fanene er
 // datateknisk arbeid — leder-/admin-roller skal ikke kunne skrive til dashbordet.
@@ -53,6 +57,11 @@ function settOppsettFane(fane){
   if(fane==='grossister'&&OPPSETT_ER_ADMIN&&typeof lastGrossistAvsendere==='function'){
     const el=document.getElementById('gaInnhold');
     if(el&&!el.innerHTML.trim())lastGrossistAvsendere();
+  }
+  // Samme grunn: en tom aktivitetsfane ser ut som «ingen har logget inn».
+  if(fane==='aktivitet'&&OPPSETT_ER_ADMIN&&typeof lastAktivitetslogg==='function'){
+    const el=document.getElementById('aktInnhold');
+    if(el&&!el.innerHTML.trim())lastAktivitetslogg();
   }
 }
 
