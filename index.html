@@ -1352,187 +1352,48 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
            fire i riktig rekkefølge, og er det agenten kjører 08:00, 13:00 og 15:00.
            De enkelte panelene står igjen fordi de fortsatt trengs når ETT steg må kjøres
            om igjen — men det normale er knappen her. -->
+      <!-- ETT panel for all datainnhenting (2026-09-01). Erstattet åtte nummererte bokser
+           som hver hentet sin bit i en rekkefølge man måtte kunne utenat. Manuele: «det er
+           ikke nødvendig å ha alle de henting boksene nå, det blir bare forstyrring i
+           visuell … alle hentinger skal komme under 1».
+           Stegene leses fra API-et (/api/powerbi/samlet/status), ikke fra en liste her —
+           ellers ville et nytt steg i backend krevd en frontend-endring i takt. -->
       <div class="d-panel" style="margin-top:18px" id="samletPanel">
         <div class="d-panel-hode midtstilt">
-          <h3>Hent alt (anbefalt)</h3>
-          <span class="sub">Consolidated Model + salgsmodellen</span>
+          <h3>Datainnhenting</h3>
+          <span class="sub" id="shAgentLinje"></span>
         </div>
-        <p class="sub" style="margin:0 0 10px">Kjører salgstall, produkt og margin, produktsalg for <b>alle varer</b>, grossistenes totalomsetning og leverandørprislista — i den rekkefølgen de er avhengige av hverandre. Ett steg som feiler stopper ikke resten; du ser hvilket. Tar noen minutter.</p>
-        <p class="sub" style="margin:0 0 10px">Dette er den samme kjøringen agenten gjør automatisk 08:00, 13:00 og 15:00 (se <code>scripts/installer_agent.ps1</code>). Knappen her er for når du vil ha ferske tall <i>nå</i>.</p>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="checkbox" id="shAr2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="shAr2025" checked> 2025</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="shAr2026" checked> 2026</label>
-          <button class="d-knapp primar" onclick="hentAlt()" id="shHentBtn">Hent alt nå</button>
-          <button class="d-knapp subtil sm" onclick="visSamletStatus()">↻ Status</button>
-        </div>
-        <div id="shStatus" style="font-size:13px;margin-top:10px"></div>
-      </div>
-
-      <!-- Hent rådata rett fra Power BI-modellen — erstatningen for kundedata-pivoten -->
-      <div class="d-panel" style="margin-top:18px" id="powerbiPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>1 · Salgstall (kunde × konsept × uke)</h3>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter kunde × konsept × uke rett fra den semantiske modellen og fyller de samme tabellene som kundedata-opplastingen. Målt 2026-08-05 gir denne veien <b>100 % kundenivå-dekning</b> mot pivotens 51 % — D06 og D15 kommer komplett med. Kjør alltid tørrkjøring først. Tar det for lang tid og henger seg opp, ta ett år om gangen — hvert år er fem spørringer mot modellen.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
-          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Modell-ID</b>
-            <input id="pbDataset" class="d-input" style="width:290px" placeholder="semantisk modell, ikke rapport" autocomplete="off"></label>
-          <label style="display:flex;flex-direction:column;gap:3px;font-size:12.5px"><b>Arbeidsområde-ID</b>
-            <input id="pbGruppe" class="d-input" style="width:290px" placeholder="tomt = Mitt arbeidsområde" autocomplete="off"></label>
-        </div>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2025" checked> 2025</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="pbAr2026" checked> 2026</label>
-          <!-- Modellen oppdateres fire ganger i døgnet, og den pågående uka er tallet Manuele
-               jobber mot til daglig. Uten denne venter importen på at uka blir konsistent
-               mellom grossist- og kundenivå, som i praksis betyr å alltid ligge en uke bak.
-               Av som standard — avvikene forsvinner ikke, de rapporteres etter hentingen. -->
-          <label style="font-size:12.5px" title="Importer helt ut til modellens siste uke, også når den pågående uka ikke er i takt mellom grossist- og kundenivå"><input type="checkbox" id="pbPaagaendeUke"> Ta med pågående uke</label>
-          <button class="d-knapp subtil sm" onclick="hentFraPowerBI(false)" id="pbTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentFraPowerBI(true)" id="pbHentBtn">Hent og lagre</button>
-        </div>
-        <div id="pbResultat" style="font-size:13px"></div>
-      </div>
-
-      <!-- Produktnivå med REALISERT margin. Egen modell: varekost og DB finnes bare i
-           «Consolidated Model», ikke i modellen panelet over henter salgstall fra. -->
-      <div class="d-panel" style="margin-top:18px" id="produktPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>2 · Produkt og margin (produkt × grossist × uke)</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter omsetning, varekost og dekningsbidrag per vare — den <b>faktiske</b> marginen, mot den kalkulerte i Tilbudsverktøyet. Tallene er Victors ferdige mål, ikke våre egne beregninger. Bruker tokenet øverst; modell-ID-en i panelet over gjelder bare salgstallene. Ca. 300 000 rader per år, så regn med noen minutter.</p>
-        <p class="sub" style="margin:0 0 10px"><b>Salg til DLVRYs egne selskaper holdes utenfor</b> (samme konsernliste som resten av appen). Uten det ville Foodbrokers internsalg til Wulff telt som marked — 22 % av produktomsetningen i 2026 — og marginen som vises ville delvis vært Foodbrokers eget påslag i kjeden, ikke marginen mot kunden.</p>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2025"> 2025</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="pmAr2026" checked> 2026</label>
-          <button class="d-knapp subtil sm" onclick="hentProduktMargin(false)" id="pmTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentProduktMargin(true)" id="pmHentBtn">Hent og lagre</button>
-        </div>
-        <div id="pmResultat" style="font-size:13px;margin-bottom:12px"></div>
-        <div style="border-top:1px solid var(--d-ramme);padding-top:10px">
-          <div class="d-verktoy">
-            <b style="font-size:12.5px">Se marginene:</b>
-            <select id="pmKonsept" class="d-input" style="width:170px">
-              <option value="">Alle konsepter</option>
-              <option value="la_salumeria">La Salumeria</option>
-              <option value="east_essence">East Essence</option>
-              <option value="godt_lokalt">Godt Lokalt</option>
-              <option value="wulff_co">Wulff &amp; Co</option>
-              <option value="fast_food">Fast Food</option>
-              <option value="sabor">Sabor</option>
-            </select>
-            <input id="pmSok" class="d-input" style="width:200px" placeholder="produktnavn eller varenr">
-            <select id="pmAr" class="d-input" style="width:100px">
-              <option>2026</option><option>2025</option><option>2024</option>
-            </select>
-            <button class="d-knapp subtil sm" onclick="visProduktMargin()" id="pmVisBtn">Vis</button>
+        <p class="sub" style="margin:0 0 12px">Agenten kjører dette automatisk 08:00, 13:00 og 15:00 — og ved pålogging. Knappen her er for når du vil ha ferske tall <i>nå</i>, eller kjøre noe utenom det daglige.</p>
+        <div id="shFriskhet" style="font-size:13px;margin-bottom:14px"></div>
+        <details>
+          <summary class="sub" style="cursor:pointer;font-weight:600">Kjør henting manuelt</summary>
+          <div style="margin-top:10px">
+            <div id="shSteg" style="font-size:13px;margin-bottom:10px"></div>
+            <div class="d-verktoy">
+              <span class="sub">År:</span>
+              <label style="font-size:12.5px"><input type="checkbox" id="shAr2024"> 2024</label>
+              <label style="font-size:12.5px"><input type="checkbox" id="shAr2025" checked> 2025</label>
+              <label style="font-size:12.5px"><input type="checkbox" id="shAr2026" checked> 2026</label>
+              <label style="font-size:12.5px;margin-left:10px" title="Uten dette hentes bare uker som ikke er låst som fakturert — det er mye raskere">
+                <input type="checkbox" id="shFull"> Hele året på nytt</label>
+              <button class="d-knapp primar" onclick="hentAlt()" id="shHentBtn">Hent valgte</button>
+            </div>
+            <div id="shStatus" style="font-size:13px;margin-top:10px"></div>
           </div>
-          <div id="pmTabell" style="font-size:13px"></div>
-        </div>
+        </details>
       </div>
 
-      <!-- Leverandørprisene. Dekker 46 % av prisverktøyets katalog (EPD-broen) — derfor en
-           berikelse og et varsel, ikke en erstatning for produkter.json. -->
-      <div class="d-panel" style="margin-top:18px" id="prislistePanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>3 · Leverandørpriser (Totalprislista)</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter prisene DLVRY faktisk betaler leverandørene, med forrige pris og endring. Svarer på ett spørsmål prisverktøyet ikke kan i dag: <b>har innkjøpsprisen endret seg siden listeprisen ble satt?</b> Ca. 22 000 rader, går på sekunder. Resultatet vises i Rapporter → Prisendringer.</p>
-        <div class="d-verktoy">
-          <button class="d-knapp subtil sm" onclick="hentPrisliste(false)" id="plTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentPrisliste(true)" id="plHentBtn">Hent og lagre</button>
-        </div>
-        <div id="plResultat" style="font-size:13px"></div>
-      </div>
-
-      <!-- UTFASET 2026-09-01. Manuele: «Fast food er ikke lengre viktig, det kan fases ut,
-           men med mulighet for meg til å hente frem når det trenges.» Panelene er derfor
-           foldet sammen, ikke slettet — endepunktene, tabellene og Fast Food-siden virker
-           nøyaktig som før, og hentingene kjøres når noen faktisk trenger dem. De er også
-           tatt UT av den samlede kjøringen, som ellers ville brukt minutter hver dag på
-           data ingen ser på. -->
-      <details class="d-panel" style="margin-top:18px" id="ffUtfasetPanel">
-        <summary class="sub" style="cursor:pointer;font-weight:600">Fast Food-hentinger (utfaset — klikk for å vise)</summary>
-        <p class="sub" style="margin:10px 0 0">Ikke lenger del av den daglige kjøringen. Alt virker som før når du trenger det: kjør panelene under, så er Fast Food-siden oppdatert.</p>
-      <!-- Fast Food-sidens kundeliste, HENTET fra modellen (Segment1=FASTFOOD i
-           DimKundeMaster) i stedet for den statiske 100TNOK-Excel-fila. Målt 2026-08-11:
-           fila dekket bare ~20 % av segmentets 2026-omsetning (58,0 av 289,8 MNOK) — resten
-           er kunder under 100 000 kr som aldri kom med. Kjør DENNE før panelet under, ellers
-           avgrenses produkt-per-kunde-hentingen til den gamle, ufullstendige lista. -->
-      <div style="margin-top:18px" id="ffKunderPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>4 · Fast Food: kundeliste (Segment1)</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter ALLE kunder med Segment1 = FASTFOOD direkte fra kundedimensjonen — ikke begrenset til en omsetningsgrense. Erstatter (ikke sletter) den gamle Excel-importen. Bruker tokenet øverst.</p>
-        <div class="d-verktoy">
-          <button class="d-knapp subtil sm" onclick="hentFastFoodKunderFraSegment(false)" id="ffkTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentFastFoodKunderFraSegment(true)" id="ffkHentBtn">Hent og lagre</button>
-        </div>
-        <div id="ffkResultat" style="font-size:13px"></div>
-      </div>
-
-      <!-- Fast Food-sidens per-kunde produktmiks (fase 2, se konseptsuite-backend
-           routers/fastfood.py). Avgrenset til kundenumrene i fastfood_kunde — IKKE alle
-           DLVRYs kunder — så uttrekket blir mye mindre enn panel 2 over. Bruker samme
-           token-felt øverst. -->
-      <div style="margin-top:18px" id="ffProduktPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>5 · Fast Food: produkt per kunde</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter ekte omsetning, varekost og DB per Fast Food-kunde OG produkt — det Fast Food-siden viser under hver kunde. Avgrenset til kundenumrene i fastfood_kunde (kjør panelet over først om lista er tom eller utdatert). Bruker tokenet øverst.</p>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2025"> 2025</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="ffpAr2026" checked> 2026</label>
-          <button class="d-knapp subtil sm" onclick="hentFastFoodProduktPerKunde(false)" id="ffpTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentFastFoodProduktPerKunde(true)" id="ffpHentBtn">Hent og lagre</button>
-        </div>
-        <div id="ffpResultat" style="font-size:13px"></div>
-      </div>
-
-      </details>
-
-      <!-- Produktmiks for ALLE kunder (ikke bare Fast Food-segmentet), se
-           konseptsuite-backend routers/kunde_produkt.py. Kundelista hentes direkte fra
-           modellen (~31 600 kontoer) — ingen forhåndsdefinert roster som fastfood_kunde.
-           Ett år om gangen (månedsgranularitet, kan ta 5-10 minutter). Bakgrunnsjobb, som
-           panel 5 over. -->
-      <div class="d-panel" style="margin-top:18px" id="kpProduktPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>6 · Alle kunder: produktmiks</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Samme som panelet over, men for HELE kundemassen (~31 600 kontoer i modellen), ikke bare Fast Food-segmentet. Kundelista hentes direkte fra Power BI. Ett år om gangen. Bruker tokenet øverst.</p>
-        <p class="sub" style="margin:0 0 10px">Henter som standard bare <b>ferskeste data</b>: måneder som mangler eller ikke er periode-låst ennå (se Oppsett → Formel-konfig). Allerede hentede OG låste måneder hoppes over — mye raskere til daglig bruk. Kryss av «Hent alt» for en full etterkontroll av hele året.</p>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="radio" name="kpAr" id="kpAr2024" value="2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="radio" name="kpAr" id="kpAr2025" value="2025"> 2025</label>
-          <label style="font-size:12.5px"><input type="radio" name="kpAr" id="kpAr2026" value="2026" checked> 2026</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="kpFull"> Hent alt (ignorer allerede hentet/låst)</label>
-          <button class="d-knapp subtil sm" onclick="hentKundeProduktMiks(false)" id="kpTorrBtn">Tørrkjør (skriver ingenting)</button>
-          <button class="d-knapp primar sm" onclick="hentKundeProduktMiks(true)" id="kpHentBtn">Hent og lagre</button>
-        </div>
-        <div id="kpResultat" style="font-size:13px"></div>
-      </div>
-
+      <!-- Vedlikehold og reserveløsninger. Ikke hentinger man kjører rutinemessig, men
+           verktøy man går til når noe konkret er galt — foldet sammen 2026-09-01 sammen med
+           panelrydden over. -->
+      <details class="d-panel" style="margin-top:18px" id="vedlikeholdPanel">
+        <summary class="sub" style="cursor:pointer;font-weight:600">Vedlikehold og reserveløsninger</summary>
       <!-- Kundenumre som er samme kunde. Bakgrunn: D22 renummererte Cici Kirkegata,
            Cici Osteria og Maximus i uke 33/2026 etter et eierskifte, og Ukerapporten viste
            tre av våre største kunder som «nye». Alt på kundenivå er nøklet på (kundenr,
            grossist), så historikken brytes hver gang et kundenummer byttes. Se
            konseptsuite-backend app/kundekonto.py for reglene. -->
-      <div class="d-panel" style="margin-top:18px" id="kkPanel">
+      <div style="margin-top:18px" id="kkPanel">
         <div class="d-panel-hode midtstilt">
           <h3>7 · Kundenumre som er samme kunde</h3>
           <span class="sub">Alle grossister</span>
@@ -1568,33 +1429,12 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="kkDupResultat" style="font-size:13px;margin-top:10px"></div>
       </div>
 
-      <!-- Grossistenes FULLE omsetning — kilden til Totalrapporten siden 2026-09-01. Erstattet
-           «Total 2025/2026»-arkene i FIKS-14, som manglet Wulff og Foodbroker nesten helt
-           (915,6 MNOK i 2026 uke 1–32) og derfor ikke kunne sammenlignes med Power BI. -->
-      <div class="d-panel" style="margin-top:18px" id="grossistTotalPanel">
-        <div class="d-panel-hode midtstilt">
-          <h3>8 · Grossistenes totalomsetning (alle leverandører)</h3>
-          <span class="sub">Consolidated Model</span>
-        </div>
-        <p class="sub" style="margin:0 0 10px">Henter <b>hele</b> omsetningen per grossist og uke — alle leverandører, ikke bare DLVRYs konsepter. Dette er nevneren i markedsandelen, og kilden til <b>Rapporter → Totalrapport (alle grossister)</b>. Lite uttrekk, går på sekunder. Bruker tokenet øverst.</p>
-        <p class="sub" style="margin:0 0 10px"><b>Konsernintern omsetning elimineres</b> (samme selskapsliste som resten av appen). Uten det ville Foodbrokers salg til Wulff telt som marked, og en gang til når Wulff selger varen videre — 304,5 MNOK i 2026 uke 1–32.</p>
-        <div class="d-verktoy">
-          <span class="sub">År:</span>
-          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2024"> 2024</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2025" checked> 2025</label>
-          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2026" checked> 2026</label>
-          <button class="d-knapp primar sm" onclick="hentGrossistTotal()" id="gtHentBtn">Hent og lagre</button>
-          <button class="d-knapp subtil sm" onclick="visGrossistTotalStatus()">↻ Status</button>
-        </div>
-        <div id="gtStatus" style="font-size:13px;margin-top:8px"></div>
-      </div>
-
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
            over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
            tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet
            /last-opp-kundedata står igjen i backend og kan gjenopprettes. Masterfil-
            opplastingen blir til paritetssjekken er grønn på alle felt. -->
-      <div class="d-panel" style="margin-top:18px" id="dashUploadPanel">
+      <div style="margin-top:18px" id="dashUploadPanel">
         <div class="d-panel-hode midtstilt">
           <h3>Excel-opplasting (reserveløsning)</h3>
           <span class="sub">Bruk hentingene over</span>
@@ -1607,6 +1447,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <div id="dashUploadStatus" style="font-size:13px;margin-top:10px"></div>
         </details>
       </div>
+
+      </details>
 
       <!-- Fase 4: hvilken kilde hvert dashboard-felt leses fra -->
       <div class="d-panel" style="margin-top:18px" id="kildePanel">
@@ -2149,7 +1991,6 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
 <script src="js/rapport-grossist-kjop.js"></script>
-<script src="js/oppsett-grossist-total.js"></script>
 <script src="js/oppsett-samlet-henting.js"></script>
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
