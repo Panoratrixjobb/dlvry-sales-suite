@@ -1535,6 +1535,27 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="kkDupResultat" style="font-size:13px;margin-top:10px"></div>
       </div>
 
+      <!-- Grossistenes FULLE omsetning — kilden til Totalrapporten siden 2026-09-01. Erstattet
+           «Total 2025/2026»-arkene i FIKS-14, som manglet Wulff og Foodbroker nesten helt
+           (915,6 MNOK i 2026 uke 1–32) og derfor ikke kunne sammenlignes med Power BI. -->
+      <div class="d-panel" style="margin-top:18px" id="grossistTotalPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>8 · Grossistenes totalomsetning (alle leverandører)</h3>
+          <span class="sub">Consolidated Model</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Henter <b>hele</b> omsetningen per grossist og uke — alle leverandører, ikke bare DLVRYs konsepter. Dette er nevneren i markedsandelen, og kilden til <b>Rapporter → Totalrapport (alle grossister)</b>. Lite uttrekk, går på sekunder. Bruker tokenet øverst.</p>
+        <p class="sub" style="margin:0 0 10px"><b>Konsernintern omsetning elimineres</b> (samme selskapsliste som resten av appen). Uten det ville Foodbrokers salg til Wulff telt som marked, og en gang til når Wulff selger varen videre — 304,5 MNOK i 2026 uke 1–32.</p>
+        <div class="d-verktoy">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2025" checked> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="gtAr2026" checked> 2026</label>
+          <button class="d-knapp primar sm" onclick="hentGrossistTotal()" id="gtHentBtn">Hent og lagre</button>
+          <button class="d-knapp subtil sm" onclick="visGrossistTotalStatus()">↻ Status</button>
+        </div>
+        <div id="gtStatus" style="font-size:13px;margin-top:8px"></div>
+      </div>
+
       <!-- Reserveløsning. Kundedata-pivoten er fjernet herfra 2026-08-07: Power BI-hentingen
            over gir 100 % kundenivå-dekning mot pivotens 51 %, og to synlige veier til samme
            tabell betyr bare at noen før eller siden velger den dårligste. Endepunktet
@@ -1738,7 +1759,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
       <div class="rap-subrow rap-noprint" style="margin-top:0">
         <span class="rap-sublbl">Salg</span>
         <button class="rap-pill aktiv" data-raptab="total" onclick="setRapTab('total')">Ukerapport (alle konsepter)</button>
-        <button class="rap-pill" data-raptab="fiks" onclick="setRapTab('fiks')">Totalrapport (grossist — FIKS)</button>
+        <button class="rap-pill" data-raptab="fiks" onclick="setRapTab('fiks')">Totalrapport (alle grossister)</button>
         <button class="rap-pill" data-raptab="konsept" onclick="setRapTab('konsept')">Konseptrapport</button>
         <button class="rap-pill" data-raptab="region" onclick="setRapTab('region')">Regionrapport</button>
       </div>
@@ -2095,6 +2116,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
 <script src="js/rapport-grossist-kjop.js"></script>
+<script src="js/oppsett-grossist-total.js"></script>
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
 <script src="js/konkurrent-salg.js"></script>
@@ -7315,26 +7337,26 @@ function renderPrognose(d){
 
 function renderRapFiks(){
   const ft=DASH.fikstotal;
-  // Perioden MÅ komme fra rapportens egen cutoff, ikke fra DASH.meta.periode. «Total»-arkene
-  // i FIKS-14 ligger regelmessig en uke bak konsept-arkene som styrer dashbordets periode,
-  // og en overskrift som påstår uke 33 over tall som stopper i uke 32 er nettopp den typen
-  // avvik man senere leter etter i tallene i stedet for i etiketten.
-  const per=ft&&ft.cutoff_uke?`YTD uke 1–${ft.cutoff_uke} · 2026 vs 2025 (pære-mot-pære)`
+  // Årene og perioden kommer fra rapportens EGEN cutoff, ikke fra DASH.meta.periode. Kildene
+  // oppdateres av hver sin jobb, og en overskrift som påstår uke 33 over tall som stopper i
+  // uke 32 er nettopp den typen avvik man siden leter etter i tallene i stedet for i
+  // etiketten. (Det var en ekte feil her fram til 2026-09-01.)
+  const aN=ft&&ft.ar?ft.ar:2026, aF=ft&&ft.ar_forrige?ft.ar_forrige:aN-1;
+  const per=ft&&ft.cutoff_uke?`YTD uke 1–${ft.cutoff_uke} · ${aN} vs ${aF} (pære-mot-pære)`
                              :((DASH.meta&&DASH.meta.periode)||'');
-  const head=rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',per);
+  const head=rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister',null,'Grossistomsetning — alle produkter',per);
   if(!ft||!ft.grossister||!ft.grossister.length){
     return `${head}
     <div class="rap-card">
-      <h3>Venter på FIKS-14-opplasting</h3>
+      <h3>Hentingen er ikke kjørt ennå</h3>
       <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0 0 10px">
         Denne rapporten viser grossistenes <b>fulle</b> omsetning (alle leverandører, ikke bare
-        DLVRYs konsepter) fra «Total 2025/2026»-arkene i FIKS-14, og DLVRYs egen import
-        (La Salumeria + East Essence) som andel av dette = markedsandel/penetrasjon per grossist.
+        DLVRYs konsepter) fra Consolidated Model, med konsernintern omsetning eliminert — og
+        DLVRYs egen import (La Salumeria + East Essence) som andel av dette = markedsandel per
+        grossist.
       </p>
       <p style="font-size:12.5px;color:var(--muted);line-height:1.65;margin:0">
-        Tallene fylles automatisk neste gang FIKS-14-fila lastes opp i <b>Innstillinger</b>
-        (backend leser nå også «Total»-arkene, ikke bare per-konsept-arkene). Last opp fila på
-        nytt for å aktivere rapporten.
+        Kjør <b>«Grossistenes totalomsetning»</b> i Innstillinger → Datainnhenting for å fylle den.
       </p>
     </div>`;
   }
@@ -7372,14 +7394,14 @@ function renderRapFiks(){
 
   const topPen=gl.slice().filter(g=>g.y2026>0).sort((a,b)=>(b.dlvry_lsee_2026/b.y2026)-(a.dlvry_lsee_2026/a.y2026))[0];
   const insight=`<div class="rap-insight">
-    <p>Grossistenes samlede omsetning (alle leverandører, alle produkter) er <b>${rapFmtM(g26)}</b> YTD, ${grandC.up?'opp':'ned'} <b>${rapFmtPctAbs(grandC.pct)}</b> mot samme uker 2025 (${rapFmtM(grandC.delta)}).</p>
+    <p>Grossistenes samlede omsetning (alle leverandører, alle produkter) er <b>${rapFmtM(g26)}</b> YTD, ${grandC.up?'opp':'ned'} <b>${rapFmtPctAbs(grandC.pct)}</b> mot samme uker ${aF} (${rapFmtM(grandC.delta)}).</p>
     <p>DLVRYs egen import (La Salumeria + East Essence) utgjør <b>${rapFmtPctAbs(andel)}</b> av dette samlet${topPen?` — høyest hos <b>${esc(topPen.navn)}</b> (${rapFmtPctAbs(topPen.dlvry_lsee_2026/topPen.y2026)})`:''}.</p>
   </div>`;
 
   return `${head}
     <div class="rap-kpi-row">
-      <div class="rap-kpi"><div class="lbl">Total grossistomsetning 2026 YTD</div><div class="val">${rapFmtM(g26)}</div></div>
-      <div class="rap-kpi"><div class="lbl">2025 (samme uker)</div><div class="val">${rapFmtM(g25)}</div></div>
+      <div class="rap-kpi"><div class="lbl">Total grossistomsetning ${aN} YTD</div><div class="val">${rapFmtM(g26)}</div></div>
+      <div class="rap-kpi"><div class="lbl">${aF} (samme uker)</div><div class="val">${rapFmtM(g25)}</div></div>
       <div class="rap-kpi"><div class="lbl">Vekst</div><div class="val">${rapFmtPct(grandC.pct)}</div><div class="delta ${grandC.up?'up':'down'}">${rapFmtM(grandC.delta)}</div></div>
       <div class="rap-kpi"><div class="lbl">Andel LS + EE (egen import)</div><div class="val">${rapFmtPctAbs(andel)}</div><div class="delta plain">av grossistenes samlede omsetning</div></div>
     </div>
@@ -7387,7 +7409,7 @@ function renderRapFiks(){
     <div class="rap-card">
       <h3>Omsetning per region — alle grossister, alle produkter</h3>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Region</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th>Region</th><th class="tall">${aN} YTD</th><th class="tall">${aF} (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th>
       </tr></thead><tbody>${regRows}${regTotal}</tbody></table></div>
     </div>
@@ -7395,12 +7417,12 @@ function renderRapFiks(){
       <h3>Omsetning per grossist — alle leverandører, med andel LS + EE</h3>
       <div class="rap-card-note">Andel LS + EE = DLVRYs egen import (La Salumeria + East Essence) som del av grossistens fulle omsetning. Godt Lokalt (norske leverandører) og Wulff (kun delvis DLVRY-import) holdes utenfor.</div>
       <div style="overflow-x:auto"><table class="d-tabell rap-tabell"><thead><tr>
-        <th>Grossist</th><th>Region</th><th class="tall">2026 YTD</th><th class="tall">2025 (samme uker)</th>
+        <th>Grossist</th><th>Region</th><th class="tall">${aN} YTD</th><th class="tall">${aF} (samme uker)</th>
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th><th class="tall">Andel LS + EE</th>
       </tr></thead><tbody>${gRows}</tbody></table></div>
     </div>
-    <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene. Pære-mot-pære: begge år kappet ved uke ${ft.cutoff_uke}, den siste uka «Total»-arkene har for 2026.
-      <br>Dette er FIKS-grossistenes omsetning, <b>ikke</b> hele konsernets marked: D06 Wulff og D24 Foodbroker er våre egne importhus og står her kun med det fila faktisk inneholder (målt 2026-09-01: 99,5 og 35,0 MNOK, mot 442 og 473 MNOK i Consolidated Model for de samme ukene). Skal totalen sammenlignes med Power BI, er det den modellen som er fasit — se Grossistkjøp for konseptproduktene der.</div>`;
+    <div class="rap-caveat">⚠ Kilde: Consolidated Model, <b>konsernintern omsetning eliminert</b> — salg mellom DLVRYs egne selskaper telles ikke som marked, og telles derfor heller ikke to ganger når varen selges videre. Pære-mot-pære: begge år kappet ved uke ${ft.cutoff_uke}.
+      <br>Wulff og Foodbroker er importhus, ikke regionsgrossister, og ligger under «Konsepter» — samme inndeling som modellen selv bruker. Tallene her er derfor ikke sammenlignbare med den gamle FIKS-14-utgaven av rapporten: den manglet nettopp disse to nesten helt (915,6 MNOK i 2026 uke 1–32) og tok med internsalget i markedsandelen.</div>`;
 }
 
 // ============ Trend over tid (ønsket av Manuele 19.08.2026) ============
