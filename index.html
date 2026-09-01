@@ -7421,6 +7421,7 @@ function renderRapFiks(){
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th><th class="tall">Andel LS + EE</th>
       </tr></thead><tbody>${gRows}</tbody></table></div>
     </div>
+    ${ft.utelatt?`<div class="rap-card-note" style="margin-top:8px">Uke ${ft.utelatt.fra_uke} og senere (${rapFmtM(ft.utelatt.mnok)}) er holdt utenfor: uka er ikke ferdig, og to solgte dager mot fjorårets syv ville sett ut som et fall. Den kommer med av seg selv når uka er omme.</div>`:''}
     <div class="rap-caveat">⚠ Kilde: Consolidated Model, <b>konsernintern omsetning eliminert</b> — salg mellom DLVRYs egne selskaper telles ikke som marked, og telles derfor heller ikke to ganger når varen selges videre. Pære-mot-pære: begge år kappet ved uke ${ft.cutoff_uke}.
       <br>Wulff og Foodbroker er importhus, ikke regionsgrossister, og ligger under «Konsepter» — samme inndeling som modellen selv bruker. Tallene her er derfor ikke sammenlignbare med den gamle FIKS-14-utgaven av rapporten: den manglet nettopp disse to nesten helt (915,6 MNOK i 2026 uke 1–32) og tok med internsalget i markedsandelen.</div>`;
 }
