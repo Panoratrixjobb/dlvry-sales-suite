@@ -1189,6 +1189,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-oppsettfane="beregning" onclick="settOppsettFane('beregning')">Beregning</button>
         <button class="rap-pill" data-oppsettfane="import" onclick="settOppsettFane('import')">Import</button>
         <button class="rap-pill" data-oppsettfane="grossister" onclick="settOppsettFane('grossister')">Grossister</button>
+        <button class="rap-pill" data-oppsettfane="aktivitet" onclick="settOppsettFane('aktivitet')">Aktivitet</button>
       </div>
 
       <!-- Inviter bruker-form -->
@@ -1272,6 +1273,24 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <button class="d-knapp subtil sm" onclick="lastFeedback()">↻ Oppdater</button>
         </div>
         <div id="feedbackListe" style="font-size:13px;color:var(--d-tekst-3)">Laster…</div>
+      </div>
+
+      <!-- Aktivitetslogg (2026-09-01). Hvem logger inn, hvor ofte, og hva de jobber med.
+           Backend: app/hendelseslogg.py + app/routers/aktivitetslogg.py. Kom etter at
+           Nicolai Stavnes ikke kom inn i appen og vi ikke kunne se om han hadde forsøkt. -->
+      <div class="d-panel" style="margin-top:18px" id="aktivitetLoggPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>Innlogging og bruk</h3>
+          <div class="d-verktoy">
+            <span class="sub" id="aktPeriode"></span>
+            <button class="rap-pill" data-aktdager="7" onclick="aktSettDager(7)">7 d</button>
+            <button class="rap-pill aktiv" data-aktdager="30" onclick="aktSettDager(30)">30 d</button>
+            <button class="rap-pill" data-aktdager="90" onclick="aktSettDager(90)">90 d</button>
+            <button class="d-knapp subtil sm" onclick="lastAktivitetslogg()">↻ Oppdater</button>
+          </div>
+        </div>
+        <p class="sub" style="margin:0 0 12px">Hvem som logger inn, hvor ofte, og hva de jobber med. Klikk en bruker for detaljert historikk. Loggen registrerer hvilke kunder og kalkyler som åpnes og endres — aldri innholdet i dem.</p>
+        <div id="aktInnhold"></div>
       </div>
 
       <!-- Grossister som avsender på tilbud (2026-08-31).
@@ -2080,6 +2099,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/kundeinfo-sjekk.js"></script>
 <script src="js/konkurrent-salg.js"></script>
 <script src="js/oppsett-grossist-avsender.js"></script>
+<script src="js/oppsett-aktivitet.js"></script>
 <script>
 // ============ Dashboard fallback-data (fra vault: YTD uke 1-25, 2026 vs 2025) ============
 // Erstattes automatisk av GET /api/dashboard-excel (samme kontrakt som backend-seeden i app/main.py).
@@ -7295,7 +7315,13 @@ function renderPrognose(d){
 
 function renderRapFiks(){
   const ft=DASH.fikstotal;
-  const head=rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',(DASH.meta&&DASH.meta.periode)||'');
+  // Perioden MÅ komme fra rapportens egen cutoff, ikke fra DASH.meta.periode. «Total»-arkene
+  // i FIKS-14 ligger regelmessig en uke bak konsept-arkene som styrer dashbordets periode,
+  // og en overskrift som påstår uke 33 over tall som stopper i uke 32 er nettopp den typen
+  // avvik man senere leter etter i tallene i stedet for i etiketten.
+  const per=ft&&ft.cutoff_uke?`YTD uke 1–${ft.cutoff_uke} · 2026 vs 2025 (pære-mot-pære)`
+                             :((DASH.meta&&DASH.meta.periode)||'');
+  const head=rapHeader('DLVRY · SALESAPP','Totalrapport · Alle grossister (FIKS)',null,'Grossistomsetning — alle produkter',per);
   if(!ft||!ft.grossister||!ft.grossister.length){
     return `${head}
     <div class="rap-card">
@@ -7373,7 +7399,8 @@ function renderRapFiks(){
         <th class="tall">Endring</th><th class="tall">Status</th><th class="tall">Bidrag til totalens vekst</th><th class="tall">Andel LS + EE</th>
       </tr></thead><tbody>${gRows}</tbody></table></div>
     </div>
-    <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene (grossistenes fulle omsetning). Pære-mot-pære: 2025 kappet til samme uker som 2026 har data for. D06 Wulff & Co og D24 Foodbroker inngår ikke i denne pivoten (ikke regionsfordelt).</div>`;
+    <div class="rap-caveat">⚠ Kilde: FIKS-14 «Total 2025/2026»-arkene. Pære-mot-pære: begge år kappet ved uke ${ft.cutoff_uke}, den siste uka «Total»-arkene har for 2026.
+      <br>Dette er FIKS-grossistenes omsetning, <b>ikke</b> hele konsernets marked: D06 Wulff og D24 Foodbroker er våre egne importhus og står her kun med det fila faktisk inneholder (målt 2026-09-01: 99,5 og 35,0 MNOK, mot 442 og 473 MNOK i Consolidated Model for de samme ukene). Skal totalen sammenlignes med Power BI, er det den modellen som er fasit — se Grossistkjøp for konseptproduktene der.</div>`;
 }
 
 // ============ Trend over tid (ønsket av Manuele 19.08.2026) ============
