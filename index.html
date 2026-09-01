@@ -1728,6 +1728,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <button class="rap-pill" data-raptab="prognose" onclick="setRapTab('prognose')">Prognose (årsestimat)</button>
         <button class="rap-pill" data-raptab="tiltak" onclick="setRapTab('tiltak')">Tiltak (vei til mål)</button>
         <button class="rap-pill" data-raptab="produkt" onclick="setRapTab('produkt')">Produktmargin</button>
+        <button class="rap-pill" data-raptab="grossistkjop" onclick="setRapTab('grossistkjop')">Grossistkjøp (konseptprodukter)</button>
         <button class="rap-pill" data-raptab="pris" onclick="setRapTab('pris')">Prisendringer</button>
         <button class="rap-pill" data-raptab="konsernintern" onclick="setRapTab('konsernintern')">Konsernintern fakturering</button>
       </div>
@@ -2074,6 +2075,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/oppsett-datainnhenting.js"></script>
 <script src="js/oppsett-faner.js"></script>
 <script src="js/rapport-produkt.js"></script>
+<script src="js/rapport-grossist-kjop.js"></script>
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
 <script src="js/konkurrent-salg.js"></script>
@@ -7040,6 +7042,11 @@ function _renderRapporter(){
   if(rapState.tab==='pris'){
     sub.style.display='none';
     lastRapPrisendringer();
+    return;
+  }
+  if(rapState.tab==='grossistkjop'){
+    sub.style.display='none';
+    lastRapGrossistKjop();
     return;
   }
   if(rapState.tab==='konsernintern'){
