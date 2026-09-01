@@ -1348,6 +1348,28 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
           <input type="password" id="pbToken" class="d-input" placeholder="eyJ0eXAiOi… (limes inn, lagres ikke)" autocomplete="off"></label>
       </div>
 
+      <!-- Samlet henting (2026-09-01). Panel 1–3 og 8 gjør hver sin bit; dette gjør alle
+           fire i riktig rekkefølge, og er det agenten kjører 08:00, 13:00 og 15:00.
+           De enkelte panelene står igjen fordi de fortsatt trengs når ETT steg må kjøres
+           om igjen — men det normale er knappen her. -->
+      <div class="d-panel" style="margin-top:18px" id="samletPanel">
+        <div class="d-panel-hode midtstilt">
+          <h3>Hent alt (anbefalt)</h3>
+          <span class="sub">Consolidated Model + salgsmodellen</span>
+        </div>
+        <p class="sub" style="margin:0 0 10px">Kjører salgstall, produkt og margin, produktsalg for <b>alle varer</b>, grossistenes totalomsetning og leverandørprislista — i den rekkefølgen de er avhengige av hverandre. Ett steg som feiler stopper ikke resten; du ser hvilket. Tar noen minutter.</p>
+        <p class="sub" style="margin:0 0 10px">Dette er den samme kjøringen agenten gjør automatisk 08:00, 13:00 og 15:00 (se <code>scripts/installer_agent.ps1</code>). Knappen her er for når du vil ha ferske tall <i>nå</i>.</p>
+        <div class="d-verktoy">
+          <span class="sub">År:</span>
+          <label style="font-size:12.5px"><input type="checkbox" id="shAr2024"> 2024</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="shAr2025" checked> 2025</label>
+          <label style="font-size:12.5px"><input type="checkbox" id="shAr2026" checked> 2026</label>
+          <button class="d-knapp primar" onclick="hentAlt()" id="shHentBtn">Hent alt nå</button>
+          <button class="d-knapp subtil sm" onclick="visSamletStatus()">↻ Status</button>
+        </div>
+        <div id="shStatus" style="font-size:13px;margin-top:10px"></div>
+      </div>
+
       <!-- Hent rådata rett fra Power BI-modellen — erstatningen for kundedata-pivoten -->
       <div class="d-panel" style="margin-top:18px" id="powerbiPanel">
         <div class="d-panel-hode midtstilt">
@@ -1431,12 +1453,21 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         <div id="plResultat" style="font-size:13px"></div>
       </div>
 
+      <!-- UTFASET 2026-09-01. Manuele: «Fast food er ikke lengre viktig, det kan fases ut,
+           men med mulighet for meg til å hente frem når det trenges.» Panelene er derfor
+           foldet sammen, ikke slettet — endepunktene, tabellene og Fast Food-siden virker
+           nøyaktig som før, og hentingene kjøres når noen faktisk trenger dem. De er også
+           tatt UT av den samlede kjøringen, som ellers ville brukt minutter hver dag på
+           data ingen ser på. -->
+      <details class="d-panel" style="margin-top:18px" id="ffUtfasetPanel">
+        <summary class="sub" style="cursor:pointer;font-weight:600">Fast Food-hentinger (utfaset — klikk for å vise)</summary>
+        <p class="sub" style="margin:10px 0 0">Ikke lenger del av den daglige kjøringen. Alt virker som før når du trenger det: kjør panelene under, så er Fast Food-siden oppdatert.</p>
       <!-- Fast Food-sidens kundeliste, HENTET fra modellen (Segment1=FASTFOOD i
            DimKundeMaster) i stedet for den statiske 100TNOK-Excel-fila. Målt 2026-08-11:
            fila dekket bare ~20 % av segmentets 2026-omsetning (58,0 av 289,8 MNOK) — resten
            er kunder under 100 000 kr som aldri kom med. Kjør DENNE før panelet under, ellers
            avgrenses produkt-per-kunde-hentingen til den gamle, ufullstendige lista. -->
-      <div class="d-panel" style="margin-top:18px" id="ffKunderPanel">
+      <div style="margin-top:18px" id="ffKunderPanel">
         <div class="d-panel-hode midtstilt">
           <h3>4 · Fast Food: kundeliste (Segment1)</h3>
           <span class="sub">Consolidated Model</span>
@@ -1453,7 +1484,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
            routers/fastfood.py). Avgrenset til kundenumrene i fastfood_kunde — IKKE alle
            DLVRYs kunder — så uttrekket blir mye mindre enn panel 2 over. Bruker samme
            token-felt øverst. -->
-      <div class="d-panel" style="margin-top:18px" id="ffProduktPanel">
+      <div style="margin-top:18px" id="ffProduktPanel">
         <div class="d-panel-hode midtstilt">
           <h3>5 · Fast Food: produkt per kunde</h3>
           <span class="sub">Consolidated Model</span>
@@ -1469,6 +1500,8 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
         </div>
         <div id="ffpResultat" style="font-size:13px"></div>
       </div>
+
+      </details>
 
       <!-- Produktmiks for ALLE kunder (ikke bare Fast Food-segmentet), se
            konseptsuite-backend routers/kunde_produkt.py. Kundelista hentes direkte fra
@@ -2117,6 +2150,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 <script src="js/rapport-produkt.js"></script>
 <script src="js/rapport-grossist-kjop.js"></script>
 <script src="js/oppsett-grossist-total.js"></script>
+<script src="js/oppsett-samlet-henting.js"></script>
 <script src="js/foodbroker.js"></script>
 <script src="js/kundeinfo-sjekk.js"></script>
 <script src="js/konkurrent-salg.js"></script>
