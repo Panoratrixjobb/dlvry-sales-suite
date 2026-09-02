@@ -137,6 +137,14 @@ async function shPollJobb(jobbId, start){
   }
 }
 
+// Produkthentingen legger tallene ett nivå ned, nøklet per år («sammendrag: {2026: {...}}»).
+function shRader(detaljer){
+  const sam = detaljer && detaljer.sammendrag;
+  if(!sam) return null;
+  const tall = Object.values(sam).map(v => v && v.rader).filter(v => typeof v === 'number');
+  return tall.length ? tall.reduce((a, b) => a + b, 0) : null;
+}
+
 function shResultat(r){
   const merke = r.status === 'ok' ? '<span style="color:var(--ok)">Alt gikk bra ✓</span>'
     : r.status === 'delvis' ? '<span style="color:var(--advarsel)">Delvis — noen steg feilet</span>'
@@ -147,9 +155,14 @@ function shResultat(r){
     const ok = s.status === 'ok';
     let d = '';
     if(ok && s.detaljer && Array.isArray(s.detaljer.ar)){
-      d = s.detaljer.ar.map(a => a.hoppet_over ? `${a.ar}: ${a.hoppet_over}`
-        : `${a.ar}: ${(a.rader || 0).toLocaleString('nb-NO')} rader`
-          + (a.uke_fra ? ` (fra uke ${a.uke_fra})` : '')).join(' · ');
+      // «0 rader» etter en vellykket henting er verre enn ingen tekst — det ser ut som at
+      // ingenting kom inn. Radtallet vises bare når vi faktisk har det.
+      d = s.detaljer.ar.map(a => {
+        if(a.hoppet_over) return `${a.ar}: ${a.hoppet_over}`;
+        const n = a.rader != null ? a.rader : shRader(a.detaljer);
+        return `${a.ar}: ` + (n != null ? n.toLocaleString('nb-NO') + ' rader' : 'ok')
+          + (a.uke_fra ? ` (fra uke ${a.uke_fra})` : '');
+      }).join(' · ');
     }else if(ok && s.detaljer){
       d = Object.entries(s.detaljer.sammendrag || s.detaljer)
         .filter(([, v]) => typeof v !== 'object').slice(0, 4)
