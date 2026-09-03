@@ -29,7 +29,10 @@ async function mountKonkurrentSalg(){
           <div class="d-t-hint" style="margin-top:8px">
             Hent hele leverandørlista — eventuelt for én grossist — og kryss av hvem det skal
             hentes salg for. Flere skrivemåter av samme firma kan grupperes under ett navn.
-            Krever token i Oppsett → Datainnhenting.
+            <b>Selve salget hentes automatisk av agenten</b> (08:00, 13:00 og 15:00), så
+            «Hent salg» trengs bare når du vil ha tallene med én gang — og da må du lime inn
+            et token i Oppsett → Datainnhenting. Leverandørlista er derimot alltid et
+            manuelt valg: den skal et menneske krysse av.
           </div>
 
           <div id="ksLevPanel" style="display:none;margin-top:14px">
@@ -288,7 +291,12 @@ async function ksHent(){
   const tokenEl = document.getElementById('pbToken');
   const token = tokenEl ? tokenEl.value.trim() : '';
   if(!token){
-    status.innerHTML = '<span style="color:var(--d-roed)">Lim inn et token i <b>Oppsett → Datainnhenting</b> først.</span>';
+    // Agenten henter dette av seg selv tre ganger om dagen (2026-09-03), så et manglende
+    // token er sjelden et problem man må løse — bare en grunn til å vente. Meldingen sier
+    // derfor når det kommer, i stedet for bare å be om et token.
+    status.innerHTML = '<span style="color:var(--advarsel)">Agenten henter konkurrentsalget '
+      + 'automatisk 08:00, 13:00 og 15:00. Vil du ha det <b>nå</b>, lim inn et token i '
+      + '<b>Oppsett → Datainnhenting</b> først.</span>';
     return;
   }
   try{
