@@ -980,10 +980,37 @@ const Steg4 = (() => {
             "</tbody></table>",
           ].join("");
 
+    /* D24 Foodbroker direktesalg (foodbroker_kunde_salg fra Consolidated Model). Tallene
+       over inkluderer dette allerede — D24-delen fra FIKS-dataene er skalert opp til denne
+       fasiten, ikke lagt til. kunde_salg_uke fanger bare ~1/5 av FBs direktesalg, så uten
+       denne linja ville kortet vist et for lavt tall for slike kunder (Olivia Import-saken).
+       Ukelista under er skalert, ikke ekte ukesplitt for D24. */
+    const fbDs = d.foodbroker_direktesalg || {};
+    const fbAr = Object.keys(fbDs).sort();
+    const fbHtml = !fbAr.length
+      ? ""
+      : '<div style="background:var(--d-gronn-bg,#EAF5EE);border:1px solid #BFE0C9;' +
+        'border-radius:var(--d-radius-sm);padding:10px 14px;margin-bottom:var(--s3);font-size:13px">' +
+        "<strong>Inkludert: D24 Foodbroker direktesalg</strong> (kilde: Consolidated Model). " +
+        "Tallene over er skalert opp til dette — FIKS-dataene fanger bare en liten del av " +
+        "Foodbrokers direktefakturering. " +
+        fbAr
+          .map((a) => {
+            const v = fbDs[a] || {};
+            const pk = v.per_konsept || {};
+            const kons = Object.keys(pk)
+              .map((k) => `${esc(KONSEPTNAVN[k] || k)}: ${kr(pk[k])}`)
+              .join(", ");
+            return `<div style="margin-top:4px">${esc(a)}: ${kr(v.belop)}${kons ? ` <span class="sub">(${kons})</span>` : ""}</div>`;
+          })
+          .join("") +
+        "</div>";
+
     el.innerHTML = [
       internHtml,
       avvikHtml,
       orgDeltHtml,
+      fbHtml,
       velgerHtml,
       '<div style="display:flex;gap:var(--s3);margin-bottom:var(--s4);flex-wrap:wrap">',
       '<div class="kort" style="flex:1;min-width:150px">',
