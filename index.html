@@ -2262,7 +2262,7 @@ function barList(id,arr,key,fmt,col,pct){
 // 2026-08-05 — uten dem her ville KPI-kortene deres fått key=undefined og aldri latt seg
 // velge, selv om API-et sendte tallene.
 const AN_KEY_FOR_NAVN={'La Salumeria':'la_salumeria','East Essence':'east_essence','Godt Lokalt':'godt_lokalt','Wulff & Co':'wulff_co','Fast Food':'fast_food','Sabor':'sabor'};
-const AN_NAVN_FOR_KEY={la_salumeria:'La Salumeria',east_essence:'East Essence',godt_lokalt:'Godt Lokalt',wulff_co:'Wulff & Co',fast_food:'Fast Food',sabor:'Sabor'};
+const AN_NAVN_FOR_KEY={la_salumeria:'La Salumeria',east_essence:'East Essence',godt_lokalt:'Godt Lokalt',wulff_co:'Wulff & Co',fast_food:'Fast Food',sabor:'Sabor',__foodbroker__:'Foodbroker direktesalg'};
 let analyseState={concept:'all',region:'all',grossist:'',week:null,expandGrossist:false,expandNew:false,expandLost:false,expandWait:false};
 
 function anWeekLabelLive(v){
@@ -7130,7 +7130,7 @@ function renderTiltak(d){
   for(const k of (d.konsepter||[])){
     const gap=k.gap, harMal=k.mal!=null;
     const farge=gap==null?'':(gap<=0?'var(--d-gronn)':'var(--d-roed)');
-    h+=`<div class="rap-card"><h3>${esc(k.navn)}</h3>
+    h+=`<div class="rap-card"><h3>${esc(rapKonseptNavn(k.navn))}</h3>
       <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">
         <div><div class="sub">Hittil i år</div><div style="font-size:18px;font-weight:600">${_pm(k.ytd)}</div></div>
         <div><div class="sub">Prognose</div><div style="font-size:22px;font-weight:700">${_pm(k.estimat)}</div></div>
