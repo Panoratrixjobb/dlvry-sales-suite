@@ -1094,7 +1094,9 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
             <table class="d-tabell" style="min-width:760px">
               <thead><tr>
                 <th style="width:28px"></th><th>Kundenavn</th><th>Org.nr</th>
-                <th>Grossist</th><th>Region</th><th>Selger</th><th>Kalkyler</th><th>Status</th>
+                <th>Grossist</th><th>Region</th><th>Selger</th>
+                <th class="tall" title="Grossistdata, hittil i år — samme kilde og presisjon som kundekortet">Oms. i år</th>
+                <th>Kalkyler</th><th>Status</th>
               </tr></thead>
               <tbody id="klBody"></tbody>
             </table>
@@ -4478,7 +4480,7 @@ async function klLastOgVis(){
   await klMountFiltre();
   const body=document.getElementById('klBody');
   if(!body)return;
-  body.innerHTML='<tr><td colspan="8" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
+  body.innerHTML='<tr><td colspan="9" style="color:var(--d-tekst-3);padding:16px">Laster…</td></tr>';
   const url='/api/kunder?'+kunderParams().toString();
   let data=[], total=0;
   try{
@@ -4492,7 +4494,7 @@ async function klLastOgVis(){
   klTotal=total;
   document.getElementById('klCount').textContent=total.toLocaleString('nb-NO')+' kunder';
   if(!data.length){
-    body.innerHTML='<tr><td colspan="8" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
+    body.innerHTML='<tr><td colspan="9" style="color:var(--d-tekst-3);padding:16px">'+(klQ?'Ingen treff':'Ingen kunder')+'</td></tr>';
     document.getElementById('klPager').style.display='none';
     return;
   }
@@ -4514,6 +4516,7 @@ async function klLastOgVis(){
       <td>${grossist?esc(grossist):dash}</td>
       <td>${regionCell}</td>
       <td>${c.selger_navn?esc(c.selger_navn):dash}</td>
+      <td class="tall">${c.oms_hittil_i_ar!=null?fmtKr(c.oms_hittil_i_ar):dash}</td>
       <td class="tall">${c.antall_kalkyler!=null?c.antall_kalkyler:'—'}</td>
       <td><span class="d-badge ${statusFarge(c.status||'')} flat">${esc(c.status||'Kunde')}</span></td>
     </tr>`;}).join('');
@@ -7156,6 +7159,9 @@ function renderTiltak(d){
     if((k.ma_fra_nysalg||0)>0){
       h+=`<p class="sub" style="margin:0 0 10px">Selv om alt som kan hentes tilbake hentes, mangler <b>${_pm(k.ma_fra_nysalg)} MNOK</b> som må komme fra kunder dere ikke har i dag.</p>`;
     }
+    h+=`<div class="rap-noprint" style="margin:0 0 10px">
+        <button class="d-knapp subtil sm" onclick="tiltakEksporterKonsept('${esc(k.navn)}')">⤓ Eksporter full kundeliste (PDF, per grossist)</button>
+      </div>`;
     h+=`<div class="table-wrap"><table class="d-tabell" style="min-width:760px"><thead><tr>
         <th>Grossist</th><th>Region</th>
         <th class="tall">Tapte</th><th class="tall">Kjøper mindre</th>
@@ -7193,6 +7199,54 @@ function renderTiltak(d){
   }
   h+=`<p class="sub" style="margin-top:8px">${esc(d.merknad||'')}</p>`;
   return h;
+}
+
+// Full kundeliste for ETT konsept, gruppert per grossist — samme PDF-oppskrift som
+// rapKundelistePdf (ukerapportens nye/tapte-eksport), men uten _MAKS_KUNDER-kuttet
+// tabellen i UI har: selgeren skal ha HELE arbeidslista i hånden, ikke bare topp 15.
+async function tiltakEksporterKonsept(navn){
+  let d;
+  try{ d=await api('/api/prognose/tiltak/eksport?konsept='+encodeURIComponent(navn)); }
+  catch(e){ toast('Kunne ikke hente eksport: '+e.message); return; }
+  const linjer=d.linjer||[];
+  if(!linjer.length){ toast('Ingen kunder med potensial for '+navn+' akkurat nå.'); return; }
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF();
+  const idag=new Date().toLocaleDateString('nb-NO');
+  doc.setFontSize(16); doc.text('Tiltak · '+navn,14,18);
+  doc.setFontSize(9); doc.setTextColor(120);
+  doc.text('DLVRY · Vei til mål · t.o.m. uke '+(d.cutoff_uke??'–')+' · generert '+idag,14,24);
+  doc.text('Kunder med potensial (tapte + kjøper mindre), gruppert per grossist. Beløp i MNOK.',14,29);
+  doc.setTextColor(0);
+  let y=36,antTot=0,sumTot=0;
+  linjer.forEach(l=>{
+    const kunder=l.kunder||[];
+    antTot+=kunder.length; sumTot+=(l.potensial||0);
+    if(y>250){doc.addPage();y=20;}
+    doc.setFontSize(11);
+    doc.text((l.grossist||'Ukjent grossist')+(l.region?' · '+l.region:'')+'  ·  '+kunder.length+(kunder.length===1?' kunde':' kunder')+'  ·  '+_pm(l.potensial)+' MNOK potensial',14,y);
+    const head=[['Kunde','Kundenr.','Type','I fjor','Hittil i år','Verdi','Siste kjøp']];
+    const body=kunder.map(k=>[
+      k.navn||k.kundenr||'–', k.kundenr||'–',
+      k.type==='tapt'?'Tapt':'Kjøper mindre',
+      _pm(k.i_fjor), _pm(k.hittil), _pm(k.verdi),
+      k.siste_uke?('uke '+k.siste_uke):'ingen i år',
+    ]);
+    doc.autoTable({
+      startY:y+4, head, body,
+      styles:{fontSize:8,cellPadding:2,overflow:'linebreak'},
+      headStyles:{fillColor:[58,45,42]},
+      columnStyles:{3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}},
+      margin:{top:18,left:14,right:14},
+    });
+    y=doc.lastAutoTable.finalY+11;
+  });
+  if(linjer.length>1){
+    if(y>265){doc.addPage();y=20;}
+    doc.setFontSize(11);
+    doc.text('TOTALT: '+antTot+(antTot===1?' kunde':' kunder')+' hos '+linjer.length+' grossister  ·  '+_pm(sumTot)+' MNOK potensial',14,y);
+  }
+  doc.save('tiltak-'+rapFilnavnBit(navn)+'.pdf');
 }
 
 // ============ Prognose (årsestimat) — se PROGNOSE-spesifikasjon.md ============
