@@ -230,10 +230,10 @@ tbody tr:hover{background:#fafbff}
 .seg-merke{display:inline-block;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:3px;margin-left:5px;letter-spacing:.02em}
 .seg-merke.shh{background:#e6f4ea;color:#137333}
 .seg-merke.dv{background:#eef1f6;color:#5f6674}
-[data-dark] .seg-merke.shh{background:#0f2e1a;color:#7ee2a8}
-[data-dark] .seg-merke.dv{background:#21262d;color:#9aa4b2}
+[data-dark] .seg-merke.shh{background:rgba(111,207,151,.16);color:#6FCF97}
+[data-dark] .seg-merke.dv{background:var(--natt-hev);color:var(--d-tekst-2)}
 .enhet-velger{font-size:10px;padding:1px 4px;border:1px solid var(--line);border-radius:4px;background:var(--surface,#fff);color:var(--ink);max-width:96px}
-[data-dark] .enhet-velger{background:#161b22;border-color:#30363d;color:#e6edf3}
+[data-dark] .enhet-velger{background:var(--natt-hev);border-color:var(--natt-linje-2);color:var(--d-tekst)}
 .suggest .opt{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px}
 .suggest .opt:last-child{border-bottom:none}
 .suggest .opt:hover,.suggest .opt.hl{background:#FBEAE6}
@@ -369,10 +369,10 @@ tbody tr:hover{background:#fafbff}
 .an-grossist-row.aktiv{background:#FBEAE6}
 .an-grossist-detail{border:1.5px solid var(--brand2)}
 input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
-[data-dark] .an-filterbar{background:#161b22;border-color:#30363d}
-[data-dark] .an-chip{background:#161b22;border-color:#30363d;color:#8b949e}
-[data-dark] .an-grossist-row:hover{background:#21262d}
-[data-dark] .an-grossist-row.aktiv{background:rgba(214,87,66,.15)}
+[data-dark] .an-filterbar{background:var(--natt-panel);border-color:var(--natt-linje)}
+[data-dark] .an-chip{background:var(--natt-panel);border-color:var(--natt-linje);color:var(--d-tekst-2)}
+[data-dark] .an-grossist-row:hover{background:var(--natt-hev)}
+[data-dark] .an-grossist-row.aktiv{background:var(--primaer-svak)}
 @media(max-width:900px){.an-filterrow{flex-direction:column;align-items:stretch}}
 
 .d-logo-ikon{width:26px;height:26px;object-fit:contain;flex-shrink:0}
@@ -395,40 +395,105 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .sidebar-collapsed .d-meny a .ic{font-size:14px}
 .sidebar-collapsed .d-logo{font-size:0}
 
-/* ===== Dark mode ===== */
+/* ===== Nattmodus =====
+   Redesignet 2026-09-03. Den forrige varianten lånte GitHub-paletten (#0d1117 / #161b22 /
+   #30363d) — en kald blåsvart som ikke har noe med den varme terrakotta-identiteten å gjøre.
+   Resultatet var svart bakgrunn, lav lesbarhet og en sidemeny i varm brun som kolliderte
+   med et kaldt innhold rett ved siden av.
+
+   Nå er hele nattpaletten den samme fargefamilien som dagmodus, bare snudd: samme varme
+   brune tone (hue ~22°), lav metning, aldri ren svart. Flatene er lagdelt slik at
+   dybden gjør jobben i stedet for rammene:
+     sidemeny (dypest)  <  lerret  <  panel  <  hev (hover/thead)
+   Alt under er tokens — ingen komponent skal hardkode nattfarger. */
 [data-dark]{
-  --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#8b949e; --line:#30363d;
-  --brand2:#c73d3d; --green:#22c55e; --green-bg:rgba(34,197,94,.08);
-  --red-bg:rgba(239,68,68,.1); --orange-bg:rgba(245,158,11,.1);
-  --d-tekst:#e6edf3; --d-tekst-2:#8b949e; --d-tekst-3:#6b7280;
-  --d-ramme:#30363d; --d-ramme-mork:#444c56;
-  --d-gronn-bg:rgba(34,197,94,.1); --d-roed-bg:rgba(239,68,68,.1);
-  --d-gul-bg:rgba(245,158,11,.1); --d-bla-bg:rgba(59,130,246,.1);
+  /* Flater, mørkest til lysest */
+  --natt-sidemeny:#120F0D;
+  --natt-lerret:  #191411;
+  --natt-panel:   #221B17;
+  --natt-hev:     #2C241F;
+  --natt-linje:   #382E28;
+  --natt-linje-2: #4A3E36;
+
+  --bg:var(--natt-lerret); --panel:var(--natt-panel);
+  --sidemeny:var(--natt-sidemeny); --sidemeny-tekst:#C4B6AC; --sidemeny-aktiv:#fff;
+
+  /* Merkevaren må lysne på mørk flate — #D65742 gir bare 3,0:1 mot lerretet. */
+  --primaer:#E2705B; --primaer-mork:#F08A75; --primaer-svak:rgba(226,112,91,.14);
+  --teal:#4FB8D4; --teal-mork:#7ACDE2;
+
+  /* Tekst: varm off-white, ikke ren hvit (mindre glaring i mørke rom) */
+  --d-tekst:#F1EBE5; --d-tekst-2:#B5A69B; --d-tekst-3:#8A7C71;
+  --d-ramme:var(--natt-linje); --d-ramme-mork:var(--natt-linje-2);
+
+  /* Status: samme betydning, løftet lysstyrke så pillene leses mot mørk flate */
+  --d-gronn:#6FCF97; --d-gronn-bg:rgba(111,207,151,.13);
+  --d-gul:#E8A33D;   --d-gul-bg:rgba(232,163,61,.13);
+  --d-bla:#57BEDC;   --d-bla-bg:rgba(87,190,220,.13);
+  --d-roed:#EF7A6A;  --d-roed-bg:rgba(239,122,106,.14);
+  --d-lilla:#C7A9A0; --d-lilla-bg:rgba(199,169,160,.12);
+  --d-graa:#A2958C;  --d-graa-bg:rgba(162,149,140,.12);
+
+  /* Slagskygge fungerer ikke som dybde på mørk flate — dempes kraftig */
+  --d-skygge:0 1px 2px rgba(0,0,0,.4);
+  --d-skygge-hev:0 6px 18px rgba(0,0,0,.5);
+
+  color-scheme:dark;
 }
-[data-dark] body{background:#0d1117}
-[data-dark] .main{background:#0d1117}
-[data-dark] .panel,[data-dark] .d-panel{background:#161b22!important;border-color:#30363d!important}
-[data-dark] .d-kpi{background:#161b22!important;border-color:#30363d!important}
-[data-dark] .d-steg{background:#161b22!important;border-color:#30363d!important}
-[data-dark] .calc-card{background:#161b22!important;border-color:#30363d!important}
-[data-dark] .modal-bg .modal{background:#161b22!important}
-[data-dark] .saved-pill{background:#161b22;border-color:#30363d}
-[data-dark] thead th{background:#21262d!important;color:#8b949e!important;border-color:#30363d!important}
-[data-dark] tbody td{border-color:#30363d!important;color:#e6edf3!important}
-[data-dark] tbody tr:hover{background:#21262d!important}
-[data-dark] .table-wrap,[data-dark] .d-tabell,[data-dark] table{border-color:#30363d!important}
-[data-dark] input:not([type=submit]):not([type=button]),[data-dark] textarea,[data-dark] select{background:#21262d!important;border-color:#30363d!important;color:#e6edf3!important}
-[data-dark] .suggest{background:#161b22;border-color:#30363d}
-[data-dark] .suggest .opt{background:#161b22;border-color:#30363d;color:#e6edf3}
-[data-dark] .suggest .opt:hover,[data-dark] .suggest .opt.hl{background:#21262d}
-[data-dark] .d-side-sok{background:#21262d!important;border-color:#30363d!important;color:#e6edf3!important}
-[data-dark] .bl-track,[data-dark] .gr-track{background:#21262d!important}
-[data-dark] .dash-tabs{border-color:#30363d}
-[data-dark] .dash-tab{color:#8b949e}
-[data-dark] .dash-ctrl-btn{border-color:#30363d;color:#8b949e}
-[data-dark] .dash-ctrl-btn:hover{background:#21262d}
-[data-dark] .addrow,[data-dark] .d-side-sek{background:rgba(255,255,255,.02)}
-[data-dark] .kpi-foot,[data-dark] .dash-source{color:#6b7280}
+[data-dark] body,[data-dark] .main,[data-dark] .d-innhold{background:var(--natt-lerret)}
+[data-dark] .panel,[data-dark] .d-panel,[data-dark] .d-kpi,[data-dark] .d-steg,
+[data-dark] .calc-card,[data-dark] .modal-bg .modal,[data-dark] .saved-pill{
+  background:var(--natt-panel)!important;border-color:var(--natt-linje)!important}
+[data-dark] thead th{background:var(--natt-hev)!important;color:var(--d-tekst-2)!important;border-color:var(--natt-linje)!important}
+[data-dark] tbody td{border-color:var(--natt-linje)!important;color:var(--d-tekst)!important}
+[data-dark] tbody tr:hover{background:var(--natt-hev)!important}
+[data-dark] .table-wrap,[data-dark] .d-tabell,[data-dark] table{border-color:var(--natt-linje)!important}
+[data-dark] input:not([type=submit]):not([type=button]):not(.cell-input),[data-dark] textarea,[data-dark] select{
+  background:var(--natt-hev)!important;border-color:var(--natt-linje-2)!important;color:var(--d-tekst)!important}
+[data-dark] ::placeholder{color:var(--d-tekst-3)}
+[data-dark] .suggest{background:var(--natt-panel);border-color:var(--natt-linje)}
+[data-dark] .suggest .opt{background:var(--natt-panel);border-color:var(--natt-linje);color:var(--d-tekst)}
+[data-dark] .suggest .opt:hover,[data-dark] .suggest .opt.hl{background:var(--natt-hev)}
+[data-dark] .bl-track,[data-dark] .gr-track{background:var(--natt-hev)!important}
+[data-dark] .dash-tabs{border-color:var(--natt-linje)}
+[data-dark] .dash-tab{color:var(--d-tekst-2)}
+[data-dark] .dash-ctrl-btn{border-color:var(--natt-linje-2);color:var(--d-tekst-2)}
+[data-dark] .dash-ctrl-btn:hover{background:var(--natt-hev)}
+[data-dark] .addrow{background:rgba(255,255,255,.025)}
+[data-dark] .kpi-foot,[data-dark] .dash-source{color:var(--d-tekst-3)}
+
+/* Sidemenyen: dypere enn lerretet, med en tynn varm kant som skiller i stedet for
+   et fargesprang. Søkefeltet og etikettene der inne må følge sidemenyen, ikke panelet —
+   det var her det kalde #21262d-feltet lå oppi den brune menyen. */
+[data-dark] .sidebar,[data-dark] .d-sidemeny{border-right:1px solid var(--natt-linje)}
+[data-dark] .d-side-sok{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.10)!important;color:#fff!important}
+[data-dark] .d-side-lbl,[data-dark] .side-sec .lbl{color:#8A7C71}
+[data-dark] .d-side-sek,[data-dark] .side-sec,[data-dark] .sidebar .user,
+[data-dark] .d-side-bruker{border-top-color:rgba(255,255,255,.08)}
+[data-dark] .cust-item .cnt{background:rgba(255,255,255,.07);color:var(--sidemeny-tekst)}
+[data-dark] .user .meta span{color:var(--sidemeny-tekst)}
+
+/* Flater som var hardkodet hvite i dagmodus. Uten disse blir frosne kolonner,
+   hover-rader og knapper stående som lyse flekker midt i en mørk tabell. */
+[data-dark] .kalk-tabell thead tr.gruppe th{background:var(--natt-panel)}
+[data-dark] .kalk-tabell .frys{background:var(--natt-panel)}
+[data-dark] .kalk-tabell thead .frys{background:var(--natt-hev)}
+[data-dark] .kalk-tabell tbody tr:hover .frys{background:var(--natt-hev)}
+[data-dark] .kalk-tabell tbody tr.faktura-info td{background:rgba(255,255,255,.03)}
+[data-dark] .cell-input{color:var(--d-tekst)}
+[data-dark] .cell-input:hover{border-color:var(--natt-linje-2);background:var(--natt-hev)}
+[data-dark] .cell-input:focus{border-color:var(--primaer);background:var(--natt-hev);box-shadow:0 0 0 2px rgba(226,112,91,.25)}
+[data-dark] .field input,[data-dark] .scen-field input,[data-dark] .scen-field textarea{background:var(--natt-hev)}
+[data-dark] .btn-ghost{background:var(--primaer-svak);color:var(--primaer)}
+[data-dark] .btn-ghost:hover{background:rgba(226,112,91,.22)}
+[data-dark] .btn-danger{background:rgba(239,122,106,.15);color:var(--d-roed)}
+[data-dark] .btn-danger:hover{background:rgba(239,122,106,.26)}
+[data-dark] .gr-track,[data-dark] .an-grossist-detail{border-color:var(--natt-linje-2)}
+[data-dark] .modal{box-shadow:0 24px 60px rgba(0,0,0,.6)}
+[data-dark] .suggest{box-shadow:0 12px 32px rgba(0,0,0,.5)}
+/* Innloggingskortet er sitt eget lyse kort på varm gradient i begge moduser —
+   feltene der inne skal derfor IKKE arve nattfargene. */
+[data-dark] #loginScreen input,[data-dark] #glemtPassordCard input{background:#fff!important;border-color:#e7ebf3!important;color:#211C1A!important}
 
 /* ===== Dash topbar controls ===== */
 .dash-ctrl-btn{background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center;width:32px;height:32px;font-size:15px;padding:0}
@@ -439,7 +504,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-kicker{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
 .rap-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--brand);background:var(--primaer-svak,rgba(214,87,66,.1));padding:4px 10px;border-radius:999px;margin-bottom:9px}
 .rap-eyebrow .tpl{font-weight:400;text-transform:none;letter-spacing:0;opacity:.7}
-[data-dark] .rap-eyebrow{background:rgba(214,87,66,.16)}
+[data-dark] .rap-eyebrow{background:var(--primaer-svak)}
 .rap-h1{font-size:24px;margin:0 0 2px;font-weight:750;letter-spacing:-.01em}
 .rap-h1 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:middle}
 .rap-hsub{font-size:12.5px;color:var(--muted);margin:0}
@@ -517,7 +582,7 @@ input[type=range]{accent-color:var(--brand);cursor:pointer;width:100%}
 .rap-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:middle}
 
 .rap-insight{background:var(--primaer-svak,rgba(214,87,66,.1));border-radius:12px;padding:13px 15px;margin-bottom:14px;font-size:12.5px;line-height:1.55}
-[data-dark] .rap-insight{background:rgba(214,87,66,.12)}
+[data-dark] .rap-insight{background:var(--primaer-svak)}
 .rap-insight p{margin:0 0 6px}
 .rap-insight p:last-child{margin-bottom:0}
 .rap-insight b{font-variant-numeric:tabular-nums}
@@ -2812,11 +2877,18 @@ function lukkMobilmeny(){
 }
 
 // ===== Dark mode =====
-function toggleDark(){
-  const on=document.documentElement.toggleAttribute('data-dark');
+function settDark(on){
+  document.documentElement.toggleAttribute('data-dark',on);
   const btn=document.getElementById('btnDarkMode');
-  if(btn)btn.textContent=on?'☀️':'🌙';
+  if(btn){btn.textContent=on?'☀️':'🌙';btn.title=on?'Dagmodus':'Nattmodus';}
+  try{localStorage.setItem('dlvry_natt',on?'1':'0')}catch(e){}
 }
+function toggleDark(){ settDark(!document.documentElement.hasAttribute('data-dark')); }
+// Valget skal overleve navigering og innlogging — ellers må man slå på natt hver gang.
+try{ if(localStorage.getItem('dlvry_natt')==='1') settDark(true); }catch(e){}
+document.addEventListener('DOMContentLoaded',()=>{
+  try{ settDark(localStorage.getItem('dlvry_natt')==='1') }catch(e){}
+});
 
 // ============ Formatters ============
 const fmtKr=n=>(isFinite(n)?Math.round(n).toLocaleString('nb-NO'):'0')+' kr';
